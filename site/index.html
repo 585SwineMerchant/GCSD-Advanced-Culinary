@@ -1,69 +1,380 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<meta name="description" content="GCSD Advanced Culinary student field manual, six major experiences, production tools, and evidence tracker.">
-<meta name="theme-color" content="#18352d">
-<title>GCSD Advanced Culinary</title>
-<style>
-:root{--ink:#1c2723;--muted:#5f6d67;--paper:#f6f0e5;--cream:#fffaf1;--green:#18352d;--green2:#2b584a;--rust:#a4472e;--gold:#d5a042;--sage:#dfe9df;--line:#d9cfbd;--white:#fff;--shadow:0 18px 48px rgba(28,39,35,.13)}*{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;color:var(--ink);font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;background:radial-gradient(circle at 15% 0,rgba(213,160,66,.15),transparent 28rem),linear-gradient(180deg,#faf7ef,#f1eadf);min-height:100vh}button,input,textarea,select{font:inherit}button{cursor:pointer}a{color:inherit}.skip{position:absolute;left:-9999px}.skip:focus{left:1rem;top:1rem;z-index:100;background:#fff;padding:.75rem}.top{position:sticky;top:0;z-index:40;display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.75rem clamp(1rem,5vw,5rem);color:#fff;background:rgba(24,53,45,.97);backdrop-filter:blur(16px);border-bottom:1px solid rgba(255,255,255,.12)}.brand{display:flex;align-items:center;gap:.8rem}.mark{width:45px;height:45px;display:grid;place-items:center;border:2px solid rgba(255,255,255,.82);border-radius:50% 43% 49% 42%;font-weight:900;transform:rotate(-4deg)}.brand small{display:block;color:#e9c47f;text-transform:uppercase;letter-spacing:.13em;font-size:.58rem;font-weight:800}.brand strong{font:700 1.3rem Georgia,serif}.nav{display:flex;gap:.25rem;flex-wrap:wrap}.nav button{border:0;background:transparent;color:rgba(255,255,255,.75);font-weight:800;padding:.65rem .8rem;border-radius:999px}.nav button:hover,.nav button.on{color:#fff;background:rgba(255,255,255,.12)}.menu{display:none;border:1px solid rgba(255,255,255,.35);background:transparent;color:#fff;border-radius:999px;padding:.55rem .8rem}.view{display:none;padding:clamp(2rem,5vw,5rem) clamp(1rem,5vw,5.5rem) 5rem}.view.on{display:block;animation:show .25s ease}@keyframes show{from{opacity:0;transform:translateY(7px)}to{opacity:1;transform:none}}.eyebrow{margin:0 0 .45rem;color:var(--rust);font-size:.7rem;font-weight:900;text-transform:uppercase;letter-spacing:.14em}h1,h2,h3{font-family:Georgia,serif}.hero{max-width:1320px;margin:auto;display:grid;grid-template-columns:1.12fr .88fr;gap:clamp(2rem,5vw,6rem);align-items:center;min-height:610px}.hero h1{font-size:clamp(3.3rem,7vw,6.8rem);line-height:.98;letter-spacing:-.045em;margin:0}.lede{max-width:760px;color:var(--muted);font-size:clamp(1.05rem,1.5vw,1.3rem);line-height:1.7}.actions{display:flex;gap:.75rem;flex-wrap:wrap;margin:1.8rem 0}.button{border:0;border-radius:999px;padding:.85rem 1.15rem;font-weight:900;text-decoration:none;display:inline-flex;align-items:center;justify-content:center}.primary{background:var(--green);color:#fff}.secondary{background:rgba(255,255,255,.68);color:var(--green);border:1px solid var(--line)}.notice{max-width:760px;display:flex;align-items:center;gap:.65rem;flex-wrap:wrap;padding:.85rem 1rem;border:1px dashed #b8aa91;border-radius:14px;background:rgba(255,255,255,.45);color:var(--muted)}.dot{width:9px;height:9px;border-radius:50%;background:var(--gold);box-shadow:0 0 0 5px rgba(213,160,66,.18)}.visual{position:relative;min-height:500px}.photo{position:absolute;inset:0 8% 13% 0;padding:1.1rem 1.1rem 3.7rem;background:var(--cream);border:1px solid #d6cbbb;box-shadow:var(--shadow);transform:rotate(2.5deg)}.photo div{height:100%;display:grid;place-content:center;text-align:center;padding:2rem;color:white;background:linear-gradient(135deg,rgba(43,88,74,.84),rgba(24,53,45,.98)),repeating-linear-gradient(45deg,transparent 0 10px,rgba(255,255,255,.05) 10px 20px)}.photo b{font:700 2rem Georgia,serif}.photo small{color:rgba(255,255,255,.72);margin-top:.4rem}.ticket{position:absolute;right:0;bottom:0;width:min(360px,82%);padding:1.4rem 1.5rem;color:#fff;background:var(--rust);border-radius:18px 18px 18px 5px;box-shadow:var(--shadow);transform:rotate(-2deg)}.ticket:before{content:"";position:absolute;inset:8px;border:1px dashed rgba(255,255,255,.38);border-radius:12px}.ticket>*{position:relative}.ticket small{text-transform:uppercase;letter-spacing:.12em}.ticket strong{display:block;font:700 1.5rem Georgia,serif;margin:.3rem 0}.section{max-width:1320px;margin:4rem auto}.heading{display:grid;grid-template-columns:1fr .72fr;gap:2rem;align-items:end;margin-bottom:1.8rem}.heading h2,.intro h2{font-size:clamp(2.5rem,5vw,5.2rem);line-height:1.03;letter-spacing:-.035em;margin:0}.heading>p,.intro>p{color:var(--muted);line-height:1.7}.progress{display:grid;grid-template-columns:repeat(6,1fr);gap:.7rem}.step{min-height:235px;padding:1.15rem;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.62);position:relative;overflow:hidden}.step:after{content:"";position:absolute;left:0;right:0;bottom:0;height:calc(var(--n)*10%);background:linear-gradient(transparent,rgba(43,88,74,.13))}.step span{position:relative;display:grid;place-items:center;width:34px;height:34px;border-radius:50%;background:var(--green);color:#fff;font-weight:900}.step h3,.step p,.step small{position:relative}.step h3{font-size:1.15rem;margin:1rem 0 .5rem}.step p{color:var(--muted);font-size:.86rem;line-height:1.5}.step small{position:absolute;left:1.15rem;right:1.15rem;bottom:1rem;color:var(--rust);font-weight:900}.split{max-width:1320px;margin:6rem auto;padding:clamp(2rem,5vw,4.5rem);display:grid;grid-template-columns:1fr .82fr;gap:4rem;border-radius:30px;background:var(--green);color:#fff;box-shadow:var(--shadow)}.split h2{font-size:clamp(2.3rem,4vw,4.2rem);line-height:1.03;margin:0}.split .eyebrow{color:#e9c47f}.split p{color:rgba(255,255,255,.76);line-height:1.75}.principles{display:grid;gap:.8rem}.principles div{padding:1rem 1.1rem;border:1px solid rgba(255,255,255,.16);border-radius:15px;background:rgba(255,255,255,.07)}.principles strong{display:block;font:700 1.1rem Georgia,serif}.principles span{display:block;margin-top:.25rem;color:rgba(255,255,255,.68);line-height:1.5}.intro{max-width:1320px;margin:0 auto 2rem}.filters{max-width:1320px;margin:0 auto 1.25rem;display:flex;gap:.5rem;flex-wrap:wrap}.filter{padding:.6rem .85rem;border:1px solid var(--line);border-radius:999px;background:rgba(255,255,255,.6);color:var(--muted);font-weight:900}.filter.on{color:#fff;background:var(--green);border-color:var(--green)}.grid{max-width:1320px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.card{min-height:390px;padding:1rem;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.7);box-shadow:0 7px 22px rgba(28,39,35,.06);transition:.18s}.card:hover{transform:translateY(-4px);box-shadow:var(--shadow)}.cardtop{height:145px;padding:1rem;display:flex;align-items:end;border-radius:15px;color:#fff;background:var(--grad);position:relative;overflow:hidden}.cardtop:after{content:"";position:absolute;inset:0;background:repeating-linear-gradient(-45deg,transparent 0 11px,rgba(255,255,255,.04) 11px 22px)}.cardtop b{position:relative;font:700 3rem Georgia,serif}.body{padding:1rem .35rem .3rem;display:flex;flex:1;flex-direction:column}.pills{display:flex;gap:.4rem;flex-wrap:wrap}.pill{padding:.28rem .52rem;border-radius:999px;background:var(--sage);color:var(--green);font-size:.68rem;font-weight:900}.pill.wbl{background:#f4dfb3;color:#754b0b}.card h3{font-size:1.4rem;line-height:1.15;margin:.75rem 0 .55rem}.card p{color:var(--muted);line-height:1.55;margin:0 0 1rem}.card button{margin-top:auto;align-self:start;border:0;background:transparent;color:var(--rust);font-weight:900;padding:.35rem 0}.detail{display:none;position:fixed;z-index:60;inset:0;background:rgba(13,24,20,.75);backdrop-filter:blur(4px);padding:1rem;overflow:auto}.detail.on{display:grid;place-items:center}.modal{width:min(900px,100%);max-height:92vh;overflow:auto;border-radius:25px;background:var(--cream);box-shadow:0 30px 90px rgba(0,0,0,.3)}.modalhero{padding:2.7rem 3rem 2rem;color:#fff;background:linear-gradient(135deg,var(--green),var(--rust));position:relative}.modalhero h2{font-size:clamp(2.3rem,5vw,4.1rem);line-height:1.04;margin:0}.close{position:absolute;right:1rem;top:1rem;width:42px;height:42px;border:1px solid rgba(255,255,255,.3);border-radius:50%;background:rgba(255,255,255,.14);color:#fff;font-size:1.4rem}.modalbody{padding:2rem 3rem 3rem}.detailgrid{display:grid;grid-template-columns:repeat(2,1fr);gap:1rem}.block{padding:1.15rem;border:1px solid var(--line);border-radius:16px;background:#fff}.block.wide{grid-column:1/-1}.block h3{margin:0 0 .5rem}.block p,.block li{color:var(--muted);line-height:1.6}.manualbar{max-width:1320px;margin:auto;display:flex;gap:1rem;align-items:end;justify-content:space-between}.manualbar .intro{margin:0}.search{max-width:1320px;margin:1rem auto;padding:1rem;border:1px solid var(--line);border-radius:16px;background:rgba(255,255,255,.6)}.search label{display:block;color:var(--muted);font-size:.68rem;text-transform:uppercase;letter-spacing:.12em;font-weight:900}.search input{width:100%;padding:.75rem 0;border:0;outline:0;background:transparent;font-size:1.05rem}.manual{max-width:1320px;margin:auto;display:grid;grid-template-columns:300px 1fr;gap:1rem;align-items:start}.chapters{position:sticky;top:92px;max-height:calc(100vh - 110px);overflow:auto;padding:.6rem;border:1px solid var(--line);border-radius:18px;background:rgba(255,255,255,.6)}.chapters button{width:100%;text-align:left;border:0;background:transparent;color:var(--muted);padding:.72rem .8rem;border-radius:10px;line-height:1.3}.chapters button:hover,.chapters button.on{color:#fff;background:var(--green)}.reader{min-height:610px;padding:clamp(1.4rem,4vw,3rem);border:1px solid var(--line);border-radius:22px;background:rgba(255,255,255,.78)}.reader h2{font-size:clamp(2.2rem,4vw,4rem);line-height:1.06;margin:0 0 1rem}.reader h3{margin-top:2rem}.reader p,.reader li{color:var(--muted);line-height:1.75}.callout{margin:1.4rem 0;padding:1.1rem 1.2rem;border-left:5px solid var(--gold);border-radius:0 13px 13px 0;background:#fff2d2}.tools{max-width:1320px;margin:auto;display:grid;grid-template-columns:repeat(3,1fr);gap:1rem}.tool{min-height:230px;padding:1.4rem;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:20px;background:rgba(255,255,255,.67)}.letter{width:43px;height:43px;display:grid;place-items:center;border:2px solid var(--rust);border-radius:50% 43% 49% 42%;color:var(--rust);font:900 1.15rem Georgia,serif;transform:rotate(-3deg)}.tool h3{font-size:1.35rem;margin:1rem 0 .5rem}.tool p{color:var(--muted);line-height:1.55}.tool button{margin-top:auto;align-self:start;border:0;background:transparent;color:var(--rust);font-weight:900;padding:.4rem 0}.profile{max-width:1320px;margin:auto;display:grid;grid-template-columns:320px 1fr;gap:1rem;align-items:start}.box{padding:1.5rem;border:1px solid var(--line);border-radius:21px;background:rgba(255,255,255,.7)}.box h3{font-size:1.55rem;margin:0 0 1rem}.box label{display:grid;gap:.35rem;margin-bottom:.9rem;color:var(--muted);font-size:.8rem;font-weight:800}.box input,.box textarea,.box select{width:100%;padding:.72rem;border:1px solid var(--line);border-radius:10px;background:#fff}.records{display:grid;gap:.75rem}.record{padding:1rem;border:1px solid var(--line);border-radius:14px;background:#fff}.record h3{font-size:1.1rem;margin:0}.record p{margin:.3rem 0 .7rem;color:var(--muted);font-size:.85rem}.checks{display:flex;gap:.5rem;flex-wrap:wrap}.checks label{display:inline-flex;align-items:center;gap:.3rem;margin:0;padding:.38rem .5rem;border-radius:999px;background:#f1ece3;font-size:.72rem}.reflection{max-width:1320px;margin:1rem auto 0;display:grid;grid-template-columns:.65fr 1fr;gap:1rem}.output{grid-column:1/-1;padding:1.1rem;border-left:5px solid var(--rust);border-radius:0 13px 13px 0;background:#fff;color:var(--muted);line-height:1.7}footer{display:flex;justify-content:space-between;gap:2rem;padding:2rem clamp(1rem,5vw,5rem);color:var(--muted);border-top:1px solid var(--line);font-size:.82rem}@media(max-width:1050px){.hero,.heading,.split{grid-template-columns:1fr}.visual{min-height:440px}.progress{grid-template-columns:repeat(3,1fr)}.grid,.tools{grid-template-columns:repeat(2,1fr)}.manual{grid-template-columns:1fr}.chapters{position:static;max-height:none;display:grid;grid-template-columns:repeat(2,1fr)}.profile{grid-template-columns:1fr}.reflection{grid-template-columns:1fr}}@media(max-width:720px){.top{align-items:flex-start}.menu{display:block}.nav{display:none;position:absolute;left:0;right:0;top:70px;padding:1rem;flex-direction:column;align-items:stretch;background:var(--green)}.nav.open{display:flex}.nav button{text-align:left}.hero{min-height:auto}.hero h1{font-size:3.3rem}.visual{min-height:360px}.progress,.grid,.tools,.quick{grid-template-columns:1fr}.heading{display:block}.detailgrid{grid-template-columns:1fr}.block.wide{grid-column:auto}.modalhero,.modalbody{padding:2rem 1.25rem}.manualbar{display:block}.chapters{grid-template-columns:1fr}.reflection{grid-template-columns:1fr}footer{display:block}}
-</style>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="GCSD Advanced Culinary student field manual, six major experiences, recipe-development studio, production tools, and evidence tracker." />
+  <meta name="theme-color" content="#18352d" />
+  <link rel="icon" href="./favicon.svg" />
+  <link rel="stylesheet" href="./styles.css" />
+  <title>GCSD Advanced Culinary</title>
 </head>
 <body>
-<a class="skip" href="#main">Skip to content</a>
-<header class="top"><div class="brand"><div class="mark">AC</div><div><small>GCSD Culinary Pathway</small><strong>Advanced Culinary</strong></div></div><button class="menu" id="menu">Menu</button><nav class="nav" id="nav"><button class="on" data-view="home">Home</button><button data-view="experiences">Six Experiences</button><button data-view="manual">Field Manual</button><button data-view="tools">Production Tools</button><button data-view="evidence">My Evidence</button></nav></header>
-<main id="main">
-<section class="view on" id="home"><div class="hero"><div><p class="eyebrow">Prepare. Produce. Serve. Reflect. Improve.</p><h1>From kitchen foundations to professional operations.</h1><p class="lede">Advanced Culinary asks students to apply safe, reliable culinary skills for real recipients, real deadlines, and real standards. Use this site before an experience to prepare and after it to preserve evidence and improve.</p><div class="actions"><button class="button primary jump" data-view="experiences">Explore the six experiences</button><button class="button secondary jump" data-view="tools">Open production tools</button></div><div class="notice"><span class="dot"></span><strong>Working review site</strong><span>Exact clients, dates, menus, sales procedures, and local operating details remain under department review.</span></div></div><div class="visual"><div class="photo"><div><b>In-house event photography</b><small>Future Arcadia and Olympia student work</small></div></div><div class="ticket"><small>Current focus</small><strong>Client-centered production</strong><p>Plan the work. Protect safety and quality. Deliver what was promised.</p></div></div></div><section class="section"><div class="heading"><div><p class="eyebrow">The year at a glance</p><h2>Responsibility increases across six major experiences.</h2></div><p>Technical content changes from event to event. Operating expectations build from teacher-framed production toward full-cycle student leadership.</p></div><div class="progress" id="progress"></div></section><section class="split"><div><p class="eyebrow">One district framework</p><h2>Common outcomes. Locally flexible service.</h2><p>Arcadia may use The Cottage, approved sales, catering, and established clients. Olympia may use internal clients, staff service, hosted events, preorder distribution, or another approved equivalent. The technical focus, planning process, rubric, and evidence remain comparable.</p></div><div class="principles"><div><strong>Learning before labor</strong><span>Every event exists to produce evidence of learning.</span></div><div><strong>Preparation before independence</strong><span>Responsibility grows after readiness is demonstrated.</span></div><div><strong>Individual evidence</strong><span>Team success never replaces each student’s own performance evidence.</span></div></div></section></section>
-<section class="view" id="experiences"><div class="intro"><p class="eyebrow">The operating spine of the course</p><h2>Six Major Experiences</h2><p>Each experience has a distinct technical purpose and a higher level of operational responsibility.</p></div><div class="filters"><button class="filter on" data-filter="all">All six</button><button class="filter" data-filter="strong">Strong WBL candidates</button><button class="filter" data-filter="conditional">Conditional WBL</button></div><div class="grid" id="cards"></div></section>
-<section class="view" id="manual"><div class="manualbar"><div class="intro"><p class="eyebrow">Student reference</p><h2>Advanced Culinary Field Manual</h2><p>Use the manual before and after production—not as a live kitchen dashboard.</p></div><a class="button secondary" target="_blank" rel="noreferrer" href="https://docs.google.com/document/d/1iomQqxabqZ3tljbbvhQsiRbeHfPtxU-Tyb3Cue-9Kno/edit">Open working Google Doc</a></div><div class="search"><label for="search">Search the manual</label><input id="search" type="search" placeholder="Try: safety, costing, client, quality, reassessment"></div><div class="manual"><aside class="chapters" id="chapters"></aside><article class="reader" id="reader"></article></div></section>
-<section class="view" id="tools"><div class="manualbar"><div class="intro"><p class="eyebrow">Plan it before you produce it</p><h2>Production Tools</h2><p>Paperwork documents learning; it is not the learning. Use the tool that supports a real decision or preserves required evidence.</p></div><a class="button secondary" target="_blank" rel="noreferrer" href="https://docs.google.com/spreadsheets/d/1Bt5IHlLEGbf0atfyuuBRxVlH1QhnAOwCsX79OyqGOp4">Open six-experience workbook</a></div><div class="tools" id="toolgrid"></div></section>
-<section class="view" id="evidence"><div class="intro"><p class="eyebrow">Your work should be visible</p><h2>My Evidence Record</h2><p>This record is stored only in this browser. It is a planning aid, not the official gradebook or Culinary Passport.</p></div><div class="profile"><section class="box"><h3>Student profile</h3><label>Name<input id="student" type="text"></label><label>Teacher / section<input id="section" type="text"></label><label>School year<input id="year" type="text" placeholder="2026–2027"></label><button class="button primary" id="save">Save profile</button><p id="saved"></p></section><section class="box"><h3>Six-experience evidence</h3><p>Mark preparation, production, service or fulfillment, and reflection evidence as it is completed.</p><div class="records" id="records"></div></section></div><section class="reflection"><div class="box"><h3>Build a reflection</h3><label>Experience<select id="reflectExp"></select></label><label>My responsibility<textarea id="responsibility" rows="3"></textarea></label></div><div class="box"><label>Evidence of performance or learning<textarea id="proof" rows="3"></textarea></label><label>Specific change for next time<textarea id="next" rows="3"></textarea></label><button class="button primary" id="build">Build reflection</button></div><div class="output" id="output">Complete the prompts to create a draft reflection.</div></section></section>
-</main>
-<div class="detail" id="detail"><div class="modal"><div class="modalhero"><button class="close" id="close">×</button><p class="eyebrow" style="color:#f0cf8c" id="modalEyebrow"></p><h2 id="modalTitle"></h2><p id="modalFocus"></p></div><div class="modalbody" id="modalBody"></div></div></div>
-<footer><span>GCSD Advanced Culinary · Working instructional-development site</span><span>Learning before labor · Preparation before independence</span></footer>
-<script>
-const experiences=[
-{id:1,short:"Kitchen Launch",title:"Professional Kitchen Launch & Hors d’Oeuvre Reception",timing:"September–October",wbl:"conditional",focus:"Reverification, assigned roles, consistent execution",purpose:"Students re-enter the advanced kitchen by reverifying safety, sanitation, knife, equipment, recipe, station, and communication expectations.",responsibility:"Work within teacher-framed menu parameters and clearly assigned brigade roles.",arcadia:"The Cottage opening reception, CTE showcase, advisory reception, or another approved client event.",olympia:"Invited-staff reception, pathway showcase, or internal building client service using the same planning process and rubric.",standard:"Produce a safe, consistent, visually appealing small-bite reception that is ready at the promised service time.",evidence:["Safety and sanitation reverification","Station plan and production schedule","Required cooking or production contribution","Product quality and consistency evidence","Individual reflection and next step"],grad:"linear-gradient(135deg,#234b40,#a4472e)"},
-{id:2,short:"Pop-Up Bakery",title:"Preorder Pop-Up Bakery",timing:"November–December",wbl:"strong",focus:"Scaling, costing, scheduling, packaging, fulfillment",purpose:"Students convert known customer demand into accurate, consistent bakery production.",responsibility:"Scale recipes, calculate yield and cost, schedule equipment, package and label products, verify orders, and analyze waste.",arcadia:"Formal Cottage preorder bakery or approved bake sale with customer orders.",olympia:"Approved staff preorder or distribution, real-recipient no-cost order fulfillment, or another building-authorized bakery service.",standard:"Fulfill every approved order accurately, safely, consistently, and on time while controlling cost and waste.",evidence:["Scaled recipes and production quantities","Cost and yield calculations","Production and shared-equipment schedule","Packaging, labeling, and order-accuracy evidence","Waste and financial review"],grad:"linear-gradient(135deg,#7b4d2a,#d5a042)"},
-{id:3,short:"Seasonal Lunch",title:"Seasonal Soup, Sauce & Lunch Service",timing:"January–February",wbl:"conditional",focus:"Menu pairing, client constraints, holding and delivery",purpose:"Students plan a practical menu centered on stocks, soups, sauces, vegetables, starches, salads, sandwiches, or pasta.",responsibility:"Make menu decisions within dietary, budget, quantity, timing, and service constraints.",arcadia:"Cottage lunch, meeting catering, or approved drop-off meal.",olympia:"Internal department or staff client, hosted tasting, or building service with equivalent client communication and evidence.",standard:"Create and deliver a cohesive, technically sound lunch that meets the client’s needs, budget, and schedule.",evidence:["Client brief and dietary constraints","Menu proposal and pairing justification","Yield, cost, holding, and delivery plan","Product quality and portion evidence","Client or audience feedback"],grad:"linear-gradient(135deg,#3f673e,#9e7a35)"},
-{id:4,short:"Fast-Casual Pop-Up",title:"Fast-Casual Pop-Up: Pizza or Sandwich Shop",timing:"February–March",wbl:"strong",focus:"Order flow, customer interaction, speed and accuracy",purpose:"Students operate a limited-menu fast-casual service with real or realistic customer demand.",responsibility:"Manage preparation, tickets or preorders, line flow, expediting, customer communication, waste, and service recovery.",arcadia:"Titan or Cottage pizzeria, luncheon, student sale, or preorder fast-casual pop-up.",olympia:"Preorder pickup, internal staff or student service, or simulated operation with real recipients and common evidence.",standard:"Deliver accurate, high-quality orders within a defined service window without sacrificing safety or hospitality.",evidence:["Limited menu and demand estimate","Order or ticket-flow plan","Line-role and replenishment evidence","Order accuracy and throughput data","Customer feedback and operational review"],grad:"linear-gradient(135deg,#8d3927,#d78342)"},
-{id:5,short:"Client Catering",title:"Protein-Centered Client Catering",timing:"March–April",wbl:"strong",focus:"Fabrication, client communication, leadership and service",purpose:"Students respond to a client need with a menu featuring poultry, meat, or seafood and coordinated sauce, vegetable, and starch components.",responsibility:"Clarify the request, defend menu feasibility, calculate yield and cost, fabricate safely, lead production, and meet the service deadline.",arcadia:"Formal Cottage contract, advisory event, district meeting, or another approved catering opportunity.",olympia:"Approved internal client, partner service, or noncommercial client-event equivalent using the same client brief, rubric, and evidence.",standard:"Deliver a safe, tender, consistent protein-centered meal that meets client expectations for menu, volume, budget, and timing.",evidence:["Client intake and menu proposal","Purchasing, yield, and cost plan","Fabrication and critical-temperature evidence","Rotating leadership plus required cooking work","Client evaluation and targeted reassessment record"],grad:"linear-gradient(135deg,#472f28,#8f563f)"},
-{id:6,short:"Operations Capstone",title:"Teacher Appreciation Breakfast/Brunch — Operations Capstone",timing:"May–June",wbl:"strong",focus:"Full-cycle planning, leadership, technical performance and evaluation",purpose:"Students manage a complete breakfast, brunch, appreciation service, or comparable client event as final Advanced Culinary evidence.",responsibility:"Shape the event within client and program constraints, assign leadership and cooking roles, execute service, and present individual evidence.",arcadia:"Teacher Appreciation breakfast or brunch, or final Cottage client event.",olympia:"Teacher or staff appreciation service, or another building-approved final client event with the same rubric and evidence requirements.",standard:"Plan and deliver a complete client-centered event demonstrating technical competence, leadership, service, and operational control.",evidence:["Complete client-centered event plan","Cost, procurement, production, and service schedule","Required cooking and leadership evidence","Guest-service and client-feedback evidence","Final reflection and Gateway 4 record"],grad:"linear-gradient(135deg,#18352d,#d5a042)"}
-];
-const chapters=[
-["1. From Foundations to Professional Practice","Advanced Culinary is not simply more difficult cooking. It asks students to transfer foundational skills into real production decisions, client expectations, deadlines, leadership, quality control, service, and evidence-based improvement.","<h2>From Foundations to Professional Practice</h2><p>Culinary 1 & 2 build the foundation. Advanced Culinary asks you to use that foundation when several things must succeed at once.</p><div class='callout'><strong>Core shift:</strong> A recipe can be completed by one cook. A professional event requires an operating system.</div><h3>Advanced expectations</h3><ul><li>Prepare before requesting independence.</li><li>Protect safety and product quality under time pressure.</li><li>Communicate early when the plan or product changes.</li><li>Produce individual evidence inside team work.</li><li>Use feedback to improve the next experience.</li></ul>"],
-["2. The Six-Experience Course Arc","Responsibility increases from a teacher-framed opening reception to a complete operations capstone.","<h2>The Six-Experience Course Arc</h2><p>The experiences do not need six different service formats. They need distinct technical purposes and increasing operational complexity.</p><ol><li>Reverify readiness and execute assigned work.</li><li>Respond to known customer demand.</li><li>Make menu decisions within client constraints.</li><li>Manage real-time order and customer flow.</li><li>Assume client communication and rotating leadership.</li><li>Manage the full event cycle and present final evidence.</li></ol>"],
-["3. Client Requests and Feasibility","A professional yes follows clarification, capacity review, approval, and a realistic production plan.","<h2>Client Requests and Feasibility</h2><h3>Clarify before committing</h3><ul><li>Who is the recipient or audience?</li><li>What product or service is actually needed?</li><li>How many portions or orders are required?</li><li>What is the deadline and service format?</li><li>What dietary, allergen, budget, packaging, and transportation conditions apply?</li></ul><div class='callout'><strong>Professional judgment:</strong> A smaller, reliable menu is better than a larger promise the team cannot safely deliver.</div>"],
-["4. Recipe Scaling, Yield and Cost","Math converts a good recipe into a workable production plan.","<h2>Recipe Scaling, Yield and Cost</h2><p>Use standardized recipes, verify the original yield, calculate the desired yield, and check whether the equipment and production window can support the new batch size.</p><ul><li>Conversion factor = desired yield ÷ original yield</li><li>New quantity = original quantity × conversion factor</li><li>Yield percent = edible portion ÷ as-purchased amount × 100</li><li>Cost per portion = total recipe cost ÷ portions produced</li></ul><p>Record planned and actual quantities so the next team can make a better decision.</p>"],
-["5. Production Systems and Roles","The production schedule coordinates people, equipment, food-safety controls, quality standards, and service deadlines.","<h2>Production Systems and Roles</h2><h3>A complete production plan identifies</h3><ul><li>Tasks and dependencies</li><li>Station and role ownership</li><li>Equipment and shared-space conflicts</li><li>Critical food-safety controls</li><li>Quality checkpoints</li><li>Holding, packaging, transport, or service requirements</li><li>Contingency decisions</li></ul><p>Leadership never removes the requirement to contribute meaningful cooking or production work.</p>"],
-["6. Quality Control and Corrective Action","Quality is inspected against a defined standard and corrected before the variance becomes a larger failure.","<h2>Quality Control and Corrective Action</h2><p>Define the expected standard before production. Observe, measure, taste, communicate, and make the smallest safe correction that can return the product or process to standard.</p><h3>Quality evidence can include</h3><ul><li>Temperature, time, weight, portion, and yield records</li><li>Appearance, texture, taste, and consistency checks</li><li>Order accuracy and service-time data</li><li>Client or audience feedback</li><li>Waste, leftovers, and cost variance</li></ul>"],
-["7. Assessment, Individual Evidence and Reassessment","Team performance creates the context, but each student must show identifiable planning, production, professional, and reflective evidence.","<h2>Assessment and Individual Evidence</h2><p>Major experiences use both process evidence and product evidence. Safety and sanitation and technical execution remain essential categories.</p><ul><li>Routine safety concerns are corrected immediately.</li><li>Critical event violations may require stopping, restarting, or reassessment.</li><li>Reassessment targets the missing competency rather than repeating unrelated work.</li><li>Leadership, service, or marketing roles do not replace required cooking participation.</li></ul><div class='callout'><strong>Working proposal:</strong> A 3.5 proficiency line on the 0–5 performance scale remains subject to department confirmation.</div>"],
-["8. Arcadia, Olympia and The Cottage","The district shares outcomes and evidence while each building uses locally appropriate clients and service models.","<h2>Arcadia, Olympia and The Cottage</h2><p><strong>The Cottage</strong> is Arcadia’s local school-based-enterprise identity. It should not automatically be used as the districtwide name for every Advanced Culinary event.</p><p>Olympia can provide equivalent learning through internal clients, staff service, hosted events, preorder distribution, or another approved noncommercial or client-service model. Parity comes from comparable technical focus, planning, assessment, and evidence—not identical business operations.</p>"],
-["9. Gateway 4 and the Advanced Culinary Record","Gateway 4 represents demonstrated client-centered culinary performance.","<h2>Gateway 4 Evidence</h2><p>Gateway 4 should be supported by evidence gathered across the year rather than a single participation event.</p><ul><li>Client or audience need</li><li>Menu and feasibility work</li><li>Costing, yield, and production planning</li><li>Safety and sanitation performance</li><li>Required technical production</li><li>Leadership, communication, and teamwork</li><li>Product or service quality</li><li>Feedback, reflection, and targeted reassessment</li></ul><p>The final official completion process remains under department review.</p>"],
-["10. Quick Operational References","Use concise references for bakery batching, holding and transport, ticket flow, protein production, and breakfast service.","<h2>Quick Operational References</h2><h3>Bakery batching</h3><p>Sequence mixing, fermentation or rest, baking, cooling, packaging, labeling, and fulfillment. Do not package warm products unless the approved product requires it.</p><h3>Holding and transport</h3><p>Identify the safe holding temperature, container, route, delivery time, receiver, and corrective action before food leaves the kitchen.</p><h3>Ticket flow</h3><p>One clear order source, one expediting process, one completion check, and one handoff standard.</p><h3>Protein production</h3><p>Match the cut to the method; control cross-contamination, doneness, rest, holding, and carving or portioning.</p><h3>Breakfast and egg service</h3><p>Control batch size, heat, holding time, texture, dairy handling, and the timing relationship between hot and cold components.</p>" ]
-];
-const tools=[
-["A","Client Brief","Clarify recipient, quantity, date, service format, budget, dietary needs, packaging, transportation, and approval."],
-["B","Menu Feasibility Check","Test whether the proposed menu fits the skills, budget, time, equipment, storage, and service conditions."],
-["C","Recipe Scaling, Yield & Cost Record","Preserve original yield, desired yield, conversion factor, ingredient quantities, cost, and portion result."],
-["D","Preorder & Fulfillment Tracker","Record customer or recipient, product, quantity, deadline, payment or authorization status, packaging, and completion."],
-["E","Production Schedule","Sequence tasks, dependencies, stations, equipment, critical controls, quality checks, holding, and service."],
-["F","Role Rotation Record","Track leadership, cooking, service, marketing, purchasing, quality-control, and cleanup responsibilities."],
-["G","Required Cooking Participation","Identify the individual technical contribution and the evidence that verifies it."],
-["H","Quality Control & Corrective Action","Record the expected standard, observed variance, safety impact, action, communication, and result."],
-["I","Planned vs. Actual Cost & Waste Review","Compare projected and actual quantities, cost, leftovers, avoidable waste, and next-event decisions."],
-["J","Client or Audience Feedback","Gather useful feedback on accuracy, quality, timing, presentation, service, and whether the need was met."],
-["K","Individual Evidence & Gateway 4 Record","Connect planning, production, safety, professional performance, feedback, reflection, and reassessment." ]
-];
-const $=s=>document.querySelector(s),$$=s=>[...document.querySelectorAll(s)];function show(id){$$('.view').forEach(v=>v.classList.toggle('on',v.id===id));$$('.nav button').forEach(b=>b.classList.toggle('on',b.dataset.view===id));$('#nav').classList.remove('open');window.scrollTo({top:0,behavior:'smooth'})}$$('[data-view]').forEach(b=>b.addEventListener('click',()=>show(b.dataset.view)));$('#menu').addEventListener('click',()=>$('#nav').classList.toggle('open'));
-$('#progress').innerHTML=experiences.map(e=>`<article class="step" style="--n:${e.id}"><span>${e.id}</span><h3>${e.short}</h3><p>${e.focus}</p><small>${e.timing}</small></article>`).join('');
-let filter='all';function cards(){const list=experiences.filter(e=>filter==='all'||e.wbl===filter);$('#cards').innerHTML=list.map(e=>`<article class="card"><div class="cardtop" style="--grad:${e.grad}"><b>0${e.id}</b></div><div class="body"><div class="pills"><span class="pill">${e.timing}</span><span class="pill wbl">${e.wbl==='strong'?'Strong WBL candidate':'Conditional WBL'}</span></div><h3>${e.title}</h3><p>${e.purpose}</p><button data-open="${e.id}">Open station card →</button></div></article>`).join('');$$('[data-open]').forEach(b=>b.addEventListener('click',()=>openExperience(+b.dataset.open)))}cards();$$('.filter').forEach(b=>b.addEventListener('click',()=>{filter=b.dataset.filter;$$('.filter').forEach(x=>x.classList.toggle('on',x===b));cards()}));
-function openExperience(id){const e=experiences.find(x=>x.id===id);$('#modalEyebrow').textContent=`Experience ${e.id} · ${e.timing}`;$('#modalTitle').textContent=e.title;$('#modalFocus').textContent=e.focus;$('#modalBody').innerHTML=`<div class="detailgrid"><section class="block wide"><h3>Performance challenge</h3><p>${e.standard}</p></section><section class="block"><h3>Technical purpose</h3><p>${e.purpose}</p></section><section class="block"><h3>Student responsibility</h3><p>${e.responsibility}</p></section><section class="block"><h3>Arcadia possibility</h3><p>${e.arcadia}</p></section><section class="block"><h3>Olympia equivalent</h3><p>${e.olympia}</p></section><section class="block wide"><h3>Required evidence</h3><ul>${e.evidence.map(x=>`<li>${x}</li>`).join('')}</ul></section></div>`;$('#detail').classList.add('on')}$('#close').addEventListener('click',()=>$('#detail').classList.remove('on'));$('#detail').addEventListener('click',e=>{if(e.target===$('#detail'))$('#detail').classList.remove('on')});
-let chapter=0;function renderManual(q=''){const match=chapters.map((c,i)=>({c,i})).filter(x=>!q||x.c.join(' ').toLowerCase().includes(q.toLowerCase()));if(match.length&&!match.some(x=>x.i===chapter))chapter=match[0].i;$('#chapters').innerHTML=match.length?match.map(x=>`<button class="${x.i===chapter?'on':''}" data-chapter="${x.i}">${x.c[0]}</button>`).join(''):'<p>No matching chapter.</p>';$('#reader').innerHTML=match.length?chapters[chapter][2]:'<h2>No results</h2><p>Try a broader term.</p>';$$('[data-chapter]').forEach(b=>b.addEventListener('click',()=>{chapter=+b.dataset.chapter;renderManual($('#search').value)}))}renderManual();$('#search').addEventListener('input',e=>renderManual(e.target.value));
-$('#toolgrid').innerHTML=tools.map(t=>`<article class="tool"><span class="letter">${t[0]}</span><h3>${t[1]}</h3><p>${t[2]}</p><button data-tool="${t[0]}">Use with the working workbook →</button></article>`).join('');$$('[data-tool]').forEach(b=>b.addEventListener('click',()=>window.open('https://docs.google.com/spreadsheets/d/1Bt5IHlLEGbf0atfyuuBRxVlH1QhnAOwCsX79OyqGOp4','_blank')));
-const stages=['Preparation','Production','Service / Fulfillment','Reflection'],eKey='gcsd-ac-evidence-v1',pKey='gcsd-ac-profile-v1';function evidence(){let data={};try{data=JSON.parse(localStorage.getItem(eKey))||{}}catch{}$('#records').innerHTML=experiences.map(e=>`<article class="record"><h3>0${e.id}. ${e.short}</h3><p>${e.focus}</p><div class="checks">${stages.map((s,i)=>{const k=e.id+'-'+i;return`<label><input type="checkbox" data-check="${k}" ${data[k]?'checked':''}>${s}</label>`}).join('')}</div></article>`).join('');$$('[data-check]').forEach(x=>x.addEventListener('change',()=>{let d={};try{d=JSON.parse(localStorage.getItem(eKey))||{}}catch{}d[x.dataset.check]=x.checked;localStorage.setItem(eKey,JSON.stringify(d))}))}evidence();
-try{const p=JSON.parse(localStorage.getItem(pKey))||{};$('#student').value=p.student||'';$('#section').value=p.section||'';$('#year').value=p.year||''}catch{}$('#save').addEventListener('click',()=>{localStorage.setItem(pKey,JSON.stringify({student:$('#student').value,section:$('#section').value,year:$('#year').value}));$('#saved').textContent='Saved on this device.';setTimeout(()=>$('#saved').textContent='',2200)});$('#reflectExp').innerHTML=experiences.map(e=>`<option>${e.title}</option>`).join('');$('#build').addEventListener('click',()=>{const a=$('#responsibility').value.trim(),b=$('#proof').value.trim(),c=$('#next').value.trim();$('#output').innerHTML=a&&b&&c?`During <strong>${$('#reflectExp').value}</strong>, my responsibility was ${a}. The clearest evidence of my performance or learning is ${b}. Based on that evidence and the feedback I received, the specific change I will make next time is ${c}.`:'Complete all three prompts so the reflection includes responsibility, evidence, and a next step.'});
-</script>
+  <a class="skip-link" href="#main">Skip to content</a>
+
+  <header class="site-header">
+    <button class="brand" data-jump="home" aria-label="Advanced Culinary home">
+      <span class="brand-mark" aria-hidden="true">AC</span>
+      <span>
+        <small>Greece Central School District Culinary Pathway</small>
+        <strong>Advanced Culinary</strong>
+      </span>
+    </button>
+    <button class="menu-button" id="menuButton" aria-expanded="false" aria-controls="primaryNav">Menu</button>
+    <nav id="primaryNav" aria-label="Primary navigation">
+      <button class="nav-link active" data-view="home">Home</button>
+      <button class="nav-link" data-view="system">Course System</button>
+      <button class="nav-link" data-view="experiences">Six Experiences</button>
+      <button class="nav-link" data-view="recipes">Recipe Studio</button>
+      <button class="nav-link" data-view="manual">Field Manual</button>
+      <button class="nav-link" data-view="tools">Production Tools</button>
+      <button class="nav-link" data-view="evidence">My Evidence</button>
+    </nav>
+  </header>
+
+  <main id="main">
+    <section class="view active" data-view-panel="home">
+      <div class="hero">
+        <div class="hero-copy">
+          <p class="eyebrow">Prepare. Produce. Serve. Reflect. Improve.</p>
+          <h1>Cook for a purpose.<br />Operate to a standard.</h1>
+          <p class="hero-lede">Advanced Culinary moves beyond isolated classroom labs. Students respond to real or realistic client needs, adapt recipes, organize production, protect quality, deliver what was promised, and preserve evidence of their own performance.</p>
+          <div class="hero-actions">
+            <button class="button primary" data-jump="experiences">Explore the six experiences</button>
+            <button class="button secondary" data-jump="recipes">Open the Recipe Studio</button>
+          </div>
+          <div class="status-strip" role="note">
+            <span class="status-dot"></span>
+            <strong>Department working site</strong>
+            <span>The course architecture is developed. Exact clients, dates, menus, sales procedures, and local operating details remain under review.</span>
+          </div>
+        </div>
+        <div class="hero-visual" aria-label="Culinary station card illustration">
+          <div class="photo-frame">
+            <div class="photo-placeholder">
+              <span class="sketch-icon">✦</span>
+              <p>Future in-house event photography</p>
+              <small>Student production, service, and finished work</small>
+            </div>
+            <span class="tape tape-one"></span>
+            <span class="tape tape-two"></span>
+          </div>
+          <div class="station-ticket">
+            <small>Advanced Culinary standard</small>
+            <strong>Client-centered production</strong>
+            <p>Plan the work. Protect safety and quality. Adapt responsibly. Deliver what was promised.</p>
+          </div>
+        </div>
+      </div>
+
+      <section class="section-block">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">The year at a glance</p>
+            <h2>Six experiences. Increasing responsibility.</h2>
+          </div>
+          <p>The technical content changes from event to event. The operating expectations build from a teacher-framed launch to full-cycle student leadership and Gateway 4 evidence.</p>
+        </div>
+        <div class="progression" id="homeProgression"></div>
+      </section>
+
+      <section class="recipe-positioning">
+        <div class="recipe-positioning-copy">
+          <p class="eyebrow">How recipes work in this course</p>
+          <h2>The recipe collection grows from the work.</h2>
+          <p>Advanced Culinary does not begin with one fixed recipe book that determines every event. A client need comes first. Students and teachers research, select, test, adapt, scale, cost, standardize, and approve recipes that fit the audience, equipment, timeline, budget, service model, and learning target.</p>
+          <button class="text-link" data-jump="recipes">See the recipe-development process →</button>
+        </div>
+        <div class="recipe-positioning-grid">
+          <article><span>01</span><h3>Need</h3><p>Clarify the recipient, event, count, budget, restrictions, and service conditions.</p></article>
+          <article><span>02</span><h3>Research</h3><p>Find credible recipe starting points and compare methods, yield, equipment, and risk.</p></article>
+          <article><span>03</span><h3>Adapt</h3><p>Adjust flavor, format, quantity, ingredients, timing, packaging, and service as needed.</p></article>
+          <article><span>04</span><h3>Standardize</h3><p>Test, document, approve, and preserve the version the team can reproduce.</p></article>
+        </div>
+      </section>
+
+      <section class="split-callout">
+        <div>
+          <p class="eyebrow">One district framework</p>
+          <h2>Common outcomes. Locally flexible service.</h2>
+          <p>Arcadia may use The Cottage, approved sales, catering, and established clients. Olympia may use internal clients, staff service, hosted events, preorder distribution, or another approved equivalent. The technical focus, planning process, rubric, and evidence remain comparable.</p>
+        </div>
+        <div class="principles-list">
+          <div><strong>Learning before labor</strong><span>Every event exists to produce evidence of learning.</span></div>
+          <div><strong>Preparation before independence</strong><span>Responsibility grows after readiness is demonstrated.</span></div>
+          <div><strong>Individual evidence</strong><span>Team success never replaces each student’s own performance evidence.</span></div>
+          <div><strong>Quality before quantity</strong><span>Event size stays within time, staffing, equipment, and readiness.</span></div>
+        </div>
+      </section>
+
+      <section class="section-block quick-start">
+        <div class="section-heading compact">
+          <div>
+            <p class="eyebrow">Use the site when it helps</p>
+            <h2>Before and after production—not as a live kitchen dashboard.</h2>
+          </div>
+        </div>
+        <div class="quick-grid">
+          <article class="quick-card"><span class="quick-number">01</span><h3>Before production</h3><p>Read the brief, review the standard, adapt and scale the recipe, identify hazards, and build the station plan.</p></article>
+          <article class="quick-card"><span class="quick-number">02</span><h3>During the experience</h3><p>Use printed recipes, production plans, temperature records, order sheets, and quality-control tools as assigned.</p></article>
+          <article class="quick-card"><span class="quick-number">03</span><h3>After service</h3><p>Record what happened, identify your own evidence, analyze feedback and operating data, and name a specific improvement.</p></article>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" data-view-panel="system">
+      <div class="page-intro wide-intro">
+        <div>
+          <p class="eyebrow">The operating system behind every event</p>
+          <h2>How Advanced Culinary Works</h2>
+        </div>
+        <p>Products and clients change. The professional process remains stable enough to teach, repeat, assess, and improve.</p>
+      </div>
+
+      <section class="section-block first-block">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">The client-centered production cycle</p><h2>Eight stages from request to revision.</h2></div>
+        </div>
+        <div class="cycle-grid" id="cycleGrid"></div>
+      </section>
+
+      <section class="compare-section">
+        <div class="section-heading compact">
+          <div><p class="eyebrow">From foundations to operations</p><h2>What changes in Advanced Culinary</h2></div>
+        </div>
+        <div class="comparison-table" role="table" aria-label="Culinary foundations compared with Advanced Culinary">
+          <div class="comparison-head" role="row"><span role="columnheader">Foundation course</span><span role="columnheader">Advanced Culinary</span></div>
+          <div role="row"><span role="cell">Teacher selects a lab to practice a skill.</span><span role="cell">A client, audience, or operating need creates the production challenge.</span></div>
+          <div role="row"><span role="cell">The recipe is usually already selected and classroom-sized.</span><span role="cell">Recipes are researched, adapted, tested, scaled, costed, standardized, and approved.</span></div>
+          <div role="row"><span role="cell">Success focuses mainly on safety, technique, and product quality.</span><span role="cell">Success also includes accuracy, timing, service, cost, communication, leadership, and reliability.</span></div>
+          <div role="row"><span role="cell">The class can often reset after one lab period.</span><span role="cell">Decisions affect real recipients, deadlines, inventory, equipment, and the reputation of the program.</span></div>
+        </div>
+      </section>
+
+      <section class="section-block">
+        <div class="section-heading">
+          <div><p class="eyebrow">Professional systems</p><h2>Every event is more than cooking.</h2></div>
+          <p>The class learns to coordinate six connected systems. Weakness in one system can damage an otherwise strong product.</p>
+        </div>
+        <div class="system-grid" id="systemGrid"></div>
+      </section>
+
+      <section class="responsibility-section">
+        <div>
+          <p class="eyebrow">Roles organize the work</p>
+          <h2>Leadership never removes the requirement to cook.</h2>
+          <p>Students may rotate through client liaison, purchasing, station lead, expeditor, quality control, service, marketing, packaging, or evaluation roles. Every student also completes meaningful production work and provides individual evidence.</p>
+        </div>
+        <div class="responsibility-list">
+          <div><strong>Plan</strong><span>Own a real planning responsibility.</span></div>
+          <div><strong>Produce</strong><span>Complete meaningful cooking or production work.</span></div>
+          <div><strong>Communicate</strong><span>Report status, risk, changes, and next action.</span></div>
+          <div><strong>Verify</strong><span>Use measurements, standards, and checklists.</span></div>
+          <div><strong>Reflect</strong><span>Connect feedback and results to a next step.</span></div>
+        </div>
+      </section>
+
+      <section class="assessment-section">
+        <div class="section-heading">
+          <div><p class="eyebrow">Evidence and progression</p><h2>Experiences provide evidence. Competencies determine progression.</h2></div>
+          <p>A successful event does not automatically prove that every student met every standard. Evidence must be identifiable, relevant, and sufficient.</p>
+        </div>
+        <div class="evidence-pillars" id="evidencePillars"></div>
+        <div class="two-callouts">
+          <article><h3>Critical violations</h3><p>Unsafe conditions, allergen risk, serious equipment misuse, dishonest reporting, or work unfit for service may require immediate correction, stop/restart, or targeted reassessment.</p></article>
+          <article><h3>Targeted reassessment</h3><p>After feedback, reflection, and additional practice, students provide equivalent evidence for the unmet competency rather than repeating unrelated work.</p></article>
+        </div>
+      </section>
+    </section>
+
+    <section class="view" data-view-panel="experiences">
+      <div class="page-intro wide-intro">
+        <div><p class="eyebrow">The operating spine of the course</p><h2>Six Major Experiences</h2></div>
+        <p>Each experience has a distinct technical purpose, a recipe-development challenge, a planning package, and a higher level of operational responsibility.</p>
+      </div>
+      <div class="filter-row" aria-label="Experience filters">
+        <button class="filter active" data-filter="all">All six</button>
+        <button class="filter" data-filter="strong">Strong WBL candidates</button>
+        <button class="filter" data-filter="conditional">Conditional WBL</button>
+      </div>
+      <div class="experience-grid" id="experienceGrid"></div>
+      <dialog id="experienceDialog" class="experience-dialog">
+        <button class="dialog-close" id="dialogClose" aria-label="Close experience">×</button>
+        <div id="dialogContent"></div>
+      </dialog>
+    </section>
+
+    <section class="view" data-view-panel="recipes">
+      <div class="page-intro wide-intro">
+        <div><p class="eyebrow">Build the recipe for the work</p><h2>Recipe Development Studio</h2></div>
+        <p>This is not a fixed class recipe book. It is a repeatable process for finding and adapting recipes that meet a real production need.</p>
+      </div>
+
+      <section class="recipe-philosophy">
+        <div>
+          <h3>A recipe is approved when it fits the whole operation.</h3>
+          <p>Flavor matters, but so do yield, equipment, timing, cost, dietary restrictions, allergens, holding, packaging, service, student readiness, and the technical purpose of the experience.</p>
+        </div>
+        <ul>
+          <li>Use a credible source or known professional reference as a starting point.</li>
+          <li>Record the source and every significant adaptation.</li>
+          <li>Do not scale blindly; check method, equipment, batch size, and food-safety controls.</li>
+          <li>Test high-risk or unfamiliar changes before the event.</li>
+          <li>Approve one standardized production version before service.</li>
+          <li>Archive successful versions and revision notes for future use.</li>
+        </ul>
+      </section>
+
+      <section class="section-block">
+        <div class="section-heading compact"><div><p class="eyebrow">Recipe-development pathway</p><h2>Eight decisions before production.</h2></div></div>
+        <div class="recipe-pipeline" id="recipePipeline"></div>
+      </section>
+
+      <section class="recipe-workspace">
+        <div class="workspace-heading">
+          <div><p class="eyebrow">Browser planning workspace</p><h2>Build a working recipe brief.</h2></div>
+          <p>This draft saves on this device. It does not replace the approved standardized recipe or official class records.</p>
+        </div>
+        <div class="recipe-form-grid">
+          <form class="recipe-form" id="recipeForm">
+            <label>Experience
+              <select id="recipeExperience"></select>
+            </label>
+            <label>Client / recipient need
+              <textarea id="recipeNeed" rows="3" placeholder="What must the product accomplish for the recipient?"></textarea>
+            </label>
+            <label>Proposed product
+              <input id="recipeProduct" type="text" placeholder="Example: roasted vegetable tartlets" />
+            </label>
+            <label>Starting source or reference
+              <input id="recipeSource" type="text" placeholder="Book, site, chef, existing class formula..." />
+            </label>
+            <div class="field-pair">
+              <label>Original yield<input id="originalYield" type="number" min="0" step="0.01" /></label>
+              <label>Desired yield<input id="desiredYield" type="number" min="0" step="0.01" /></label>
+            </div>
+            <label>Conversion factor
+              <output id="conversionFactor">—</output>
+            </label>
+            <label>Dietary / allergen constraints
+              <textarea id="recipeAllergens" rows="2"></textarea>
+            </label>
+            <label>Method, ingredient, format, or service adaptations
+              <textarea id="recipeAdaptations" rows="4"></textarea>
+            </label>
+            <label>Quality standard
+              <textarea id="recipeQuality" rows="3" placeholder="Flavor, texture, appearance, portion, temperature, consistency..."></textarea>
+            </label>
+            <label>Testing and approval notes
+              <textarea id="recipeTesting" rows="3"></textarea>
+            </label>
+            <div class="form-actions">
+              <button class="button primary" type="submit">Save working brief</button>
+              <button class="button secondary" type="button" id="clearRecipe">Clear</button>
+            </div>
+            <p class="save-message" id="recipeSaveMessage" aria-live="polite"></p>
+          </form>
+          <aside class="recipe-summary">
+            <p class="eyebrow">Working recipe brief</p>
+            <div id="recipeSummary"></div>
+            <button class="button secondary" id="copyRecipeSummary" type="button">Copy summary</button>
+          </aside>
+        </div>
+      </section>
+
+      <section class="library-status">
+        <div><p class="eyebrow">Future recipe library</p><h2>Approved recipes will be added because they earned a place.</h2></div>
+        <p>After a recipe is successfully tested and used, the department can preserve the standardized version, event notes, yield, cost information, allergen controls, photos, and revision history. The library will grow from proven program work rather than being filled with disconnected recipes.</p>
+      </section>
+    </section>
+
+    <section class="view" data-view-panel="manual">
+      <div class="page-intro manual-intro">
+        <div>
+          <p class="eyebrow">Student reference</p>
+          <h2>Advanced Culinary Field Manual</h2>
+          <p>Find the chapter that supports the decision you are making. Search by term, chapter, or operational need.</p>
+        </div>
+        <a class="button secondary" href="https://docs.google.com/document/d/1iomQqxabqZ3tljbbvhQsiRbeHfPtxU-Tyb3Cue-9Kno/edit" target="_blank" rel="noreferrer">Open the working Google Doc</a>
+      </div>
+      <div class="search-box">
+        <label for="manualSearch">Search the manual</label>
+        <input id="manualSearch" type="search" placeholder="Try: allergens, recipe adaptation, costing, production plan, reassessment..." />
+      </div>
+      <div class="manual-layout">
+        <aside class="chapter-nav" id="chapterNav" aria-label="Manual chapters"></aside>
+        <article class="chapter-reader" id="chapterReader"></article>
+      </div>
+    </section>
+
+    <section class="view" data-view-panel="tools">
+      <div class="page-intro manual-intro">
+        <div>
+          <p class="eyebrow">Plan it before you produce it</p>
+          <h2>Production Tools</h2>
+          <p>Assessment exists to verify learning. Paperwork documents learning. Paperwork is not the learning. Use the form that helps the team make a better decision or preserve required evidence.</p>
+        </div>
+        <a class="button secondary" href="https://docs.google.com/spreadsheets/d/1Bt5IHlLEGbf0atfyuuBRxVlH1QhnAOwCsX79OyqGOp4" target="_blank" rel="noreferrer">Open the six-experience workbook</a>
+      </div>
+      <div class="tool-grid" id="toolGrid"></div>
+      <dialog id="toolDialog" class="tool-dialog">
+        <button class="dialog-close" id="toolDialogClose" aria-label="Close tool">×</button>
+        <div id="toolDialogContent"></div>
+      </dialog>
+    </section>
+
+    <section class="view" data-view-panel="evidence">
+      <div class="page-intro wide-intro">
+        <div><p class="eyebrow">Your work should be visible</p><h2>My Evidence Record</h2></div>
+        <p>This browser record stays on this device. It is a planning aid, not the official gradebook, Culinary Passport, or department record.</p>
+      </div>
+      <div class="evidence-layout">
+        <section class="profile-card">
+          <h3>Student profile</h3>
+          <label>Name<input id="studentName" type="text" autocomplete="name" /></label>
+          <label>Teacher / section<input id="studentSection" type="text" /></label>
+          <label>School year<input id="studentYear" type="text" placeholder="2026–2027" /></label>
+          <button class="button primary" id="saveProfile">Save profile</button>
+          <p class="save-message" id="saveMessage" aria-live="polite"></p>
+        </section>
+        <section class="records-card">
+          <div class="records-heading"><div><p class="eyebrow">Six-experience record</p><h3>Evidence checkpoints</h3></div><button class="text-link" id="clearEvidence">Clear saved record</button></div>
+          <div class="records" id="experienceRecords"></div>
+        </section>
+      </div>
+
+      <section class="reflection-builder">
+        <div>
+          <p class="eyebrow">Evidence-based reflection</p>
+          <h2>Move beyond “it went well.”</h2>
+          <p>Describe what you were responsible for, cite evidence, explain one result, and name a specific next improvement.</p>
+        </div>
+        <div class="reflection-form">
+          <label>Experience<select id="reflectionExperience"></select></label>
+          <label>My responsibility<textarea id="reflectionResponsibility" rows="2"></textarea></label>
+          <label>Evidence I can point to<textarea id="reflectionEvidence" rows="3"></textarea></label>
+          <label>Result or feedback<textarea id="reflectionResult" rows="3"></textarea></label>
+          <label>My specific next improvement<textarea id="reflectionNext" rows="3"></textarea></label>
+          <button class="button primary" id="buildReflection">Build reflection</button>
+        </div>
+        <div class="reflection-output" id="reflectionOutput">Complete the fields to build a useful reflection.</div>
+      </section>
+
+      <section class="gateway-map">
+        <div class="section-heading">
+          <div><p class="eyebrow">Gateway 4</p><h2>Client-centered culinary performance</h2></div>
+          <p>Final completion should be supported by a body of evidence, not a single event score.</p>
+        </div>
+        <div class="gateway-grid" id="gatewayGrid"></div>
+      </section>
+    </section>
+  </main>
+
+  <footer>
+    <div><strong>GCSD Advanced Culinary</strong><span>Working student field manual and digital companion</span></div>
+    <div><span>Arcadia and Olympia</span><span>Department review draft · July 2026</span></div>
+  </footer>
+
+  <script src="./app.js"></script>
 </body>
 </html>
