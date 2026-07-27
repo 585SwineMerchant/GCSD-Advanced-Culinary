@@ -18,3 +18,13 @@
 ## Status Rule
 
 Materials are instructional-development drafts unless explicitly identified as adopted district curriculum or policy. Exact clients, dates, menu limits, sales procedures, pricing, quantities, WBL-hour procedures, and local operating practices require department validation.
+
+## Functional Architecture Decision — July 27, 2026
+
+- The six major experiences remain the operational spine of Advanced Culinary.
+- Technique instruction, ingredient study, demonstrations, recipe trials, and smaller labs build readiness between and within major experiences.
+- The student interface is organized around one active experience and five phases: Brief, Practice, Plan, Produce, Reflect.
+- The Recipe Studio translates customer requirements, course learning, and student research into a tested and approved production recipe.
+- Production tools are reusable internal components called by the active experience, not a standalone destination students must interpret.
+- The portfolio is the curated evidence record created through authentic course work.
+- Unresolved department design questions belong in a separate staff-review layer.

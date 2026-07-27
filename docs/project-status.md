@@ -1,16 +1,22 @@
-# Project Status — Working Version 0.1
+# Project Status — Functional Prototype 0.2
 
 ## Completed
 
 - Dedicated Advanced Culinary repository
 - GitHub Pages deployment workflow
-- Responsive student-facing site
-- Six major experience course arc
+- Responsive student-facing site reorganized around the active experience
+- Four clear student destinations: Current Experience, All Experiences, Recipes, and Reference
+- Five-phase experience workflow: Brief, Practice, Plan, Produce, Reflect
+- Experience 1 fully wired as the functional student prototype
+- Smaller demonstrations and labs integrated into the instructional timeline
+- Six-major-experience course arc
 - Arcadia and Olympia implementation language
-- Field-manual quick reference
-- Production-tool reference
-- Browser-based student evidence tracker
-- Links to the current Google Doc and six-experience workbook
+- Searchable technique and operations reference
+- Customer-driven Recipe Studio with three research possibilities and saved work by experience
+- Contextual production tools with stable A–D names, ownership, timing, approval, and form-only printing
+- Printable sample kitchen production packet
+- Portfolio evidence guidance and saved reflection builder
+- Staff-review questions separated from student screens
 
 ## Department Review Required
 
@@ -24,10 +30,11 @@
 
 ## Next Production Phase
 
-- Convert approved student forms into editable and printable templates
+- Validate the Experience 1 operating rhythm with Jason and Linda
+- Replace prototype form fields with approved existing documents where appropriate
 - Add full approved field-manual content
 - Add approved recipes and event-specific preparation resources
-- Add staff-only planning materials outside the student-facing navigation
+- Confirm the official submission, teacher-verification, Culinary Passport, and portfolio workflow
 - Conduct accessibility and device testing
 
 ## Status Rule

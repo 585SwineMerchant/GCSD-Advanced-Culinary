@@ -21,17 +21,16 @@ The experiences share common technical, planning, assessment, and evidence expec
 
 Advanced Culinary does not depend on one fixed recipe collection. A client or production need comes first. Students and teachers research credible starting points, test feasibility, adapt deliberately, scale and cost the recipe, define a quality standard, approve one production version, and preserve successful versions with event notes and revisions.
 
-The site includes a browser-based Recipe Development Studio for practicing this process. Saved drafts remain on the local device and do not replace approved standardized recipes or official course records.
+The site includes a browser-based Recipe Studio for practicing this process. Work is saved separately for each experience on the local device and does not replace approved standardized recipes or official course records.
 
 ## Student Site Structure
 
-- **Home** — course identity, six-experience progression, recipe philosophy, and Arcadia/Olympia framework
-- **Course System** — client-centered production cycle, professional systems, roles, assessment, and Gateway 4 evidence
-- **Six Experiences** — detailed station cards with technical anchors, recipe-development challenges, planning packages, local options, evidence, and review questions
-- **Recipe Studio** — eight-stage recipe-development pathway and working recipe brief
-- **Field Manual** — searchable student reference based on the Advanced Culinary working manual
-- **Production Tools** — printable planning, recipe, costing, order, quality, feedback, and evidence forms
-- **My Evidence** — local-device evidence checkpoints and reflection builder
+- **Current Experience** — the student's operational home, with the current phase, this week's instruction, the next action, and one five-phase workflow: Brief → Practice → Plan → Produce → Reflect
+- **All Experiences** — the six-experience course arc, with Experience 1 fully wired as the functional prototype and Experiences 2–6 intentionally provisional pending department review
+- **Recipes** — a customer-driven Recipe Studio connecting the brief, completed/current course learning, three research possibilities, testing, revision, and teacher approval
+- **Reference** — searchable technique and operations guidance supporting work assigned through the active experience
+
+Reusable production tools remain behind the experience workflow. Students open the correct tool from the phase where it is required rather than interpreting a disconnected form library. Staff-review questions are separated from student directions.
 
 ## Repository Structure
 
@@ -39,7 +38,7 @@ The site includes a browser-based Recipe Development Studio for practicing this 
 - `docs/` — development status, source register, and review notes
 - `.github/workflows/` — GitHub Pages deployment
 
-The editable field manual and six-experience planning workbook currently live in Google Drive and are linked directly from the student site.
+The editable field manual and six-experience planning workbook remain staff development sources. They are not presented as student assignments.
 
 ## Local Preview
 
@@ -59,5 +58,7 @@ The GitHub Pages workflow uploads the `site/` directory whenever changes are pus
 - Preparation before independence.
 - Every student completes meaningful cooking or production work.
 - Team success does not replace individual evidence.
+- Demonstrations, technique lessons, ingredient studies, and smaller labs build capacity between and within the six major experiences.
+- The graduation/professional portfolio is a curated record of real course work, not a separate paperwork system.
 - The Cottage is Arcadia's local SBE identity; districtwide curriculum language remains locally flexible.
 - Exact clients, dates, menus, sales procedures, and local operating details remain subject to department approval.
