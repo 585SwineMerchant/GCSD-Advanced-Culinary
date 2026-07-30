@@ -25,12 +25,13 @@ The site includes a browser-based Recipe Studio for practicing this process. Wor
 
 ## Student Site Structure
 
-- **Current Experience** — the student's operational home, with the current phase, this week's instruction, the next action, and one five-phase workflow: Brief → Practice → Plan → Produce → Reflect
-- **All Experiences** — the six-experience course arc, with Experience 1 fully wired as the functional prototype and Experiences 2–6 intentionally provisional pending department review
-- **Recipes** — a customer-driven Recipe Studio connecting the brief, completed/current course learning, three research possibilities, testing, revision, and teacher approval
-- **Reference** — searchable technique and operations guidance supporting work assigned through the active experience
+- **Home** — the student's orientation point: current event, current phase, progress, next action, prior-event management briefing, and the six-event year at a glance
+- **Event Workspace** — one reusable six-phase cycle for every major experience: Brief → Learn → Plan → Produce → Close → Improve
+- **Learning** — menu- and production-driven routing to the relevant ProStart Second Edition material, instructor lesson, demonstration, or focused practice
+- **Recipes** — a customer-driven Recipe Studio connecting the accepted brief, current learning, three research possibilities, testing, revision, and teacher approval
+- **Quick Reference** — concise operating protocols for time management, complete closeout, professional recovery, safety stops, client-change authority, and individual evidence
 
-Reusable production tools remain behind the experience workflow. Students open the correct tool from the phase where it is required rather than interpreting a disconnected form library. Staff-review questions are separated from student directions.
+Reusable production tools remain behind the event workflow. Students open the correct tool from the phase where it is required rather than interpreting a disconnected form library. Adult planning and unresolved department-review questions remain in development records rather than student navigation.
 
 ## Repository Structure
 
@@ -56,9 +57,14 @@ The GitHub Pages workflow uploads the `site/` directory whenever changes are pus
 
 - Learning before labor.
 - Preparation before independence.
+- The accepted client commitment must be protected.
+- Time management includes production, packaging, delivery, dishes, sanitation, storage, and station restoration.
 - Every student completes meaningful cooking or production work.
 - Team success does not replace individual evidence.
+- Honest failure followed by diagnosis and instructor-approved correction remains productive learning; concealment is a separate professional breach.
 - Demonstrations, technique lessons, ingredient studies, and smaller labs build capacity between and within the six major experiences.
+- ProStart Second Edition is an authoritative information source, not the pacing structure of the course.
+- Advanced Culinary encounters operating and entrepreneurial results; Kitchen Management conducts the deeper analysis and briefs the next event cycle.
 - The graduation/professional portfolio is a curated record of real course work, not a separate paperwork system.
 - The Cottage is Arcadia's local SBE identity; districtwide curriculum language remains locally flexible.
 - Exact clients, dates, menus, sales procedures, and local operating details remain subject to department approval.
