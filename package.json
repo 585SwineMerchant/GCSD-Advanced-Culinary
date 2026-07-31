@@ -1,0 +1,12 @@
+{
+  "name": "gcsd-advanced-culinary",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check site/app.js && node --check site/operations.js && node --check site/teacher/teacher-operations.js && node --check worker/index.js"
+  },
+  "devDependencies": {
+    "wrangler": "4.26.1"
+  }
+}
