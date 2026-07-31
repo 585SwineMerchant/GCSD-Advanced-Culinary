@@ -1,4 +1,8 @@
 const storageKey = "gcsdAdvancedTeacherPrototypeV2";
+const apiRoot = "../api";
+let apiRevision = null;
+let apiAvailable = false;
+let remoteSaveTimer = null;
 const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
 const sections = [
   { id: "adv-p2", name: "Advanced Culinary · Period 2", focus: "Pasta and pastry production" },
@@ -52,7 +56,40 @@ let requestFilter = "open";
 let ingredientMenuIndex = 0;
 
 function current() { return state.events.find(event => event.id === currentId); }
-function save() { localStorage.setItem(storageKey, JSON.stringify(state)); }
+function save() {
+  localStorage.setItem(storageKey, JSON.stringify(state));
+  if (!apiAvailable) return;
+  clearTimeout(remoteSaveTimer);
+  remoteSaveTimer = setTimeout(async () => {
+    try {
+      const response = await fetch(`${apiRoot}/state`, { method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ state, revision: apiRevision }) });
+      if (response.status === 409) return toast("A newer shared version exists. Reload before saving again.");
+      if (!response.ok) throw new Error("save failed");
+      const payload = await response.json(); apiRevision = payload.revision;
+    } catch { toast("Shared save is unavailable; this change remains on this device."); }
+  }, 350);
+}
+
+async function connectSharedWorkspace() {
+  try {
+    const response = await fetch(`${apiRoot}/state`, { headers: { Accept: "application/json" } });
+    if (!response.ok) return;
+    const payload = await response.json();
+    apiRevision = payload.revision; apiAvailable = true;
+    if (payload.state?.events?.length) {
+      state = payload.state;
+      state.requests ||= []; state.events.forEach(event => event.menu?.forEach(item => item.ingredients ||= []));
+      currentId = state.events.some(event => event.id === currentId) ? currentId : state.events[0].id;
+      if (payload.session?.displayName) state.activeTeacher = payload.session.displayName;
+      q("#activeTeacher").disabled = true; q("#resetDemo").hidden = true;
+      renderAll();
+    }
+    if (payload.session?.displayName) {
+      state.activeTeacher = payload.session.displayName;
+      q("#activeTeacher").disabled = true; q("#resetDemo").hidden = true;
+    }
+  } catch { /* GitHub Pages remains a device-local review build until the secure API is deployed. */ }
+}
 function activeTeacher() { return state.activeTeacher || "Kevin McCann"; }
 function isOwner(event = current()) { return event.owner === activeTeacher(); }
 function canEdit(event = current()) { return isOwner(event) || (event.collaborators || []).includes(activeTeacher()); }
@@ -514,3 +551,4 @@ q("#resetDemo").addEventListener("click", () => {
 
 if (!current().tasks.length) generateTasks();
 renderAll();
+connectSharedWorkspace();
