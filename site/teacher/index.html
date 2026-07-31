@@ -16,7 +16,13 @@
     </a>
     <div class="teacher-context">
       <span class="status-dot" aria-hidden="true"></span>
-      <span>Working locally · prototype data</span>
+      <label class="identity-control">Working as
+        <select id="activeTeacher" aria-label="Active teacher">
+          <option>Kevin McCann</option>
+          <option>Jason Carlson</option>
+          <option>Linda</option>
+        </select>
+      </label>
       <button class="ghost-button" id="resetDemo" type="button">Reset demo</button>
     </div>
   </header>
@@ -50,6 +56,8 @@
       <button data-panel="production" type="button"><span>3</span> Production plan</button>
       <button data-panel="assignments" type="button"><span>4</span> Assignments</button>
       <button data-panel="publish" type="button"><span>5</span> Review &amp; publish</button>
+      <button data-panel="live" type="button"><span>6</span> Live production</button>
+      <button data-panel="closeout" type="button"><span>7</span> Closeout</button>
     </nav>
 
     <section class="workspace-shell">
@@ -129,11 +137,54 @@
           <div class="publish-warning" id="publishWarning"></div>
           <div class="panel-actions"><button class="secondary-button" id="saveDraft" type="button">Save as draft</button><button class="primary-button" id="publishOrder" type="button">Publish Event Order</button></div>
         </section>
+
+        <section class="workspace-panel" data-panel-view="live">
+          <header class="panel-heading">
+            <div><p class="eyebrow">Today’s command view</p><h2>Live production</h2></div>
+            <p>See every section’s progress, handoffs, yield, waste, storage location, and requests for help in one operational view.</p>
+          </header>
+          <div class="production-summary" id="liveSummary"></div>
+          <div class="live-filters" role="group" aria-label="Production filters">
+            <label>Section<select id="liveSectionFilter"></select></label>
+            <label>Status<select id="liveStatusFilter"><option value="all">All statuses</option><option>Not started</option><option>In progress</option><option>Blocked</option><option>Ready for handoff</option><option>Complete</option></select></label>
+          </div>
+          <div class="live-board" id="liveBoard"></div>
+          <div class="panel-actions"><button class="secondary-button" id="simulateUpdate" type="button">Simulate student update</button><button class="next-button" data-next="closeout" type="button">Review event results →</button></div>
+        </section>
+
+        <section class="workspace-panel" data-panel-view="closeout">
+          <header class="panel-heading">
+            <div><p class="eyebrow">Plan compared with reality</p><h2>Event closeout</h2></div>
+            <p>Preserve objective production evidence for Kitchen Management without asking students to rank or judge one another.</p>
+          </header>
+          <div class="closeout-grid">
+            <article class="closeout-card">
+              <h3>Event results</h3>
+              <div class="form-grid compact-grid">
+                <label>Customers served / orders completed<input id="actualGuests" type="number" min="0" /></label>
+                <label>Actual revenue / program value<input id="actualRevenue" placeholder="$0.00" /></label>
+                <label>Actual ingredient cost<input id="actualCost" placeholder="$0.00" /></label>
+                <label>Customer feedback received<select id="feedbackReceived"><option>No</option><option>Yes</option></select></label>
+              </div>
+              <label class="full-field">Objective customer feedback<textarea id="customerFeedback" rows="3" placeholder="Record the customer’s words or a factual summary."></textarea></label>
+            </article>
+            <article class="closeout-card">
+              <h3>Kitchen Management briefing</h3>
+              <div id="managementBriefing"></div>
+            </article>
+          </div>
+          <div class="table-wrap closeout-table"><table>
+            <thead><tr><th>Menu output</th><th>Planned</th><th>Usable produced</th><th>Waste</th><th>Variance</th></tr></thead>
+            <tbody id="closeoutRows"></tbody>
+          </table></div>
+          <label class="full-field">Operational notes for the next event<textarea id="operationalNotes" rows="4" placeholder="Document schedule, yield, purchasing, equipment, or workflow facts that should change next time."></textarea></label>
+          <div class="panel-actions"><button class="secondary-button" id="saveCloseout" type="button">Save closeout draft</button><button class="primary-button" id="completeEvent" type="button">Complete event</button></div>
+        </section>
       </div>
     </section>
   </main>
 
   <div class="toast" id="toast" role="status" aria-live="polite"></div>
-  <script src="./teacher.js"></script>
+  <script src="./teacher-operations.js"></script>
 </body>
 </html>
