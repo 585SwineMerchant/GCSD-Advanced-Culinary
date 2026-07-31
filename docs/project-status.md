@@ -1,4 +1,4 @@
-# Project Status — Experience-First Restructure 0.3
+# Project Status — Integrated Event Operations 0.5
 
 ## Completed
 
@@ -18,6 +18,15 @@
 - Plan-to-Close Game Plan and Quality, Recovery & Closeout Record
 - Kitchen Management briefing placed at the opening of the next event cycle
 - Staff-review language and prototype labels removed from student screens
+- Protected teacher command-center branch preserving the current public student site
+- Shared teacher identity and event-level owner, collaborator, and viewer permissions
+- Master Event Order workflow from customer commitment through publication, production, and closeout
+- Section, station, team, student, dependency, and handoff assignments generated from one event record
+- Structured live reporting for progress, usable yield, waste, storage, and production problems
+- Planned-versus-actual closeout and objective Kitchen Management briefing
+- Event request inbox modeled for future Google Form submissions
+- Request decision history with clarification, decline, and acceptance into a private Event Order draft
+- Approved-recipe ingredient records, batch scaling, consolidated purchasing quantities, and estimated cost
 
 ## Department Review Required
 
@@ -36,6 +45,9 @@
 - Add approved recipes and event-specific preparation resources
 - Confirm the official submission, teacher-verification, Culinary Passport, and portfolio workflow
 - Conduct accessibility and device testing
+- Connect the prototype data model to secure authentication, shared persistence, and server-side role enforcement
+- Map approved Google Form fields into the request inbox after district authorization
+- Add recipe versioning, supplier choices, inventory-on-hand deductions, and teacher-approved purchase orders
 
 ## Status Rule
 
