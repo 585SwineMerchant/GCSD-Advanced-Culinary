@@ -1,0 +1,139 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="theme-color" content="#123f31" />
+  <title>Advanced Culinary — Teacher Command Center</title>
+  <link rel="stylesheet" href="./teacher.css" />
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <header class="topbar">
+    <a class="brand" href="../index.html" aria-label="Advanced Culinary student site">
+      <span class="brand-mark">AC</span>
+      <span><small>GCSD Culinary Pathway</small><strong>Teacher Command Center</strong></span>
+    </a>
+    <div class="teacher-context">
+      <span class="status-dot" aria-hidden="true"></span>
+      <span>Working locally · prototype data</span>
+      <button class="ghost-button" id="resetDemo" type="button">Reset demo</button>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="command-hero">
+      <div>
+        <p class="eyebrow">One event · one operational record</p>
+        <h1>Build the promise. Coordinate the work.</h1>
+        <p>Finalize one master Event Order, then publish the right instructions to every section, station, and student.</p>
+      </div>
+      <div class="hero-controls">
+        <label>Working event
+          <select id="eventSelect"></select>
+        </label>
+        <button class="primary-button" id="newEvent" type="button">+ New event</button>
+      </div>
+    </section>
+
+    <section class="event-strip" aria-label="Current event summary">
+      <div><span>Event</span><strong id="summaryName"></strong></div>
+      <div><span>Owner</span><strong id="summaryOwner"></strong></div>
+      <div><span>Service</span><strong id="summaryService"></strong></div>
+      <div><span>Stage</span><strong class="stage-pill" id="summaryStage"></strong></div>
+      <div><span>Readiness</span><strong id="summaryReadiness"></strong></div>
+    </section>
+
+    <nav class="workspace-tabs" aria-label="Event order sections">
+      <button class="active" data-panel="brief" type="button"><span>1</span> Event brief</button>
+      <button data-panel="menu" type="button"><span>2</span> Menu &amp; output</button>
+      <button data-panel="production" type="button"><span>3</span> Production plan</button>
+      <button data-panel="assignments" type="button"><span>4</span> Assignments</button>
+      <button data-panel="publish" type="button"><span>5</span> Review &amp; publish</button>
+    </nav>
+
+    <section class="workspace-shell">
+      <aside class="attention-rail">
+        <p class="eyebrow">Needs attention</p>
+        <div id="attentionList"></div>
+        <div class="rail-note">
+          <strong>Owner controls publication</strong>
+          <p>Collaborators may edit assigned areas. Section teachers monitor their students without changing the controlling order.</p>
+        </div>
+      </aside>
+
+      <div class="panel-stack">
+        <section class="workspace-panel active" data-panel-view="brief">
+          <header class="panel-heading">
+            <div><p class="eyebrow">Customer commitment</p><h2>Event brief</h2></div>
+            <p>Record what the program has promised before building the production system.</p>
+          </header>
+          <form id="briefForm" class="form-grid">
+            <label class="span-2">Event name<input name="name" required /></label>
+            <label>Event type<select name="type"><option>Pop-up</option><option>Catering</option><option>Bakery sale</option><option>Internal service</option><option>Tasting</option></select></label>
+            <label>School<select name="school"><option>Arcadia</option><option>Olympia</option><option>Districtwide</option></select></label>
+            <label>Customer or organization<input name="customer" /></label>
+            <label>Event owner<select name="owner"><option>Jason Carlson</option><option>Kevin McCann</option><option>Linda</option></select></label>
+            <label>Service date<input name="serviceDate" type="date" /></label>
+            <label>Service time<input name="serviceTime" type="time" /></label>
+            <label>Guest / order count<input name="guestCount" type="number" min="1" /></label>
+            <label>Service format<select name="serviceFormat"><option>On-site service</option><option>Customer pickup</option><option>Delivery</option><option>Preorder pickup</option></select></label>
+            <label>Budget or agreed price<input name="budget" placeholder="$0.00" /></label>
+            <label class="span-2">Customer requirements<textarea name="requirements" rows="3"></textarea></label>
+            <label class="span-2">Dietary needs and allergen controls<textarea name="allergens" rows="3"></textarea></label>
+          </form>
+          <div class="panel-actions"><button class="primary-button" data-save="brief" type="button">Save brief</button><button class="next-button" data-next="menu" type="button">Continue to menu →</button></div>
+        </section>
+
+        <section class="workspace-panel" data-panel-view="menu">
+          <header class="panel-heading">
+            <div><p class="eyebrow">Required output</p><h2>Menu &amp; recipe scaling</h2></div>
+            <p>Set the required quantity and approved recipe yield. The Event Order calculates the number of production batches.</p>
+          </header>
+          <div class="table-wrap"><table>
+            <thead><tr><th>Menu item</th><th>Required</th><th>Recipe yield</th><th>Batches</th><th>Portion / package</th><th>Approval</th><th></th></tr></thead>
+            <tbody id="menuRows"></tbody>
+          </table></div>
+          <button class="add-row-button" id="addMenuItem" type="button">+ Add menu item</button>
+          <div class="panel-actions"><button class="primary-button" data-save="menu" type="button">Save menu</button><button class="next-button" data-next="production" type="button">Generate production plan →</button></div>
+        </section>
+
+        <section class="workspace-panel" data-panel-view="production">
+          <header class="panel-heading">
+            <div><p class="eyebrow">System-generated first draft</p><h2>Production plan</h2></div>
+            <p>Review every generated task. The chef remains responsible for the stopping points, timing, storage, handoffs, and quality controls.</p>
+          </header>
+          <div class="production-summary" id="productionSummary"></div>
+          <div class="task-list" id="taskList"></div>
+          <div class="panel-actions"><button class="secondary-button" id="regenerateTasks" type="button">Regenerate from menu</button><button class="primary-button" data-save="production" type="button">Approve production plan</button><button class="next-button" data-next="assignments" type="button">Assign the work →</button></div>
+        </section>
+
+        <section class="workspace-panel" data-panel-view="assignments">
+          <header class="panel-heading">
+            <div><p class="eyebrow">Sections, stations, and handoffs</p><h2>Work assignments</h2></div>
+            <p>Each team receives a focused work packet generated from the same master Event Order.</p>
+          </header>
+          <div id="assignmentBoard" class="assignment-board"></div>
+          <div class="panel-actions"><button class="primary-button" data-save="assignments" type="button">Save assignments</button><button class="next-button" data-next="publish" type="button">Review Event Order →</button></div>
+        </section>
+
+        <section class="workspace-panel" data-panel-view="publish">
+          <header class="panel-heading">
+            <div><p class="eyebrow">Authoritative version</p><h2>Review &amp; publish</h2></div>
+            <p>Publishing creates the dated student instructions. Later changes become a new visible revision.</p>
+          </header>
+          <div class="publish-grid">
+            <article><h3>Master Event Order</h3><div id="masterOrderPreview"></div></article>
+            <article><h3>Student packet preview</h3><label>View as<select id="packetView"></select></label><div id="studentPacketPreview"></div></article>
+          </div>
+          <div class="publish-warning" id="publishWarning"></div>
+          <div class="panel-actions"><button class="secondary-button" id="saveDraft" type="button">Save as draft</button><button class="primary-button" id="publishOrder" type="button">Publish Event Order</button></div>
+        </section>
+      </div>
+    </section>
+  </main>
+
+  <div class="toast" id="toast" role="status" aria-live="polite"></div>
+  <script src="./teacher.js"></script>
+</body>
+</html>
