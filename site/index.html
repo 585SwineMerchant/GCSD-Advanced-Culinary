@@ -26,7 +26,9 @@
       <button class="nav-link" data-view-target="workspace">Event Workspace</button>
       <button class="nav-link" data-view-target="learning">Learning</button>
       <button class="nav-link" data-view-target="recipes">Recipes</button>
-      <button class="nav-link" data-view-target="reference">Quick Reference</button>\n      <a class="nav-link teacher-entry" href="./teacher/">Teacher Command Center</a>
+      <button class="nav-link" data-view-target="reference">Quick Reference</button>
+      <button class="nav-link" data-view-target="operations">Live Event Order</button>
+      <a class="nav-link teacher-entry" href="./teacher/">Teacher Command Center</a>
     </nav>
   </header>
 
@@ -269,6 +271,14 @@
       </section>
     </section>
 
+    <section class="view" data-view-panel="operations">
+      <section class="section-heading operations-heading">
+        <div><p class="eyebrow">Published by your chefs</p><h1>Live Event Order</h1></div>
+        <p>See the customer commitment, your team’s production packet, current handoffs, and the event-wide picture from one authoritative order.</p>
+      </section>
+      <section id="studentOperations" class="student-operations" aria-live="polite"></section>
+    </section>
+
     <section class="view" data-view-panel="reference">
       <div class="page-intro">
         <div><p class="eyebrow">Fast, reusable operating standards</p><h1>Kitchen Quick Reference</h1></div>
@@ -297,5 +307,6 @@
   </footer>
 
   <script src="./app.js"></script>
+  <script src="./operations.js"></script>
 </body>
 </html>
