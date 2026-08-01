@@ -12,7 +12,7 @@
     {
       "binding": "DB",
       "database_name": "gcsd-advanced-culinary",
-      "database_id": "REPLACE_WITH_D1_DATABASE_ID",
+      "database_id": "01664687-4437-4a52-9ea2-07b73fe56fa1",
       "migrations_dir": "migrations"
     }
   ],
