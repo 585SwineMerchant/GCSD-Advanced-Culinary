@@ -342,7 +342,6 @@ function showView(name) {
   window.scrollTo({top: 0, behavior: "smooth"});
   if (name === "today") renderHome();
   if (name === "workspace") renderWorkspace();
-  if (name === "operations" && window.renderStudentOperations) window.renderStudentOperations();
 }
 
 function setCurrentEvent(id) {
