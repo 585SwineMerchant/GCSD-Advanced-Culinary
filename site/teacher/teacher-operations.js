@@ -1,4 +1,3 @@
-const storageKey = "gcsdAdvancedTeacherPrototypeV2";
 const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
 const sections = [
   { id: "adv-p2", name: "Advanced Culinary · Period 2", focus: "Pasta and pastry production" },
@@ -34,17 +33,10 @@ const qa = selector => [...document.querySelectorAll(selector)];
 const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const clone = value => JSON.parse(JSON.stringify(value));
 
-function load() {
-  try {
-    const loaded = JSON.parse(localStorage.getItem(storageKey)) || clone(seed);
-    loaded.requests ||= clone(seed.requests);
-    loaded.events?.forEach(event => event.menu?.forEach(item => item.ingredients ||= []));
-    return loaded;
-  }
-  catch { return clone(seed); }
-}
-
-let state = load();
+let session = null;
+let revision = 0;
+let saveQueue = Promise.resolve();
+let state = clone(seed);
 let currentId = state.events[0].id;
 let liveSection = "all";
 let liveStatus = "all";
@@ -52,10 +44,21 @@ let requestFilter = "open";
 let ingredientMenuIndex = 0;
 
 function current() { return state.events.find(event => event.id === currentId); }
-function save() { localStorage.setItem(storageKey, JSON.stringify(state)); }
-function activeTeacher() { return state.activeTeacher || "Kevin McCann"; }
-function isOwner(event = current()) { return event.owner === activeTeacher(); }
-function canEdit(event = current()) { return isOwner(event) || (event.collaborators || []).includes(activeTeacher()); }
+function setSync(message, kind = "") { const element = q("#syncStatus"); if (element) { element.textContent = message; element.dataset.kind = kind; } }
+function save() {
+  setSync("Saving…", "pending");
+  saveQueue = saveQueue.then(async () => {
+    const response = await fetch("/api/state", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ state, revision }) });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Shared save failed.");
+    revision = result.revision;
+    setSync("Shared · saved", "saved");
+  }).catch(error => { setSync("Save needs attention", "error"); toast(error.message); });
+  return saveQueue;
+}
+function activeTeacher() { return session?.user?.display_name || state.activeTeacher || "Teacher"; }
+function isOwner(event = current()) { return session?.user?.role === "admin" || event.owner === activeTeacher(); }
+function canEdit(event = current()) { return session?.user?.role === "admin" || isOwner(event) || (event.collaborators || []).includes(activeTeacher()); }
 function batches(item) { return item.yield > 0 ? Math.ceil(item.required / item.yield) : 0; }
 function dateLabel(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not scheduled"; }
 function sectionName(id) { return sections.find(section => section.id === id)?.name || "Unassigned"; }
@@ -126,7 +129,7 @@ function readiness(event) {
 function renderSelect() {
   q("#eventSelect").innerHTML = state.events.map(event => `<option value="${esc(event.id)}">${esc(event.name)}</option>`).join("");
   q("#eventSelect").value = currentId;
-  q("#activeTeacher").value = activeTeacher();
+  q("#activeTeacher").innerHTML = `<option>${esc(activeTeacher())}</option>`;
 }
 
 function renderSummary() {
@@ -441,6 +444,7 @@ function showPanel(name) {
   if (name === "menu") renderIngredients();
   if (name === "live") renderLive();
   if (name === "closeout") renderCloseout();
+  if (name === "access") renderUsers();
   window.scrollTo({ top: 260, behavior: "smooth" });
 }
 
@@ -456,7 +460,6 @@ qa('[data-save]').forEach(button => button.addEventListener("click", () => {
   save(); renderAll(); toast(`${button.dataset.save[0].toUpperCase() + button.dataset.save.slice(1)} saved.`);
 }));
 
-q("#activeTeacher").addEventListener("change", event => { state.activeTeacher = event.target.value; save(); renderAll(); toast(`Viewing as ${state.activeTeacher}.`); });
 q("#eventSelect").addEventListener("change", event => { currentId = event.target.value; renderAll(); });
 q("#requestFilter").addEventListener("change", event => { requestFilter = event.target.value; renderRequests(); });
 q("#addSampleRequest").addEventListener("click", () => {
@@ -508,9 +511,64 @@ q("#completeEvent").addEventListener("click", () => {
   current().stage = "Completed"; current().completedAt = new Date().toISOString(); save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
 });
 q("#resetDemo").addEventListener("click", () => {
-  if (!confirm("Reset all prototype events and restore the sample event?")) return;
-  state = clone(seed); currentId = state.events[0].id; requestFilter = "open"; ingredientMenuIndex = 0; save(); renderAll(); showPanel("requests"); toast("Prototype data reset.");
+  initialize(true);
 });
 
-if (!current().tasks.length) generateTasks();
-renderAll();
+async function renderUsers() {
+  const rows = q("#userRows");
+  if (session?.user?.role !== "admin") { rows.innerHTML = '<tr><td colspan="5">Only an administrator can manage accounts.</td></tr>'; return; }
+  const response = await fetch("/api/users");
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) { rows.innerHTML = `<tr><td colspan="5">${esc(result.error || "Accounts could not be loaded.")}</td></tr>`; return; }
+  rows.innerHTML = result.users.map(user => `<tr><td><strong>${esc(user.display_name)}</strong></td><td>${esc(user.email)}</td><td>${esc(user.role)}</td><td>${esc(user.school || "—")}</td><td>${esc(user.section_id ? sectionName(user.section_id) : "—")}</td></tr>`).join("");
+}
+
+q("#userForm").addEventListener("submit", async event => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const response = await fetch("/api/users", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.fromEntries(form)) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return toast(result.error || "Account could not be saved.");
+  event.currentTarget.reset(); await renderUsers(); toast("District account assignment saved.");
+});
+
+async function initialize(force = false) {
+  setSync(force ? "Reloading…" : "Connecting…", "pending");
+  try {
+    const response = await fetch("/api/state", { cache: "no-store" });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result.error || "Teacher data could not be loaded.");
+    session = { user: result.user }; revision = result.revision;
+    const hasEvent = Array.isArray(result.state?.events) && result.state.events.length;
+    state = hasEvent ? result.state : clone(seed);
+    state.activeTeacher = activeTeacher();
+    state.requests ||= [];
+    state.events.forEach(event => event.menu?.forEach(item => item.ingredients ||= []));
+    currentId = state.events[0].id;
+    if (!current().tasks.length) generateTasks();
+    if (!hasEvent) await save();
+    renderAll(); setSync("Shared · current", "saved");
+  } catch (error) {
+    document.querySelector("main").innerHTML = `<section class="command-hero"><div><p class="eyebrow">Secure connection required</p><h1>Teacher Command Center unavailable</h1><p>${esc(error.message)}</p></div></section>`;
+    setSync("Not connected", "error");
+  }
+}
+
+initialize();
+
+async function refreshLiveProduction() {
+  if (!q('[data-panel-view="live"]')?.classList.contains("active") || q("#syncStatus")?.dataset.kind === "pending") return;
+  try {
+    const response = await fetch("/api/state", { cache: "no-store" });
+    const result = await response.json();
+    if (!response.ok || result.revision === revision) return;
+    const selected = currentId;
+    state = result.state; revision = result.revision;
+    currentId = state.events.some(event => event.id === selected) ? selected : state.events[0].id;
+    renderSummary(); renderLive(); renderAttention(); renderCloseout();
+    setSync("Shared · updated", "saved");
+  } catch { setSync("Live refresh delayed", "error"); }
+}
+
+setInterval(refreshLiveProduction, 10000);
+document.addEventListener("visibilitychange", () => { if (!document.hidden) refreshLiveProduction(); });

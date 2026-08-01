@@ -1,5 +1,7 @@
 # GCSD Advanced Culinary Student Field Manual
 
+The integrated Cloudflare build on `agent/integrated-event-operations` adds a secure shared Teacher Command Center and student Live Event Order to the existing field manual. See `docs/cloudflare-production.md` for deployment and access-control requirements.
+
 This repository is the working environment for the Greece Central School District Advanced Culinary student field manual and its digital companion site.
 
 ## Purpose

@@ -16,14 +16,11 @@
     </a>
     <div class="teacher-context">
       <span class="status-dot" aria-hidden="true"></span>
-      <label class="identity-control">Working as
-        <select id="activeTeacher" aria-label="Active teacher">
-          <option>Kevin McCann</option>
-          <option>Jason Carlson</option>
-          <option>Linda</option>
-        </select>
+      <label class="identity-control">Signed in as
+        <select id="activeTeacher" aria-label="Signed-in teacher" disabled><option>Connecting…</option></select>
       </label>
-      <button class="ghost-button" id="resetDemo" type="button">Reset demo</button>
+      <span id="syncStatus" class="sync-status" role="status">Connecting…</span>
+      <button class="ghost-button" id="resetDemo" type="button">Reload shared data</button>
     </div>
   </header>
 
@@ -59,6 +56,7 @@
       <button data-panel="publish" type="button"><span>6</span> Review &amp; publish</button>
       <button data-panel="live" type="button"><span>7</span> Live production</button>
       <button data-panel="closeout" type="button"><span>8</span> Closeout</button>
+      <button data-panel="access" type="button"><span>9</span> Access &amp; rosters</button>
     </nav>
 
     <section class="workspace-shell">
@@ -209,6 +207,21 @@
           </table></div>
           <label class="full-field">Operational notes for the next event<textarea id="operationalNotes" rows="4" placeholder="Document schedule, yield, purchasing, equipment, or workflow facts that should change next time."></textarea></label>
           <div class="panel-actions"><button class="secondary-button" id="saveCloseout" type="button">Save closeout draft</button><button class="primary-button" id="completeEvent" type="button">Complete event</button></div>
+        </section>
+        <section class="workspace-panel" data-panel-view="access">
+          <header class="panel-heading">
+            <div><p class="eyebrow">District accounts and section routing</p><h2>Access &amp; rosters</h2></div>
+            <p>Add approved teachers and students. District sign-in determines which tools and section work packets they can open.</p>
+          </header>
+          <form id="userForm" class="form-grid compact-grid">
+            <label>District email<input name="email" type="email" placeholder="name@greececsd.org" required></label>
+            <label>Display name<input name="displayName" required></label>
+            <label>Role<select name="role"><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Administrator</option></select></label>
+            <label>School<select name="school"><option>Arcadia</option><option>Olympia</option><option>Districtwide</option></select></label>
+            <label>Student section<select name="sectionId"><option value="">Not assigned</option><option value="adv-p2">Advanced Culinary · Period 2</option><option value="adv-p5">Advanced Culinary · Period 5</option><option value="km">Kitchen Management</option></select></label>
+            <div class="panel-actions"><button class="primary-button" type="submit">Add or update account</button></div>
+          </form>
+          <div class="table-wrap"><table><thead><tr><th>Name</th><th>Email</th><th>Role</th><th>School</th><th>Section</th></tr></thead><tbody id="userRows"><tr><td colspan="5">Open this panel to load assigned accounts.</td></tr></tbody></table></div>
         </section>
       </div>
     </section>
