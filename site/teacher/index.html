@@ -16,11 +16,13 @@
     </a>
     <div class="teacher-context">
       <span class="status-dot" aria-hidden="true"></span>
-      <label class="identity-control">Signed in as
-        <select id="activeTeacher" aria-label="Signed-in teacher" disabled><option>Connecting…</option></select>
-      </label>
+      <div class="account-context" aria-label="Signed-in account">
+        <span>Signed in as</span>
+        <strong id="accountName">Connecting…</strong>
+        <small id="accountRole"></small>
+      </div>
       <span id="syncStatus" class="sync-status" role="status">Connecting…</span>
-      <button class="ghost-button" id="resetDemo" type="button">Reload shared data</button>
+      <button class="ghost-button" id="refreshData" type="button">Refresh</button>
     </div>
   </header>
 
@@ -28,8 +30,8 @@
     <section class="command-hero">
       <div>
         <p class="eyebrow">One event · one operational record</p>
-        <h1>Build the promise. Coordinate the work.</h1>
-        <p>Finalize one master Event Order, then publish the right instructions to every section, station, and student.</p>
+        <h1>Coordinate the work. Protect the promise.</h1>
+        <p>Build, publish, and monitor one master Event Order for every section and station.</p>
       </div>
       <div class="hero-controls">
         <label>Working event
@@ -80,7 +82,6 @@
             <label>Show requests<select id="requestFilter"><option value="open">Open requests</option><option value="all">All requests</option><option>New</option><option>Needs clarification</option><option>Accepted</option><option>Declined</option></select></label>
           </div>
           <div id="requestInbox" class="request-inbox"></div>
-          <div class="panel-actions"><button class="secondary-button" id="addSampleRequest" type="button">+ Simulate form submission</button></div>
         </section>
 
         <section class="workspace-panel" data-panel-view="brief">
@@ -177,7 +178,7 @@
             <label>Status<select id="liveStatusFilter"><option value="all">All statuses</option><option>Not started</option><option>In progress</option><option>Blocked</option><option>Ready for handoff</option><option>Complete</option></select></label>
           </div>
           <div class="live-board" id="liveBoard"></div>
-          <div class="panel-actions"><button class="secondary-button" id="simulateUpdate" type="button">Simulate student update</button><button class="next-button" data-next="closeout" type="button">Review event results →</button></div>
+          <div class="panel-actions"><button class="next-button" data-next="closeout" type="button">Review event results →</button></div>
         </section>
 
         <section class="workspace-panel" data-panel-view="closeout">
