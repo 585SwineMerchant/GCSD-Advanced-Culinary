@@ -172,9 +172,12 @@ function renderMenu() {
   </tr>`).join("");
   qa('[data-menu-row]').forEach(row => row.addEventListener("input", () => {
     if (!canEdit()) return;
-    const item = event.menu[Number(row.dataset.menuRow)];
+    const menuIndex = Number(row.dataset.menuRow);
+    const item = event.menu[menuIndex];
     row.querySelectorAll("[data-field]").forEach(field => { item[field.dataset.field] = ["required", "yield"].includes(field.dataset.field) ? Number(field.value) : field.value; });
     row.children[3].querySelector("strong").textContent = batches(item);
+    const recipeOption = q(`#ingredientMenuItem option[value="${menuIndex}"]`);
+    if (recipeOption) recipeOption.textContent = item.name.trim() || "Untitled menu item";
   }));
   qa('[data-remove-menu]').forEach(button => button.addEventListener("click", () => {
     if (!canEdit()) return;
