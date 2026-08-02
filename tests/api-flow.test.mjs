@@ -52,6 +52,17 @@ test("API rejects an unassigned request", async () => {
   assert.equal(response.status, 403);
 });
 
+test("bootstrap administrator is normalized to Kevin McCann", async () => {
+  const db = new FakeDB({ requests: [], events: [event] });
+  db.users.set("kevin@example.test", { email: "kevin@example.test", display_name: "Culinary Administrator", role: "admin", school: "Districtwide", section_id: null });
+  const env = { DB: db, BOOTSTRAP_ADMIN_EMAIL: "kevin@example.test" };
+  const response = await worker.fetch(request("/api/session", "kevin@example.test"), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.user.display_name, "Kevin McCann");
+  assert.equal(body.user.role, "admin");
+});
+
 test("student receives only the assigned section packet", async () => {
   const env = { DB: new FakeDB({ requests: [], events: [event] }) };
   const response = await worker.fetch(request("/api/student/events", "student@district.example"), env);
