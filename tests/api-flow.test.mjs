@@ -66,6 +66,9 @@ test("shared recipe library includes the complete Culinary Arts 1 & 2 source set
   assert.equal(pathwayRecipes.find(recipe => recipe.name === "Cinnamon Rolls").portion, "1 cinnamon roll");
   assert.equal(pathwayRecipes.find(recipe => recipe.name === "Whipped Cream").yield, 2);
   assert.equal(pathwayRecipes.find(recipe => recipe.name === "Whipped Cream").portion, "1 cup finished whipped cream");
+  assert.equal(pathwayRecipes.every(recipe => Array.isArray(recipe.equipment) && recipe.equipment.length > 0), true);
+  assert.ok(body.supplierCatalog.length >= 50);
+  assert.equal(body.supplierCatalog.every(product => product.vendor === "Wegmans" && product.label && product.price > 0 && product.checkedAt), true);
 });
 
 test("student research requires teacher review before entering the recipe library", async () => {
