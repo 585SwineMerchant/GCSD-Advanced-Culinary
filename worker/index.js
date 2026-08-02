@@ -1,4 +1,5 @@
 import { PATHWAY_RECIPES } from "./pathway-recipes.js";
+import { SUPPLIER_CATALOG } from "./supplier-catalog.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
@@ -127,7 +128,7 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/recipes" && request.method === "GET") {
     const row = await getState(env);
     const state = parseState(row);
-    return json({ recipes: recipeLibrary(state), revision: row.revision });
+    return json({ recipes: recipeLibrary(state), supplierCatalog: SUPPLIER_CATALOG, revision: row.revision });
   }
 
   if (url.pathname === "/api/recipe-submissions" && request.method === "POST") {
@@ -182,14 +183,14 @@ async function handleApi(request, env, url) {
       .bind(JSON.stringify(state), user.email, row.revision).run();
     if (!result.meta.changes) return json({ error: "Another update arrived first. Reload and review again." }, 409);
     await audit(env, user, decision === "Approve" ? "approve" : "return", "recipe_submission", submission.id, { name: submission.name });
-    return json({ ok: true, submission, state, recipes: recipeLibrary(state), revision: row.revision + 1 });
+    return json({ ok: true, submission, state, recipes: recipeLibrary(state), supplierCatalog: SUPPLIER_CATALOG, revision: row.revision + 1 });
   }
 
   if (url.pathname === "/api/state" && request.method === "GET") {
     if (!['admin', 'teacher'].includes(user.role)) return json({ error: "Teacher access required." }, 403);
     const row = await getState(env);
     const state = parseState(row);
-    return json({ state, recipes: recipeLibrary(state), revision: row.revision, updatedAt: row.updated_at, user });
+    return json({ state, recipes: recipeLibrary(state), supplierCatalog: SUPPLIER_CATALOG, revision: row.revision, updatedAt: row.updated_at, user });
   }
 
   if (url.pathname === "/api/state" && request.method === "PUT") {
