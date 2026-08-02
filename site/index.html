@@ -228,8 +228,8 @@
       </section>
       <section class="recipe-workspace">
         <div class="workspace-heading">
-          <div><p class="eyebrow">Saved by event on this device</p><h2>Build a menu possibility record</h2></div>
-          <p>This workspace supports research and teacher review. It does not replace the approved standardized recipe or the district submission system.</p>
+          <div><p class="eyebrow">Research → test → teacher approval → shared library</p><h2>Build a production-recipe draft</h2></div>
+          <p>Save work while researching. When the record is complete, submit it to the teacher approval queue; only a teacher-approved version enters the shared recipe library.</p>
         </div>
         <form id="recipeForm">
           <fieldset>
@@ -262,12 +262,27 @@
             <legend><span>4</span> Test and approval</legend>
             <div class="form-grid two">
               <label>Selected possibility<select id="recipeSelection"><option value="">Choose after research</option><option>Possibility 1</option><option>Possibility 2</option><option>Possibility 3</option></select></label>
-              <label>Status<select id="recipeApproval"><option>Researching</option><option>Approved for test</option><option>Revise and retest</option><option>Approved for production</option></select></label>
+              <label>Status<select id="recipeApproval"><option>Researching</option><option>Approved for test</option><option>Revise and retest</option><option>Submitted for teacher review</option><option>Approved for production</option></select></label>
             </div>
             <label>Test results, changes, and approved quality standard<textarea id="recipeTestNotes" rows="4"></textarea></label>
           </fieldset>
+          <fieldset>
+            <legend><span>5</span> Standardized recipe draft</legend>
+            <div class="form-grid three">
+              <label>Recipe title<input id="recipeName" type="text" /></label>
+              <label>Standard yield<input id="recipeYield" type="number" min="1" /></label>
+              <label>Portion / package<input id="recipePortion" type="text" placeholder="1 muffin, 4 oz side, 12 oz entrée" /></label>
+            </div>
+            <div class="form-grid two">
+              <label>Ingredients, one per line<textarea id="recipeIngredients" rows="8" placeholder="Quantity, unit, ingredient, and preparation note"></textarea></label>
+              <label>Procedure, one step per line<textarea id="recipeProcedure" rows="8" placeholder="Write each production step on its own line"></textarea></label>
+              <label>Equipment, one item per line<textarea id="recipeEquipment" rows="4"></textarea></label>
+              <label>Major allergens and controls<textarea id="recipeAllergens" rows="4"></textarea></label>
+            </div>
+          </fieldset>
           <div class="form-actions">
             <button class="button primary" type="submit">Save this event</button>
+            <button class="button secondary" type="button" id="submitRecipeForReview">Submit recipe for teacher review</button>
             <button class="button secondary" type="button" id="copyRecipe">Copy review summary</button>
             <button class="button quiet" type="button" id="clearRecipe">Clear this event</button>
           </div>

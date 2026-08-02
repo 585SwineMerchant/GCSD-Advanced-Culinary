@@ -569,14 +569,14 @@ function renderRecipeWorkspace() {
 }
 function recipeStorage() { try { return JSON.parse(localStorage.getItem("advancedRecipeStudioV3") || "{}"); } catch { return {}; } }
 function collectRecipeData() {
-  const fields = ["recipeOccasion", "recipeCount", "recipeBudget", "recipeService", "recipeTime", "recipeNeeds", "recipeCourseConnection", "recipeSearchTerms", "recipeSelection", "recipeApproval", "recipeTestNotes"];
+  const fields = ["recipeOccasion", "recipeCount", "recipeBudget", "recipeService", "recipeTime", "recipeNeeds", "recipeCourseConnection", "recipeSearchTerms", "recipeSelection", "recipeApproval", "recipeTestNotes", "recipeName", "recipeYield", "recipePortion", "recipeIngredients", "recipeEquipment", "recipeProcedure", "recipeAllergens"];
   const data = Object.fromEntries(fields.map(id => [id, $("#" + id).value]));
   data.techniques = $$("[data-technique]").filter(box => box.checked).map(box => box.dataset.technique);
   data.candidates = {}; $$("[data-candidate]").forEach(field => data.candidates[field.dataset.candidate] = field.value);
   return data;
 }
 function fillRecipeData(data = {}) {
-  ["recipeOccasion", "recipeCount", "recipeBudget", "recipeService", "recipeTime", "recipeNeeds", "recipeCourseConnection", "recipeSearchTerms", "recipeSelection", "recipeTestNotes"].forEach(id => $("#" + id).value = data[id] || "");
+  ["recipeOccasion", "recipeCount", "recipeBudget", "recipeService", "recipeTime", "recipeNeeds", "recipeCourseConnection", "recipeSearchTerms", "recipeSelection", "recipeTestNotes", "recipeName", "recipeYield", "recipePortion", "recipeIngredients", "recipeEquipment", "recipeProcedure", "recipeAllergens"].forEach(id => $("#" + id).value = data[id] || "");
   $("#recipeApproval").value = data.recipeApproval || "Researching";
   $$("[data-technique]").forEach(box => box.checked = (data.techniques || []).includes(box.dataset.technique));
   $$("[data-candidate]").forEach(field => field.value = (data.candidates || {})[field.dataset.candidate] || "");
@@ -611,7 +611,16 @@ ${possibilities}
 TEST AND APPROVAL
 Selection: ${data.recipeSelection || "Not selected"}
 Status: ${data.recipeApproval || "Researching"}
-Test / revision / quality notes: ${data.recipeTestNotes || "Not entered"}`;
+Test / revision / quality notes: ${data.recipeTestNotes || "Not entered"}
+
+STANDARDIZED RECIPE DRAFT
+Recipe: ${data.recipeName || "Not entered"}
+Yield: ${data.recipeYield || "Not entered"}
+Portion / package: ${data.recipePortion || "Not entered"}
+Ingredients:\n${data.recipeIngredients || "Not entered"}
+Equipment:\n${data.recipeEquipment || "Not entered"}
+Procedure:\n${data.recipeProcedure || "Not entered"}
+Allergens and controls: ${data.recipeAllergens || "Not entered"}`;
 }
 function updateRecipeSummary() { $("#recipeSummary").textContent = recipeSummaryText(); }
 async function copyText(text, target) {
@@ -628,6 +637,21 @@ function bindRecipeEvents() {
     localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store)); $("#recipeMessage").textContent = "Saved on this device for this event."; updateRecipeSummary();
   });
   $("#copyRecipe").addEventListener("click", () => copyText(recipeSummaryText(), $("#recipeMessage")));
+  $("#submitRecipeForReview").addEventListener("click", async () => {
+    const data = collectRecipeData();
+    const sources = [1, 2, 3].map(number => [data.candidates[`${number}-0`], data.candidates[`${number}-1`]].filter(Boolean).join(": ")).filter(Boolean);
+    const response = await fetch("/api/recipe-submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      name: data.recipeName, yield: data.recipeYield, portion: data.recipePortion,
+      ingredients: data.recipeIngredients, equipment: data.recipeEquipment, procedure: data.recipeProcedure,
+      allergens: data.recipeAllergens || data.recipeNeeds, sourceNotes: sources.join("\n"), testNotes: data.recipeTestNotes
+    }) });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) { $("#recipeMessage").textContent = result.error || "Recipe could not be submitted."; return; }
+    data.recipeApproval = "Submitted for teacher review";
+    $("#recipeApproval").value = data.recipeApproval;
+    const store = recipeStorage(); store[$("#recipeExperience").value] = data; localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store));
+    $("#recipeMessage").textContent = "Submitted to the teacher recipe approval queue."; updateRecipeSummary();
+  });
   $("#clearRecipe").addEventListener("click", () => {
     if (!window.confirm("Clear the Recipe Studio work saved for this event?")) return;
     const store = recipeStorage(); delete store[$("#recipeExperience").value]; localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store)); fillRecipeData({}); $("#recipeMessage").textContent = "This event was cleared.";

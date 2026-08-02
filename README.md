@@ -25,6 +25,8 @@ Advanced Culinary does not depend on one fixed recipe collection. A client or pr
 
 The site includes a browser-based Recipe Studio for practicing this process. Work is saved separately for each experience on the local device and does not replace approved standardized recipes or official course records.
 
+The integrated teacher backend also carries the full current Culinary Arts 1 & 2 recipe-book index forward as the pathway's starting library. Teachers select a recipe before entering an Event Order quantity; the application copies the selected version into the event so later recipe revisions cannot silently change published work. Legacy records without a verified yield or portion remain visible but are flagged for teacher standardization rather than receiving invented production values. Student research enters a teacher-review queue and joins the shared library only after approval.
+
 ## Student Site Structure
 
 - **Home** — the student's orientation point: current event, current phase, progress, next action, prior-event management briefing, and the six-event year at a glance

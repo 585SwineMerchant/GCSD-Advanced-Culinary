@@ -41,6 +41,8 @@ let liveSection = "all";
 let liveStatus = "all";
 let requestFilter = "open";
 let ingredientMenuIndex = 0;
+let recipeLibrary = [];
+let recipeSearch = "";
 
 function current() { return state.events.find(event => event.id === currentId); }
 function setSync(message, kind = "") { const element = q("#syncStatus"); if (element) { element.textContent = message; element.dataset.kind = kind; } }
@@ -59,6 +61,49 @@ function activeTeacher() { return session?.user?.display_name || "Teacher"; }
 function isOwner(event = current()) { return session?.user?.role === "admin" || event.owner === activeTeacher(); }
 function canEdit(event = current()) { return session?.user?.role === "admin" || isOwner(event) || (event.collaborators || []).includes(activeTeacher()); }
 function batches(item) { return item.yield > 0 ? Math.ceil(item.required / item.yield) : 0; }
+
+const fractionValues = { "¼": .25, "½": .5, "¾": .75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": .125, "⅜": .375, "⅝": .625, "⅞": .875 };
+const unitAliases = new Map(Object.entries({ g: "g", gram: "g", grams: "g", kg: "kg", oz: "oz", ounce: "oz", ounces: "oz", lb: "lb", lbs: "lb", pound: "lb", pounds: "lb", tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", t: "tsp", tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", cup: "cup", cups: "cup", c: "cup", ml: "ml", l: "L", each: "each", cloves: "each", clove: "each" }));
+function numericAmount(token) {
+  const value = String(token || "").trim();
+  if (!value) return 0;
+  if (fractionValues[value]) return fractionValues[value];
+  const mixed = value.match(/^(\d+)\s*([¼½¾⅓⅔⅛⅜⅝⅞])$/);
+  if (mixed) return Number(mixed[1]) + fractionValues[mixed[2]];
+  const slash = value.match(/^(\d+)\/(\d+)$/);
+  if (slash) return Number(slash[1]) / Number(slash[2]);
+  return Number(value.replace(/,/g, "")) || 0;
+}
+function ingredientRecord(line) {
+  const raw = String(line || "").trim();
+  if (!raw || /:$/.test(raw)) return { name: raw, quantity: 0, unit: "", packSize: 0, packPrice: 0, sourceText: raw, heading: true };
+  const compact = raw.replace(/^[-•]\s*/, "");
+  const match = compact.match(/^(\d+(?:\.\d+)?|\d+\/\d+|\d+\s*[¼½¾⅓⅔⅛⅜⅝⅞]|[¼½¾⅓⅔⅛⅜⅝⅞])\s*(g|grams?|kg|oz|ounces?|lbs?|pounds?|tsp|teaspoons?|tbsp|tablespoons?|cups?|c\b|ml|l\b|each|cloves?)?\s*(.*)$/i);
+  if (!match) return { name: compact, quantity: 0, unit: "", packSize: 0, packPrice: 0, sourceText: raw };
+  const quantity = numericAmount(match[1]);
+  const unit = unitAliases.get(String(match[2] || "each").toLowerCase()) || String(match[2] || "each");
+  return { name: (match[3] || compact).trim(), quantity, unit, packSize: 0, packPrice: 0, sourceText: raw };
+}
+function inferredAllergens(recipe) {
+  const text = (recipe.ingredients || []).join(" ").toLowerCase();
+  const rules = [["Milk", /milk|butter|cream|cheese|yogurt/], ["Egg", /\begg/], ["Wheat", /flour|wheat|bread|cookie/], ["Soy", /\bsoy\b/], ["Sesame", /sesame|tahini/], ["Peanut", /peanut/], ["Tree nuts", /almond|walnut|pecan|cashew|pistachio/], ["Fish", /anchovy|fish/], ["Shellfish", /shrimp|crab|lobster/]];
+  return rules.filter(([, pattern]) => pattern.test(text)).map(([name]) => name).join(", ");
+}
+function recipeSnapshot(recipe, required) {
+  const standardYield = Number(recipe.yield || 0);
+  const ingredientLines = clone(recipe.ingredients || []);
+  return {
+    recipeId: recipe.id, recipeVersion: Number(recipe.version || 1), name: recipe.name,
+    required: Number(required || 1), yield: standardYield, portion: recipe.portion || "",
+    status: standardYield > 0 && recipe.portion ? "Approved" : "Review",
+    approvalStatus: recipe.approvalStatus, sourceCourse: recipe.course, sourceUnit: recipe.unit,
+    source: recipe.source, needsStandardization: !(standardYield > 0 && recipe.portion),
+    rawIngredientLines: ingredientLines,
+    ingredients: ingredientLines.map(item => typeof item === "string" ? ingredientRecord(item) : clone(item)).filter(item => !item.heading),
+    equipment: clone(recipe.equipment || []), procedure: clone(recipe.procedure || []),
+    allergens: recipe.allergens || inferredAllergens(recipe), recipeSnapshotAt: new Date().toISOString()
+  };
+}
 function dateLabel(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not scheduled"; }
 function sectionName(id) { return sections.find(section => section.id === id)?.name || "Unassigned"; }
 function taskProgress(task) {
@@ -158,11 +203,46 @@ function collectBrief() {
   event.stage = event.stage === "Published" ? "Revised draft" : "Planning";
 }
 
+function filteredRecipes() {
+  const query = recipeSearch.trim().toLowerCase();
+  return recipeLibrary.filter(recipe => !query || [recipe.name, recipe.course, `unit ${recipe.unit || ""}`].some(value => String(value).toLowerCase().includes(query)));
+}
+
+function renderRecipeLibrary() {
+  const select = q("#recipeLibrarySelect");
+  const visible = filteredRecipes();
+  const previous = select.value;
+  select.innerHTML = visible.length ? visible.map(recipe => `<option value="${esc(recipe.id)}">${esc(recipe.name)} · ${esc(recipe.course)}${recipe.unit ? ` · Unit ${recipe.unit}` : ""}</option>`).join("") : '<option value="">No matching recipes</option>';
+  if (visible.some(recipe => recipe.id === previous)) select.value = previous;
+  q("#recipeLibraryCount").textContent = `${recipeLibrary.length} recipes · ${recipeLibrary.filter(recipe => recipe.course === "Culinary Arts 1 & 2").length} from Culinary Arts 1 & 2`;
+  const recipe = recipeLibrary.find(item => item.id === select.value) || visible[0];
+  if (!recipe) { q("#recipeLibraryDetail").innerHTML = '<div class="recipe-warning">No recipes match this search.</div>'; return; }
+  const ready = Number(recipe.yield || 0) > 0 && recipe.portion;
+  q("#recipeLibraryDetail").innerHTML = `<div><span>Course</span><strong>${esc(recipe.course)}</strong></div><div><span>Curriculum location</span><strong>${recipe.unit ? `Unit ${recipe.unit}` : "Teacher-approved addition"}</strong></div><div><span>Version</span><strong>v${Number(recipe.version || 1)}</strong></div><div><span>Status</span><strong>${esc(ready ? "Production ready" : recipe.approvalStatus || "Review")}</strong></div><div><span>Ingredients</span><strong>${(recipe.ingredients || []).filter(line => !String(typeof line === "string" ? line : line.name).endsWith(":" )).length}</strong></div><div><span>Procedure</span><strong>${(recipe.procedure || []).length} steps</strong></div><div><span>Equipment</span><strong>${(recipe.equipment || []).length || "Not yet indexed"}</strong></div><div><span>Allergens</span><strong>${esc(recipe.allergens || inferredAllergens(recipe) || "Teacher verification required")}</strong></div>${ready ? "" : '<div class="recipe-warning"><strong>Pathway recipe preserved; standardization required.</strong> Confirm its standard yield, portion, purchasing units, and allergen controls before publication. The app will not invent missing production data.</div>'}`;
+}
+
+function renderRecipeSubmissions() {
+  const submissions = state.recipeSubmissions || [];
+  const awaiting = submissions.filter(item => item.status === "Awaiting review");
+  q("#recipeSubmissionCount").textContent = `${awaiting.length} awaiting review`;
+  q("#recipeSubmissionList").innerHTML = awaiting.length ? awaiting.map(item => `<article class="recipe-submission-card" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)}</h4><div class="recipe-submission-meta">Submitted by ${esc(item.submittedBy)} · ${item.yield || "Yield not confirmed"} · ${esc(item.portion || "Portion not confirmed")} · ${(item.ingredients || []).length} ingredients</div><p>${esc(item.sourceNotes || item.testNotes || "No research note supplied.")}</p><div class="recipe-submission-actions"><label>Teacher review note<input data-review-note placeholder="Required corrections or approval note"></label><button class="secondary-button" data-return-recipe type="button">Return for revision</button><button class="primary-button" data-approve-recipe type="button">Approve recipe</button></div></article>`).join("") : '<div class="empty-state"><strong>No student recipes are waiting.</strong><p>New Recipe Studio submissions will appear here.</p></div>';
+  qa("[data-return-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Return for revision")));
+  qa("[data-approve-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Approve")));
+}
+
+async function reviewRecipe(card, decision) {
+  const response = await fetch(`/api/recipe-submissions/${encodeURIComponent(card.dataset.submission)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision, note: card.querySelector("[data-review-note]").value }) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return toast(result.error || "Recipe review could not be saved.");
+  revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; state = result.state || state;
+  renderRecipeLibrary(); renderRecipeSubmissions(); toast(decision === "Approve" ? "Recipe approved and added to the shared library." : "Recipe returned to the student for revision.");
+}
+
 function renderMenu() {
   const event = current();
   event.menu.forEach(item => item.ingredients ||= []);
   q("#menuRows").innerHTML = event.menu.map((item, index) => `<tr data-menu-row="${index}">
-    <td><input data-field="name" value="${esc(item.name)}"></td>
+    <td><input data-field="name" value="${esc(item.name)}"><small class="menu-source">${item.recipeId ? `${esc(item.sourceCourse || "Recipe library")} · v${Number(item.recipeVersion || 1)}` : "New recipe draft"}</small>${item.needsStandardization ? '<small class="menu-standardization">Standardization required</small>' : ""}</td>
     <td><input data-field="required" type="number" min="1" value="${item.required || ""}"></td>
     <td><input data-field="yield" type="number" min="1" value="${item.yield || ""}"></td>
     <td><strong>${batches(item)}</strong></td>
@@ -207,6 +287,9 @@ function renderIngredients() {
   q("#addIngredient").disabled = !canEdit();
   const item = event.menu[ingredientMenuIndex];
   item.ingredients ||= [];
+  q("#ingredientNote").textContent = item.recipeId
+    ? `${item.name} is an Event Order snapshot of ${item.sourceCourse || "the shared recipe library"} version ${Number(item.recipeVersion || 1)}.${item.needsStandardization ? " Confirm its standard yield, portion, purchasing units, and allergens before approval." : " Later library revisions will not silently change this event."}`
+    : "This is a new recipe draft. Complete and approve it before publication; use the shared library whenever a suitable recipe already exists.";
   q("#ingredientRows").innerHTML = item.ingredients.length ? item.ingredients.map((ingredient, index) => {
     const scaled = scaledIngredient(ingredient, item);
     return `<tr data-ingredient="${index}"><td><input data-ingredient-field="name" value="${esc(ingredient.name)}"></td><td><input data-ingredient-field="quantity" type="number" min="0" step="0.01" value="${Number(ingredient.quantity || 0)}"></td><td><input data-ingredient-field="unit" value="${esc(ingredient.unit)}" placeholder="lb, oz, each"></td><td><input data-ingredient-field="packSize" type="number" min="0" step="0.01" value="${Number(ingredient.packSize || 0)}"></td><td><input data-ingredient-field="packPrice" type="number" min="0" step="0.01" value="${Number(ingredient.packPrice || 0)}"></td><td><strong>${scaled.need.toFixed(2)} ${esc(ingredient.unit)}</strong></td><td><strong>${scaled.packs} pack${scaled.packs === 1 ? "" : "s"}</strong></td><td><button class="icon-button" data-remove-ingredient="${index}" aria-label="Remove ${esc(ingredient.name)}" type="button">×</button></td></tr>`;
@@ -436,7 +519,7 @@ function applyPermissions() {
 }
 
 function renderAll() {
-  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderMenu(); renderIngredients(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); applyPermissions();
+  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); applyPermissions();
 }
 
 function showPanel(name) {
@@ -465,7 +548,17 @@ qa('[data-save]').forEach(button => button.addEventListener("click", () => {
 
 q("#eventSelect").addEventListener("change", event => { currentId = event.target.value; renderAll(); });
 q("#requestFilter").addEventListener("change", event => { requestFilter = event.target.value; renderRequests(); });
-q("#addMenuItem").addEventListener("click", () => { if (canEdit()) { current().menu.push({ name: "New menu item", required: 1, yield: 1, portion: "", status: "Researching", ingredients: [] }); ingredientMenuIndex = current().menu.length - 1; save(); renderAll(); } });
+q("#recipeLibrarySearch").addEventListener("input", event => { recipeSearch = event.target.value; renderRecipeLibrary(); });
+q("#recipeLibrarySelect").addEventListener("change", renderRecipeLibrary);
+q("#addRecipeToMenu").addEventListener("click", () => {
+  if (!canEdit()) return;
+  const recipe = recipeLibrary.find(item => item.id === q("#recipeLibrarySelect").value);
+  const required = Number(q("#recipeRequiredQuantity").value || 0);
+  if (!recipe || required < 1) return toast("Choose a recipe and enter the event quantity required.");
+  current().menu.push(recipeSnapshot(recipe, required)); ingredientMenuIndex = current().menu.length - 1;
+  save(); renderAll(); toast(`${recipe.name} added from the shared recipe library.`);
+});
+q("#addMenuItem").addEventListener("click", () => { if (canEdit()) { current().menu.push({ name: "New recipe draft", required: 1, yield: 0, portion: "", status: "Researching", ingredients: [], equipment: [], procedure: [], allergens: "", needsStandardization: true }); ingredientMenuIndex = current().menu.length - 1; save(); renderAll(); } });
 q("#ingredientMenuItem").addEventListener("change", event => { ingredientMenuIndex = Number(event.target.value); renderIngredients(); });
 q("#addIngredient").addEventListener("click", () => {
   if (!canEdit() || !current().menu[ingredientMenuIndex]) return;
@@ -525,11 +618,13 @@ async function initialize(force = false) {
     const response = await fetch("/api/state", { cache: "no-store" });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Teacher data could not be loaded.");
-    session = { user: result.user }; revision = result.revision;
+    session = { user: result.user }; revision = result.revision; recipeLibrary = result.recipes || [];
     const hasEvent = Array.isArray(result.state?.events) && result.state.events.length;
     state = hasEvent ? result.state : clone(seed);
     delete state.activeTeacher;
     state.requests ||= [];
+    state.recipeSubmissions ||= [];
+    state.approvedRecipes ||= [];
     state.events.forEach(event => event.menu?.forEach(item => item.ingredients ||= []));
     currentId = state.events[0].id;
     if (!current().tasks.length) generateTasks();
@@ -550,7 +645,7 @@ async function refreshLiveProduction() {
     const result = await response.json();
     if (!response.ok || result.revision === revision) return;
     const selected = currentId;
-    state = result.state; revision = result.revision;
+    state = result.state; revision = result.revision; recipeLibrary = result.recipes || recipeLibrary;
     currentId = state.events.some(event => event.id === selected) ? selected : state.events[0].id;
     renderSummary(); renderLive(); renderAttention(); renderCloseout();
     setSync("Shared · updated", "saved");

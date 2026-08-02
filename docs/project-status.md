@@ -27,6 +27,9 @@
 - Event request inbox modeled for future Google Form submissions
 - Request decision history with clarification, decline, and acceptance into a private Event Order draft
 - Approved-recipe ingredient records, batch scaling, consolidated purchasing quantities, and estimated cost
+- Shared recipe library seeded from all 37 current Culinary Arts 1 & 2 recipe-book records
+- Recipe-first Event Order entry with versioned snapshots and explicit standardization flags where the source does not yet provide a verified yield or portion
+- Student recipe research submission, teacher return/approval, and automatic addition of approved versions to the shared library
 
 ## Department Review Required
 

@@ -1,3 +1,5 @@
+import { PATHWAY_RECIPES } from "./pathway-recipes.js";
+
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
 
@@ -27,8 +29,55 @@ async function currentUser(request, env) {
 }
 
 function parseState(row) {
-  try { return JSON.parse(row.state_json); }
-  catch { return { requests: [], events: [] }; }
+  try { return normalizeState(JSON.parse(row.state_json)); }
+  catch { return normalizeState({}); }
+}
+
+function normalizeState(state = {}) {
+  state.requests ||= [];
+  state.events ||= [];
+  state.recipeSubmissions ||= [];
+  state.approvedRecipes ||= [];
+  return state;
+}
+
+function recipeLibrary(state) {
+  const revisions = new Map(PATHWAY_RECIPES.map(recipe => [recipe.id, recipe]));
+  for (const recipe of state.approvedRecipes || []) revisions.set(recipe.id, recipe);
+  return [...revisions.values()].sort((a, b) => a.name.localeCompare(b.name));
+}
+
+function safeLines(value, limit = 120) {
+  const lines = Array.isArray(value) ? value : String(value || "").split(/\r?\n/);
+  return lines.map(line => String(line).trim()).filter(Boolean).slice(0, limit);
+}
+
+function submissionRecord(body, user) {
+  const name = String(body?.name || "").trim().slice(0, 160);
+  if (!name) return null;
+  const numericYield = Number(body?.yield || 0);
+  return {
+    id: `submission-${crypto.randomUUID()}`,
+    name,
+    course: "Advanced Culinary student research",
+    unit: null,
+    version: 0,
+    status: "Awaiting review",
+    yield: numericYield > 0 ? numericYield : null,
+    portion: String(body?.portion || "").trim().slice(0, 160),
+    ingredients: safeLines(body?.ingredients),
+    equipment: safeLines(body?.equipment, 50),
+    procedure: safeLines(body?.procedure),
+    allergens: String(body?.allergens || "").trim().slice(0, 800),
+    sourceNotes: String(body?.sourceNotes || "").trim().slice(0, 2000),
+    testNotes: String(body?.testNotes || "").trim().slice(0, 2000),
+    submittedBy: user.display_name,
+    submittedByEmail: user.email,
+    submittedAt: new Date().toISOString(),
+    reviewedBy: null,
+    reviewedAt: null,
+    reviewNote: ""
+  };
 }
 
 function eventMap(state) {
@@ -75,10 +124,72 @@ async function handleApi(request, env, url) {
 
   if (url.pathname === "/api/session" && request.method === "GET") return json({ user });
 
+  if (url.pathname === "/api/recipes" && request.method === "GET") {
+    const row = await getState(env);
+    const state = parseState(row);
+    return json({ recipes: recipeLibrary(state), revision: row.revision });
+  }
+
+  if (url.pathname === "/api/recipe-submissions" && request.method === "POST") {
+    const body = await request.json().catch(() => null);
+    const submission = submissionRecord(body, user);
+    if (!submission || !submission.ingredients.length || !submission.procedure.length) {
+      return json({ error: "A recipe title, ingredient list, and procedure are required." }, 400);
+    }
+    const row = await getState(env);
+    const state = parseState(row);
+    state.recipeSubmissions.push(submission);
+    const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
+      .bind(JSON.stringify(state), user.email, row.revision).run();
+    if (!result.meta.changes) return json({ error: "Another update arrived first. Please submit again." }, 409);
+    await audit(env, user, "submit", "recipe_submission", submission.id, { name: submission.name });
+    return json({ ok: true, submission, revision: row.revision + 1 }, 201);
+  }
+
+  const recipeReviewMatch = url.pathname.match(/^\/api\/recipe-submissions\/([^/]+)$/);
+  if (recipeReviewMatch && request.method === "PATCH") {
+    if (!['admin', 'teacher'].includes(user.role)) return json({ error: "Teacher access required." }, 403);
+    const body = await request.json().catch(() => null);
+    const decision = String(body?.decision || "");
+    if (!["Approve", "Return for revision"].includes(decision)) return json({ error: "Choose a valid review decision." }, 400);
+    const row = await getState(env);
+    const state = parseState(row);
+    const submission = state.recipeSubmissions.find(item => item.id === decodeURIComponent(recipeReviewMatch[1]));
+    if (!submission) return json({ error: "Recipe submission not found." }, 404);
+    submission.status = decision === "Approve" ? "Approved" : "Returned for revision";
+    submission.reviewedBy = user.display_name;
+    submission.reviewedAt = new Date().toISOString();
+    submission.reviewNote = String(body?.note || "").trim().slice(0, 1000);
+    if (decision === "Approve") {
+      const numericYield = Number(submission.yield || 0);
+      if (!(numericYield > 0) || !submission.portion) return json({ error: "Confirm a standard yield and portion before approval." }, 400);
+      const recipeId = `approved-${submission.id.replace(/^submission-/, "")}`;
+      const existing = state.approvedRecipes.find(item => item.id === recipeId);
+      const version = existing ? Number(existing.version || 1) + 1 : 1;
+      const approved = {
+        id: recipeId, name: submission.name, sourceName: submission.name, course: submission.course,
+        unit: submission.unit, version, approvalStatus: "Approved for production", yield: numericYield,
+        portion: submission.portion, ingredients: submission.ingredients, equipment: submission.equipment,
+        procedure: submission.procedure, allergens: submission.allergens, source: "Student research · teacher approved",
+        sourceNotes: submission.sourceNotes, approvedBy: user.display_name, approvedAt: submission.reviewedAt
+      };
+      const index = state.approvedRecipes.findIndex(item => item.id === recipeId);
+      if (index >= 0) state.approvedRecipes[index] = approved; else state.approvedRecipes.push(approved);
+      submission.approvedRecipeId = recipeId;
+      submission.approvedVersion = version;
+    }
+    const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
+      .bind(JSON.stringify(state), user.email, row.revision).run();
+    if (!result.meta.changes) return json({ error: "Another update arrived first. Reload and review again." }, 409);
+    await audit(env, user, decision === "Approve" ? "approve" : "return", "recipe_submission", submission.id, { name: submission.name });
+    return json({ ok: true, submission, state, recipes: recipeLibrary(state), revision: row.revision + 1 });
+  }
+
   if (url.pathname === "/api/state" && request.method === "GET") {
     if (!['admin', 'teacher'].includes(user.role)) return json({ error: "Teacher access required." }, 403);
     const row = await getState(env);
-    return json({ state: parseState(row), revision: row.revision, updatedAt: row.updated_at, user });
+    const state = parseState(row);
+    return json({ state, recipes: recipeLibrary(state), revision: row.revision, updatedAt: row.updated_at, user });
   }
 
   if (url.pathname === "/api/state" && request.method === "PUT") {

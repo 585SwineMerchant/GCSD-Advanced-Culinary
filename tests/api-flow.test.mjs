@@ -52,6 +52,37 @@ test("API rejects an unassigned request", async () => {
   assert.equal(response.status, 403);
 });
 
+test("shared recipe library includes the complete Culinary Arts 1 & 2 source set", async () => {
+  const env = { DB: new FakeDB({ requests: [], events: [] }) };
+  const response = await worker.fetch(request("/api/recipes", "student@district.example"), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.recipes.filter(recipe => recipe.course === "Culinary Arts 1 & 2").length, 37);
+  assert.ok(body.recipes.some(recipe => recipe.name === "Rosemary Focaccia"));
+  assert.ok(body.recipes.some(recipe => recipe.name === "Crème Brûlée"));
+});
+
+test("student research requires teacher review before entering the recipe library", async () => {
+  const db = new FakeDB({ requests: [], events: [] });
+  const env = { DB: db };
+  const submitted = await worker.fetch(request("/api/recipe-submissions", "student@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      name: "Student Soup", yield: 8, portion: "8 oz bowl", ingredients: "2 lb squash\n1 qt stock",
+      equipment: "Stockpot", procedure: "Roast squash\nSimmer with stock", allergens: "None identified"
+    })
+  }), env);
+  assert.equal(submitted.status, 201);
+  const submission = await submitted.json();
+  let library = await (await worker.fetch(request("/api/recipes", "student@district.example"), env)).json();
+  assert.equal(library.recipes.some(recipe => recipe.name === "Student Soup"), false);
+  const approved = await worker.fetch(request(`/api/recipe-submissions/${submission.submission.id}`, "admin@district.example", {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "Approve", note: "Standardized for production." })
+  }), env);
+  assert.equal(approved.status, 200);
+  library = await (await worker.fetch(request("/api/recipes", "student@district.example"), env)).json();
+  assert.equal(library.recipes.find(recipe => recipe.name === "Student Soup").approvalStatus, "Approved for production");
+});
+
 test("bootstrap administrator is normalized to Kevin McCann", async () => {
   const db = new FakeDB({ requests: [], events: [event] });
   db.users.set("kevin@example.test", { email: "kevin@example.test", display_name: "Culinary Administrator", role: "admin", school: "Districtwide", section_id: null });

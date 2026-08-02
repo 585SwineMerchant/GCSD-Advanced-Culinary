@@ -109,19 +109,32 @@
         <section class="workspace-panel" data-panel-view="menu">
           <header class="panel-heading">
             <div><p class="eyebrow">Required output</p><h2>Menu &amp; recipe scaling</h2></div>
-            <p>Set the required quantity and approved recipe yield. The Event Order calculates the number of production batches.</p>
+            <p>Select a pathway or teacher-approved recipe, enter the event quantity, and let the Event Order carry the recipe forward as a protected versioned snapshot.</p>
           </header>
+          <section class="recipe-library" aria-labelledby="recipeLibraryTitle">
+            <header class="subheading">
+              <div><p class="eyebrow">Shared pathway resource</p><h3 id="recipeLibraryTitle">Recipe library &amp; index</h3></div>
+              <strong id="recipeLibraryCount">Loading recipes…</strong>
+            </header>
+            <div class="recipe-picker-grid">
+              <label class="span-2">Find a recipe<input id="recipeLibrarySearch" type="search" placeholder="Search by recipe, course, or unit"></label>
+              <label class="span-2">Approved or pathway recipe<select id="recipeLibrarySelect"></select></label>
+              <label>Event quantity required<input id="recipeRequiredQuantity" type="number" min="1" value="1"></label>
+              <button class="primary-button recipe-add-button" id="addRecipeToMenu" type="button">Add recipe to Event Order</button>
+            </div>
+            <div class="recipe-library-detail" id="recipeLibraryDetail"></div>
+          </section>
           <div class="table-wrap"><table>
             <thead><tr><th>Menu item</th><th>Required</th><th>Recipe yield</th><th>Batches</th><th>Portion / package</th><th>Approval</th><th></th></tr></thead>
             <tbody id="menuRows"></tbody>
           </table></div>
-          <button class="add-row-button" id="addMenuItem" type="button">+ Add menu item</button>
+          <button class="add-row-button" id="addMenuItem" type="button">+ Create a genuinely new recipe</button>
           <section class="ingredient-workspace" aria-labelledby="ingredientTitle">
             <header>
               <div><p class="eyebrow">Approved recipe detail</p><h3 id="ingredientTitle">Ingredients &amp; purchasing forecast</h3></div>
               <label>Recipe<select id="ingredientMenuItem"></select></label>
             </header>
-            <p class="section-note">Enter one approved recipe batch. The system scales it by the Event Order batch count and consolidates purchasing across the menu.</p>
+            <p class="section-note" id="ingredientNote">Recipe data is copied into this Event Order as a versioned snapshot. Confirm legacy pathway recipes that still need a standard yield or normalized purchasing units.</p>
             <div class="table-wrap"><table class="ingredient-table">
               <thead><tr><th>Ingredient</th><th>Per batch</th><th>Unit</th><th>Purchase pack</th><th>Pack price</th><th>Scaled need</th><th>Buy</th><th></th></tr></thead>
               <tbody id="ingredientRows"></tbody>
@@ -131,6 +144,11 @@
               <div class="subheading"><div><p class="eyebrow">All menu items combined</p><h3>Purchasing forecast</h3></div><strong id="estimatedPurchaseCost"></strong></div>
               <div class="table-wrap"><table><thead><tr><th>Ingredient</th><th>Total need</th><th>Purchase packs</th><th>Estimated cost</th><th>Used by</th></tr></thead><tbody id="purchasingRows"></tbody></table></div>
             </div>
+          </section>
+          <section class="recipe-review" aria-labelledby="recipeReviewTitle">
+            <header class="subheading"><div><p class="eyebrow">Student research workflow</p><h3 id="recipeReviewTitle">Recipe approval queue</h3></div><strong id="recipeSubmissionCount"></strong></header>
+            <p class="section-note">Student research remains a draft until a teacher confirms yield, portion, ingredients, procedure, equipment, allergens, and production suitability.</p>
+            <div id="recipeSubmissionList" class="recipe-submission-list"></div>
           </section>
           <div class="panel-actions"><button class="primary-button" data-save="menu" type="button">Save menu</button><button class="next-button" data-next="production" type="button">Generate production plan →</button></div>
         </section>
