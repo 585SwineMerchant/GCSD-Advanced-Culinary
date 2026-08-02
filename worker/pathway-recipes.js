@@ -1076,3 +1076,42 @@ export const PATHWAY_RECIPES = [
     "sourceRepository": "585SwineMerchant/GCSD-Culinary-1-2-Field-Manual"
   }
 ];
+
+// Equipment is indexed separately from consumable purchasing data so the same
+// Event Order can expose shared-capacity conflicts and station setup needs.
+const EQUIPMENT_BY_RECIPE = {
+  "Pie Dough": ["Digital scale", "Food processor", "Bench scraper", "Spray bottle", "Rolling pin", "9-inch pie pans", "Refrigerator"],
+  "Mulled Apple Cider": ["1.5-gallon stockpot or slow cooker", "Chef's knife", "Cutting board", "Fine-mesh strainer", "Ladle", "Heat-safe beverage container"],
+  "Simple Syrup": ["Digital scale", "Small saucepan", "Heat-resistant spatula", "Fine-mesh strainer", "Labeled storage container"],
+  "Mayonnaise": ["Immersion blender or food processor", "Tall blending container", "Digital scale", "Rubber spatula", "Refrigerated storage container"],
+  "Crumble Topping": ["Digital scale", "Mixing bowl", "Pastry cutter or food processor", "Sheet pan", "Parchment paper"],
+  "Fresh Ricotta": ["Saucepan", "Instant-read thermometer", "Fine-mesh strainer", "Cheesecloth", "Mixing bowl", "Refrigerated storage container"],
+  "Cinnamon Rolls": ["Digital scale", "Stand mixer with dough hook", "Mixing bowls", "Bench scraper", "Rolling pin", "Chef's knife or unflavored dental floss", "Sheet pans", "Parchment paper", "Proofing space", "Oven", "Cooling racks"],
+  "Gingerbread Cookies": ["Digital scale", "Stand mixer with paddle", "Mixing bowls", "Rubber spatula", "Rolling pin", "Cookie cutters", "Sheet pans", "Parchment paper", "Oven", "Cooling racks"],
+  "Fresh Pasta": ["Digital scale", "Mixing bowl or stand mixer", "Bench scraper", "Pasta roller and cutter", "Sheet pans", "Stockpot", "Spider or colander"],
+  "Coconut Curry Chicken": ["Chef's knife", "Cutting boards", "Digital scale", "Sheet pan", "Large sauté pan or rondeau", "Wooden spoon", "Instant-read thermometer", "Microplane or zester"],
+  "Fruit Granita": ["Digital scale", "Blender or food processor", "Fine-mesh strainer", "Shallow freezer-safe pan", "Fork or bench scraper", "Freezer"],
+  "Chicken Nuggets": ["Digital scale", "Mixing bowls", "Sheet pans", "Portion scoop", "Deep fryer or heavy pot", "Fry thermometer", "Spider", "Cooling rack", "Instant-read thermometer"],
+  "Basic Brine": ["Digital scale", "Large stockpot", "Whisk", "Food-safe brining container", "Refrigerator"],
+  "Waffles & Pancakes": ["Digital scale", "Mixing bowls", "Whisk", "Rubber spatula", "Waffle iron and/or griddle", "Portion ladle", "Sheet pan", "Holding oven"],
+  "Banana Bread": ["Digital scale", "Mixing bowls", "Whisk", "Rubber spatula", "Standard loaf pan", "Parchment paper", "Oven", "Cooling rack", "Instant-read thermometer"],
+  "Pumpkin Gnocchi": ["Digital scale", "Mixing bowls", "Bench scraper", "Chef's knife", "Fork or gnocchi board", "Sheet pans", "Stockpot", "Spider"],
+  "101 Pizza Dough": ["Digital scale", "Stand mixer with dough hook", "Mixing bowl or dough container", "Bench scraper", "Refrigerator", "Pizza screen, pan, or stone", "Oven"],
+  "Apple Pie Filling": ["Digital scale", "Chef's knife or apple slicer", "Cutting board", "Mixing bowl", "Sauté pan", "Rubber spatula", "9-inch pie pan"],
+  "Spiced Jasmine Rice": ["Dry measuring cups", "Fine-mesh strainer", "Saucepan with lid or rice cooker", "Cheesecloth or spice sachet", "Fork", "Hotel pan for holding"],
+  "Quick Red Sauce": ["Chef's knife", "Cutting board", "Digital scale", "Sheet pan or steamer", "Saucepot", "Wooden spoon", "Immersion blender", "Food mill or fine-mesh strainer"],
+  "Chicken Stock": ["Chef's knife", "Cutting boards", "Large stockpot", "Roasting pan or sheet pans", "Skimmer", "Fine-mesh strainer", "Ladle", "Ice bath", "Food-safe storage containers"],
+  "Béchamel Sauce": ["Digital scale", "Heavy-bottom saucepan", "Whisk", "Rubber spatula", "Fine-mesh strainer", "Labeled storage container"],
+  "Refrigerator Pickle Brine": ["Digital scale", "Heat-safe mixing bowl or saucepan", "Whisk", "Chef's knife", "Cutting board", "Food-safe jars or containers", "Refrigerator"],
+  "Dragon Sauce": ["Digital scale", "Mixing bowl", "Whisk", "Microplane", "Small saucepan", "Labeled storage container"],
+  "Pastry Cream": ["Digital scale", "Mixing bowls", "Heavy-bottom saucepan", "Whisk", "Rubber spatula", "Fine-mesh strainer", "Sheet pan or shallow container", "Plastic wrap", "Refrigerator"],
+  "Guajillo Braised Chicken Tacos": ["Chef's knife", "Cutting boards", "Sheet pan", "Skillet", "Blender", "Dutch oven or rondeau with lid", "Tongs", "Instant-read thermometer", "Griddle", "Hotel pans"],
+  "Donuts": ["Digital scale", "Stand mixer with dough hook", "Mixing bowls", "Bench scraper", "Rolling pin", "Donut cutter", "Sheet pans", "Proofing space", "Deep fryer or heavy pot", "Fry thermometer", "Spider", "Cooling racks"],
+  "Chocolate Sauce": ["Digital scale", "Heavy-bottom saucepan", "Whisk", "Rubber spatula", "Fine-mesh strainer", "Labeled squeeze bottles or storage container"],
+  "Crème Brûlée": ["Digital scale", "Mixing bowls", "Whisk", "Saucepan", "Fine-mesh strainer", "Eight 5-ounce ramekins", "Deep hotel pan or roasting pan for water bath", "Oven", "Refrigerator", "Culinary torch"],
+  "Chicken Noodle Soup": ["Chef's knife", "Cutting boards", "Large stockpot", "Wooden spoon", "Ladle", "Instant-read thermometer", "Hotel pans or soup containers"]
+};
+
+for (const recipe of PATHWAY_RECIPES) {
+  if (!recipe.equipment?.length && EQUIPMENT_BY_RECIPE[recipe.name]) recipe.equipment = EQUIPMENT_BY_RECIPE[recipe.name];
+}
