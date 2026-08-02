@@ -42,6 +42,7 @@ let liveStatus = "all";
 let requestFilter = "open";
 let ingredientMenuIndex = 0;
 let recipeLibrary = [];
+let supplierCatalog = [];
 let recipeSearch = "";
 
 function current() { return state.events.find(event => event.id === currentId); }
@@ -63,10 +64,59 @@ function canEdit(event = current()) { return session?.user?.role === "admin" || 
 function batches(item) { return item.yield > 0 ? Math.ceil(item.required / item.yield) : 0; }
 
 const fractionValues = { "¼": .25, "½": .5, "¾": .75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": .125, "⅜": .375, "⅝": .625, "⅞": .875 };
-const unitAliases = new Map(Object.entries({ g: "g", gram: "g", grams: "g", kg: "kg", oz: "oz", ounce: "oz", ounces: "oz", lb: "lb", lbs: "lb", pound: "lb", pounds: "lb", tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", t: "tsp", tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", cup: "cup", cups: "cup", c: "cup", ml: "ml", l: "L", each: "each", cloves: "each", clove: "each" }));
+const unitAliases = new Map(Object.entries({ g: "g", gram: "g", grams: "g", kg: "kg", oz: "oz", ounce: "oz", ounces: "oz", lb: "lb", lbs: "lb", pound: "lb", pounds: "lb", tsp: "tsp", teaspoon: "tsp", teaspoons: "tsp", t: "tsp", tbsp: "tbsp", tablespoon: "tbsp", tablespoons: "tbsp", cup: "cup", cups: "cup", c: "cup", ml: "ml", l: "L", gallon: "fl oz", gallons: "fl oz", gal: "fl oz", quart: "fl oz", quarts: "fl oz", qt: "fl oz", pint: "fl oz", pints: "fl oz", "fl oz": "fl oz", stick: "oz", sticks: "oz", each: "each", cloves: "each", clove: "each", head: "each", heads: "each", bunch: "each" }));
+const gramsPerCup = { "weg-ap-flour": 120, "weg-whole-wheat-flour": 120, "weg-semolina": 167, "weg-cornmeal": 138, "weg-oats": 90, "weg-sugar": 200, "weg-brown-sugar": 210, "weg-powdered-sugar": 120, "weg-butter": 227, "weg-yeast": 144, "weg-baking-soda": 220, "weg-baking-powder": 192, "weg-cornstarch": 128, "weg-chocolate-chips": 168, "weg-cocoa": 100, "weg-salt": 288, "weg-black-pepper": 116, "weg-cinnamon": 125, "weg-ground-ginger": 96, "weg-nutmeg": 112, "weg-allspice": 96, "weg-cloves": 96, "weg-curry": 96, "weg-garlic-powder": 144, "weg-onion-powder": 128 };
+function supplierProduct(text) {
+  const value = String(text || "").toLowerCase().replace(/[–—]/g, "-");
+  return supplierCatalog.flatMap(product => (product.aliases || []).map(alias => ({ product, alias: String(alias).toLowerCase() })))
+    .sort((a, b) => b.alias.length - a.alias.length).find(entry => value.includes(entry.alias))?.product || null;
+}
+function purchaseQuantity(product, targetUnit) {
+  const target = String(targetUnit || "").toLowerCase();
+  const quantity = Number(product?.quantity || 0);
+  const source = String(product?.unit || "").toLowerCase();
+  if (!quantity || !target) return 0;
+  if (product.id === "weg-eggs" && target === "g") return quantity * 18;
+  if (target === source || (target === "l" && source === "l")) return quantity;
+  if (["lb", "oz"].includes(source)) {
+    const grams = source === "lb" ? quantity * 453.59237 : quantity * 28.349523;
+    if (target === "g") return grams;
+    if (target === "kg") return grams / 1000;
+    if (target === "oz") return grams / 28.349523;
+    if (target === "lb") return grams / 453.59237;
+    const density = gramsPerCup[product.id];
+    if (density && target === "cup") return grams / density;
+    if (density && target === "tbsp") return grams / density * 16;
+    if (density && target === "tsp") return grams / density * 48;
+  }
+  if (source === "fl oz") {
+    const ml = quantity * 29.57353;
+    if (target === "ml" || target === "g") return ml;
+    if (target === "l") return ml / 1000;
+    if (target === "cup") return quantity / 8;
+    if (target === "tbsp") return quantity * 2;
+    if (target === "tsp") return quantity * 6;
+  }
+  if (source === "each" && target === "each") return quantity;
+  return 0;
+}
+function applySupplierData(ingredient) {
+  const product = supplierProduct(`${ingredient.name || ""} ${ingredient.sourceText || ""}`);
+  if (!product) return ingredient;
+  const packSize = purchaseQuantity(product, ingredient.unit);
+  return {
+    ...ingredient,
+    packSize: ingredient.supplierOverride ? Number(ingredient.packSize || packSize || 0) : packSize || Number(ingredient.packSize || 0), packPrice: ingredient.supplierOverride ? Number(ingredient.packPrice || product.price) : Number(product.price),
+    packLabel: product.label, supplierId: product.id, supplierName: product.vendor,
+    supplierItem: product.item, supplierUrl: product.url, supplierCheckedAt: product.checkedAt,
+    supplierNote: product.variableWeight ? "Variable-weight package; forecast uses Wegmans' displayed average." : product.estimatedCount ? "Package count is a practical estimate for consolidated ordering." : ""
+  };
+}
 function numericAmount(token) {
   const value = String(token || "").trim();
   if (!value) return 0;
+  const range = value.match(/^(\d+(?:\.\d+)?)-\s*(\d+(?:\.\d+)?)$/);
+  if (range) return Number(range[2]);
   if (fractionValues[value]) return fractionValues[value];
   const mixed = value.match(/^(\d+)\s*([¼½¾⅓⅔⅛⅜⅝⅞])$/);
   if (mixed) return Number(mixed[1]) + fractionValues[mixed[2]];
@@ -78,11 +128,20 @@ function ingredientRecord(line) {
   const raw = String(line || "").trim();
   if (!raw || /:$/.test(raw)) return { name: raw, quantity: 0, unit: "", packSize: 0, packPrice: 0, sourceText: raw, heading: true };
   const compact = raw.replace(/^[-•]\s*/, "");
-  const match = compact.match(/^(\d+(?:\.\d+)?|\d+\/\d+|\d+\s*[¼½¾⅓⅔⅛⅜⅝⅞]|[¼½¾⅓⅔⅛⅜⅝⅞])\s*(g|grams?|kg|oz|ounces?|lbs?|pounds?|tsp|teaspoons?|tbsp|tablespoons?|cups?|c\b|ml|l\b|each|cloves?)?\s*(.*)$/i);
-  if (!match) return { name: compact, quantity: 0, unit: "", packSize: 0, packPrice: 0, sourceText: raw };
-  const quantity = numericAmount(match[1]);
-  const unit = unitAliases.get(String(match[2] || "each").toLowerCase()) || String(match[2] || "each");
-  return { name: (match[3] || compact).trim(), quantity, unit, packSize: 0, packPrice: 0, sourceText: raw };
+  let match = compact.match(/^(\d+(?:\.\d+)?-\s*\d+(?:\.\d+)?|\d+(?:\.\d+)?|\d+\/\d+|\d+\s*[¼½¾⅓⅔⅛⅜⅝⅞]|[¼½¾⅓⅔⅛⅜⅝⅞])\s*(g|grams?|kg|oz|ounces?|lbs?|pounds?|tsp|teaspoons?|tbsp|tablespoons?|cups?|c\b|ml|l\b|gallons?|gal\b|quarts?|qt\b|pints?|fl\.?\s*oz|sticks?|each|cloves?|heads?|bunch)?\s*(.*)$/i);
+  if (!match) {
+    const suffix = compact.match(/^(.*?\D)\s*(\d+(?:\.\d+)?|\d+\/\d+)\s*(g|grams?|kg|oz|ounces?|lbs?|pounds?|tsp|teaspoons?|tbsp|tablespoons?|cups?|c\b|ml|l\b|gallons?|gal\b|quarts?|qt\b|pints?|fl\.?\s*oz|sticks?)\b\s*(.*)$/i);
+    if (suffix) match = [suffix[0], suffix[2], suffix[3], `${suffix[1]} ${suffix[4]}`.trim()];
+  }
+  if (!match) return applySupplierData({ name: compact, quantity: 0, unit: "", packSize: 0, packPrice: 0, sourceText: raw });
+  const rawUnit = String(match[2] || "each").toLowerCase().replace(/\./g, "").replace(/\s+/g, " ");
+  let quantity = numericAmount(match[1]);
+  if (["gallon", "gallons", "gal"].includes(rawUnit)) quantity *= 128;
+  if (["quart", "quarts", "qt"].includes(rawUnit)) quantity *= 32;
+  if (["pint", "pints"].includes(rawUnit)) quantity *= 16;
+  if (["stick", "sticks"].includes(rawUnit)) quantity *= 4;
+  const unit = unitAliases.get(rawUnit) || rawUnit;
+  return applySupplierData({ name: (match[3] || compact).trim(), quantity, unit, packSize: 0, packPrice: 0, sourceText: raw });
 }
 function inferredAllergens(recipe) {
   const text = (recipe.ingredients || []).join(" ").toLowerCase();
@@ -103,6 +162,12 @@ function recipeSnapshot(recipe, required) {
     equipment: clone(recipe.equipment || []), procedure: clone(recipe.procedure || []),
     allergens: recipe.allergens || inferredAllergens(recipe), recipeSnapshotAt: new Date().toISOString()
   };
+}
+function hydrateEventOrderItem(item) {
+  item.ingredients = (item.ingredients || []).map(applySupplierData);
+  const source = recipeLibrary.find(recipe => recipe.id === item.recipeId && Number(recipe.version || 1) === Number(item.recipeVersion || 1));
+  if (source && !item.equipment?.length) item.equipment = clone(source.equipment || []);
+  return item;
 }
 function dateLabel(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not scheduled"; }
 function sectionName(id) { return sections.find(section => section.id === id)?.name || "Unassigned"; }
@@ -218,7 +283,9 @@ function renderRecipeLibrary() {
   const recipe = recipeLibrary.find(item => item.id === select.value) || visible[0];
   if (!recipe) { q("#recipeLibraryDetail").innerHTML = '<div class="recipe-warning">No recipes match this search.</div>'; return; }
   const ready = Number(recipe.yield || 0) > 0 && recipe.portion;
-  q("#recipeLibraryDetail").innerHTML = `<div><span>Course</span><strong>${esc(recipe.course)}</strong></div><div><span>Curriculum location</span><strong>${recipe.unit ? `Unit ${recipe.unit}` : "Teacher-approved addition"}</strong></div><div><span>Version</span><strong>v${Number(recipe.version || 1)}</strong></div><div><span>Status</span><strong>${esc(ready ? "Production ready" : recipe.approvalStatus || "Review")}</strong></div><div><span>Ingredients</span><strong>${(recipe.ingredients || []).filter(line => !String(typeof line === "string" ? line : line.name).endsWith(":" )).length}</strong></div><div><span>Procedure</span><strong>${(recipe.procedure || []).length} steps</strong></div><div><span>Equipment</span><strong>${(recipe.equipment || []).length || "Not yet indexed"}</strong></div><div><span>Allergens</span><strong>${esc(recipe.allergens || inferredAllergens(recipe) || "Teacher verification required")}</strong></div>${ready ? "" : '<div class="recipe-warning"><strong>Pathway recipe preserved; standardization required.</strong> Confirm its standard yield, portion, purchasing units, and allergen controls before publication. The app will not invent missing production data.</div>'}`;
+  const purchasable = (recipe.ingredients || []).filter(line => !String(typeof line === "string" ? line : line.name).endsWith(":"));
+  const supplierMatches = purchasable.filter(line => supplierProduct(typeof line === "string" ? line : `${line.name || ""} ${line.sourceText || ""}`)).length;
+  q("#recipeLibraryDetail").innerHTML = `<div><span>Course</span><strong>${esc(recipe.course)}</strong></div><div><span>Curriculum location</span><strong>${recipe.unit ? `Unit ${recipe.unit}` : "Teacher-approved addition"}</strong></div><div><span>Version</span><strong>v${Number(recipe.version || 1)}</strong></div><div><span>Status</span><strong>${esc(ready ? "Production ready" : recipe.approvalStatus || "Review")}</strong></div><div><span>Ingredients</span><strong>${purchasable.length}</strong></div><div><span>Wegmans matches</span><strong>${supplierMatches} of ${purchasable.length}</strong></div><div><span>Procedure</span><strong>${(recipe.procedure || []).length} steps</strong></div><div><span>Equipment</span><strong>${(recipe.equipment || []).length || "Not yet indexed"}</strong></div><div><span>Allergens</span><strong>${esc(recipe.allergens || inferredAllergens(recipe) || "Teacher verification required")}</strong></div>${ready ? "" : '<div class="recipe-warning"><strong>Pathway recipe preserved; standardization required.</strong> Confirm its standard yield, portion, purchasing units, and allergen controls before publication. The app will not invent missing production data.</div>'}`;
 }
 
 function renderRecipeSubmissions() {
@@ -234,7 +301,7 @@ async function reviewRecipe(card, decision) {
   const response = await fetch(`/api/recipe-submissions/${encodeURIComponent(card.dataset.submission)}`, { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision, note: card.querySelector("[data-review-note]").value }) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) return toast(result.error || "Recipe review could not be saved.");
-  revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; state = result.state || state;
+  revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; supplierCatalog = result.supplierCatalog || supplierCatalog; state = result.state || state;
   renderRecipeLibrary(); renderRecipeSubmissions(); toast(decision === "Approve" ? "Recipe approved and added to the shared library." : "Recipe returned to the student for revision.");
 }
 
@@ -292,12 +359,13 @@ function renderIngredients() {
     : "This is a new recipe draft. Complete and approve it before publication; use the shared library whenever a suitable recipe already exists.";
   q("#ingredientRows").innerHTML = item.ingredients.length ? item.ingredients.map((ingredient, index) => {
     const scaled = scaledIngredient(ingredient, item);
-    return `<tr data-ingredient="${index}"><td><input data-ingredient-field="name" value="${esc(ingredient.name)}"></td><td><input data-ingredient-field="quantity" type="number" min="0" step="0.01" value="${Number(ingredient.quantity || 0)}"></td><td><input data-ingredient-field="unit" value="${esc(ingredient.unit)}" placeholder="lb, oz, each"></td><td><input data-ingredient-field="packSize" type="number" min="0" step="0.01" value="${Number(ingredient.packSize || 0)}"></td><td><input data-ingredient-field="packPrice" type="number" min="0" step="0.01" value="${Number(ingredient.packPrice || 0)}"></td><td><strong>${scaled.need.toFixed(2)} ${esc(ingredient.unit)}</strong></td><td><strong>${scaled.packs} pack${scaled.packs === 1 ? "" : "s"}</strong></td><td><button class="icon-button" data-remove-ingredient="${index}" aria-label="Remove ${esc(ingredient.name)}" type="button">×</button></td></tr>`;
+    return `<tr data-ingredient="${index}"><td><input data-ingredient-field="name" value="${esc(ingredient.name)}">${ingredient.supplierItem ? `<small class="supplier-detail">${esc(ingredient.supplierName)} · ${esc(ingredient.supplierItem)}</small>` : ""}</td><td><input data-ingredient-field="quantity" type="number" min="0" step="0.01" value="${Number(ingredient.quantity || 0)}"></td><td><input data-ingredient-field="unit" value="${esc(ingredient.unit)}" placeholder="lb, oz, each"></td><td><input data-ingredient-field="packSize" type="number" min="0" step="0.01" value="${Number(ingredient.packSize || 0)}">${ingredient.packLabel ? `<small class="supplier-detail">${esc(ingredient.packLabel)}</small>` : ""}</td><td><input data-ingredient-field="packPrice" type="number" min="0" step="0.01" value="${Number(ingredient.packPrice || 0)}">${ingredient.supplierCheckedAt ? `<small class="supplier-detail"><a href="${esc(ingredient.supplierUrl)}" target="_blank" rel="noreferrer">Wegmans source</a> · checked ${esc(ingredient.supplierCheckedAt)}</small>` : ""}</td><td><strong>${scaled.need.toFixed(2)} ${esc(ingredient.unit)}</strong></td><td><strong>${scaled.packs} pack${scaled.packs === 1 ? "" : "s"}</strong>${ingredient.supplierNote ? `<small class="supplier-detail">${esc(ingredient.supplierNote)}</small>` : ""}</td><td><button class="icon-button" data-remove-ingredient="${index}" aria-label="Remove ${esc(ingredient.name)}" type="button">×</button></td></tr>`;
   }).join("") : "<tr><td colspan=\"8\">No ingredients entered for this approved recipe.</td></tr>";
-  qa("[data-ingredient]").forEach(row => row.addEventListener("change", () => {
+  qa("[data-ingredient]").forEach(row => row.addEventListener("change", event => {
     if (!canEdit()) return;
     const ingredient = item.ingredients[Number(row.dataset.ingredient)];
     row.querySelectorAll("[data-ingredient-field]").forEach(field => { ingredient[field.dataset.ingredientField] = ["quantity", "packSize", "packPrice"].includes(field.dataset.ingredientField) ? Number(field.value) : field.value; });
+    if (["packSize", "packPrice"].includes(event.target.dataset.ingredientField)) ingredient.supplierOverride = true;
     save(); renderIngredients();
   }));
   qa("[data-remove-ingredient]").forEach(button => button.addEventListener("click", () => {
@@ -310,22 +378,25 @@ function renderIngredients() {
 function renderPurchasing() {
   const consolidated = new Map();
   current().menu.forEach(item => (item.ingredients || []).forEach(ingredient => {
-    const key = `${String(ingredient.name).trim().toLowerCase()}|${String(ingredient.unit).trim().toLowerCase()}`;
+    const key = ingredient.supplierId || `${String(ingredient.name).trim().toLowerCase()}|${String(ingredient.unit).trim().toLowerCase()}`;
     if (!ingredient.name || !key) return;
     const scaled = scaledIngredient(ingredient, item);
-    const entry = consolidated.get(key) || { name: ingredient.name, unit: ingredient.unit, need: 0, packSize: ingredient.packSize, packPrice: ingredient.packPrice, recipes: [] };
+    const entry = consolidated.get(key) || { name: ingredient.supplierItem || ingredient.name, unit: ingredient.unit, need: 0, needByUnit: {}, packageFraction: 0, packSize: ingredient.packSize, packPrice: ingredient.packPrice, packLabel: ingredient.packLabel, supplierName: ingredient.supplierName, supplierCheckedAt: ingredient.supplierCheckedAt, supplierUrl: ingredient.supplierUrl, recipes: [] };
     entry.need += scaled.need;
+    entry.needByUnit[ingredient.unit || "unit"] = Number(entry.needByUnit[ingredient.unit || "unit"] || 0) + scaled.need;
+    if (ingredient.supplierId && Number(ingredient.packSize || 0) > 0) entry.packageFraction += scaled.need / Number(ingredient.packSize);
     if (!entry.packSize && ingredient.packSize) entry.packSize = ingredient.packSize;
     if (!entry.packPrice && ingredient.packPrice) entry.packPrice = ingredient.packPrice;
     entry.recipes.push(item.name); consolidated.set(key, entry);
   }));
   const rows = [...consolidated.values()].map(entry => {
-    const packs = Number(entry.packSize || 0) > 0 ? Math.ceil(entry.need / Number(entry.packSize)) : 0;
+    const packs = entry.supplierName && entry.packageFraction > 0 ? Math.ceil(entry.packageFraction) : Number(entry.packSize || 0) > 0 ? Math.ceil(entry.need / Number(entry.packSize)) : 0;
     const cost = packs * Number(entry.packPrice || 0);
-    return { ...entry, packs, cost };
+    const needLabel = Object.entries(entry.needByUnit).map(([unit, need]) => `${Number(need).toFixed(2)} ${unit}`).join(" + ");
+    return { ...entry, packs, cost, needLabel };
   }).sort((a, b) => a.name.localeCompare(b.name));
   q("#estimatedPurchaseCost").textContent = `${rows.reduce((sum, row) => sum + row.cost, 0).toLocaleString(undefined, { style: "currency", currency: "USD" })} estimated`;
-  q("#purchasingRows").innerHTML = rows.length ? rows.map(row => `<tr><td><strong>${esc(row.name)}</strong></td><td>${row.need.toFixed(2)} ${esc(row.unit)}</td><td>${row.packs}${row.packSize ? ` × ${Number(row.packSize)} ${esc(row.unit)}` : " · pack size needed"}</td><td>${row.cost.toLocaleString(undefined, { style: "currency", currency: "USD" })}</td><td>${esc([...new Set(row.recipes)].join(", "))}</td></tr>`).join("") : "<tr><td colspan=\"5\">Purchasing will appear after recipe ingredients are entered.</td></tr>";
+  q("#purchasingRows").innerHTML = rows.length ? rows.map(row => `<tr><td><strong>${esc(row.name)}</strong>${row.supplierName ? `<small class="supplier-detail">${esc(row.supplierName)}${row.supplierCheckedAt ? ` · checked ${esc(row.supplierCheckedAt)}` : ""}</small>` : ""}</td><td>${esc(row.needLabel)}</td><td>${row.packs}${row.packLabel ? ` × ${esc(row.packLabel)}` : row.packSize ? ` × ${Number(row.packSize)} ${esc(row.unit)}` : " · supplier match needed"}</td><td>${row.cost.toLocaleString(undefined, { style: "currency", currency: "USD" })}${row.supplierUrl ? `<small class="supplier-detail"><a href="${esc(row.supplierUrl)}" target="_blank" rel="noreferrer">Current product category</a></small>` : ""}</td><td>${esc([...new Set(row.recipes)].join(", "))}</td></tr>`).join("") : "<tr><td colspan=\"5\">Purchasing will appear after recipe ingredients are entered.</td></tr>";
 }
 
 function generateTasks() {
@@ -342,7 +413,7 @@ function generateTasks() {
       id: prior.id || `task-${Date.now()}-${menuIndex}-${taskIndex}`, menuIndex, type: template.type, name, detail: template.detail,
       day: prior.day || template.day, deadline: prior.deadline || event.serviceTime || "15:00", section: prior.section || sections[menuIndex % 2].id,
       station: prior.station || (template.type === "production" ? `${item.name} station` : "Expo / handoff"), team: prior.team || "Team A",
-      students: prior.students || "", dependency: prior.dependency || "", progress: prior.progress || { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null }
+      students: prior.students || "", dependency: prior.dependency || "", equipment: template.type === "production" ? clone(item.equipment || []) : [], progress: prior.progress || { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null }
     };
   }));
   save();
@@ -355,7 +426,7 @@ function renderProduction() {
   const totalBatches = event.menu.reduce((sum, item) => sum + batches(item), 0);
   q("#productionSummary").innerHTML = `<div class="metric"><span>Menu outputs</span><strong>${event.menu.length}</strong></div><div class="metric"><span>Production batches</span><strong>${totalBatches}</strong></div><div class="metric"><span>Generated tasks</span><strong>${event.tasks.length}</strong></div>`;
   q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => `<article class="task-card" data-task="${index}">
-    <span class="task-number">${index + 1}</span><div><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span></div>
+    <span class="task-number">${index + 1}</span><div><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}</div>
     <label>Production point<input data-task-field="day" value="${esc(task.day)}"></label>
     <label>Deadline<input data-task-field="deadline" type="time" value="${esc(task.deadline)}"></label>
     <label>Assigned section<select data-task-field="section">${sections.map(section => `<option value="${section.id}" ${task.section === section.id ? "selected" : ""}>${esc(section.name)}</option>`).join("")}</select></label>
@@ -373,7 +444,7 @@ function renderAssignments() {
     const assigned = event.tasks.filter(task => task.section === section.id);
     return `<article class="assignment-column"><h3>${esc(section.name)}</h3><p>${esc(section.focus)}</p>${assigned.length ? assigned.map(task => {
       const index = event.tasks.indexOf(task);
-      return `<div class="assignment-task" data-assignment="${index}"><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>
+      return `<div class="assignment-task" data-assignment="${index}"><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}
         <label>Station<input data-assignment-field="station" value="${esc(task.station)}"></label>
         <label>Team<input data-assignment-field="team" value="${esc(task.team)}"></label>
         <label>Students<input data-assignment-field="students" value="${esc(task.students)}" placeholder="Names or roster group"></label>
@@ -421,7 +492,7 @@ function packetPreview() {
   const tasks = event.tasks.filter(task => task.section === sectionId);
   q("#studentPacketPreview").innerHTML = `<div class="preview-block"><span>Shared purpose</span><strong>${esc(event.name)}</strong><small>${esc(event.customer)} · ${event.guestCount} guests · ${dateLabel(event.serviceDate)}</small></div>
     <div class="preview-block"><span>Your section</span><strong>${esc(section.name)}</strong><small>${esc(section.focus)}</small></div>
-    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div><small>${esc(task.station)} · ${esc(task.team)} · ${esc(task.day)} · complete by ${esc(task.deadline)}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
+    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}<small>${esc(task.station)} · ${esc(task.team)} · ${esc(task.day)} · complete by ${esc(task.deadline)}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
 }
 
 function renderPublish() {
@@ -618,14 +689,14 @@ async function initialize(force = false) {
     const response = await fetch("/api/state", { cache: "no-store" });
     const result = await response.json().catch(() => ({}));
     if (!response.ok) throw new Error(result.error || "Teacher data could not be loaded.");
-    session = { user: result.user }; revision = result.revision; recipeLibrary = result.recipes || [];
+    session = { user: result.user }; revision = result.revision; recipeLibrary = result.recipes || []; supplierCatalog = result.supplierCatalog || [];
     const hasEvent = Array.isArray(result.state?.events) && result.state.events.length;
     state = hasEvent ? result.state : clone(seed);
     delete state.activeTeacher;
     state.requests ||= [];
     state.recipeSubmissions ||= [];
     state.approvedRecipes ||= [];
-    state.events.forEach(event => event.menu?.forEach(item => item.ingredients ||= []));
+    state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
     currentId = state.events[0].id;
     if (!current().tasks.length) generateTasks();
     if (!hasEvent) await save();
@@ -645,7 +716,8 @@ async function refreshLiveProduction() {
     const result = await response.json();
     if (!response.ok || result.revision === revision) return;
     const selected = currentId;
-    state = result.state; revision = result.revision; recipeLibrary = result.recipes || recipeLibrary;
+    state = result.state; revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; supplierCatalog = result.supplierCatalog || supplierCatalog;
+    state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
     currentId = state.events.some(event => event.id === selected) ? selected : state.events[0].id;
     renderSummary(); renderLive(); renderAttention(); renderCloseout();
     setSync("Shared · updated", "saved");
