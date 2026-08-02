@@ -5,7 +5,6 @@ const sections = [
   { id: "km", name: "Kitchen Management", focus: "Schedule, costing, controls, and objective event briefing" }
 ];
 const seed = {
-  activeTeacher: "Kevin McCann",
   requests: [
     { id: "req-001", submittedAt: "2026-09-08T09:15:00", requester: "Greece CSD New Teacher Orientation", contact: "District Professional Learning Office", eventName: "New Teacher Welcome Breakfast", type: "Catering", school: "Districtwide", serviceDate: "2026-09-24", serviceTime: "07:30", guestCount: 80, serviceFormat: "Delivery", budget: "$600", requestedMenu: "Breakfast pastries, fruit, and coffee service", requirements: "Delivery and setup must be complete before 7:15 a.m.", allergens: "Include nut-free choices and clear ingredient labels.", status: "New", notes: "" },
     { id: "req-002", submittedAt: "2026-09-09T14:40:00", requester: "Town of Greece Board Meeting", contact: "Town liaison — details withheld from student views", eventName: "October Board Reception", type: "Catering", school: "Arcadia", serviceDate: "2026-10-13", serviceTime: "17:00", guestCount: 60, serviceFormat: "Delivery", budget: "Pending", requestedMenu: "Passed appetizers and one vegetarian option", requirements: "Request does not yet identify service duration or delivery access.", allergens: "Not supplied", status: "Needs clarification", notes: "Confirm budget, access, and final guest count before acceptance." },
@@ -56,7 +55,7 @@ function save() {
   }).catch(error => { setSync("Save needs attention", "error"); toast(error.message); });
   return saveQueue;
 }
-function activeTeacher() { return session?.user?.display_name || state.activeTeacher || "Teacher"; }
+function activeTeacher() { return session?.user?.display_name || "Teacher"; }
 function isOwner(event = current()) { return session?.user?.role === "admin" || event.owner === activeTeacher(); }
 function canEdit(event = current()) { return session?.user?.role === "admin" || isOwner(event) || (event.collaborators || []).includes(activeTeacher()); }
 function batches(item) { return item.yield > 0 ? Math.ceil(item.required / item.yield) : 0; }
@@ -129,14 +128,15 @@ function readiness(event) {
 function renderSelect() {
   q("#eventSelect").innerHTML = state.events.map(event => `<option value="${esc(event.id)}">${esc(event.name)}</option>`).join("");
   q("#eventSelect").value = currentId;
-  q("#activeTeacher").innerHTML = `<option>${esc(activeTeacher())}</option>`;
+  q("#accountName").textContent = activeTeacher();
+  q("#accountRole").textContent = session?.user?.role === "admin" ? "Administrator" : "Teacher";
 }
 
 function renderSummary() {
   const event = current();
   const ready = readiness(event);
   q("#summaryName").textContent = event.name;
-  q("#summaryOwner").textContent = `${event.owner}${isOwner(event) ? " · you" : ""}`;
+  q("#summaryOwner").textContent = `${event.owner}${event.owner === activeTeacher() ? " · you" : ""}`;
   q("#summaryService").textContent = `${dateLabel(event.serviceDate)} · ${event.guestCount || 0} ${event.type === "Bakery sale" ? "orders" : "guests"}`;
   q("#summaryStage").textContent = event.stage;
   q("#summaryReadiness").textContent = `${ready.percent}% · ${ready.checks}/${ready.total} controls`;
@@ -462,11 +462,6 @@ qa('[data-save]').forEach(button => button.addEventListener("click", () => {
 
 q("#eventSelect").addEventListener("change", event => { currentId = event.target.value; renderAll(); });
 q("#requestFilter").addEventListener("change", event => { requestFilter = event.target.value; renderRequests(); });
-q("#addSampleRequest").addEventListener("click", () => {
-  const count = (state.requests || []).length + 1;
-  state.requests.unshift({ id: `req-${Date.now()}`, submittedAt: new Date().toISOString(), requester: "Sample district requester", contact: "Teacher-only contact record", eventName: `Demonstration Event Request ${count}`, type: "Catering", school: "Arcadia", serviceDate: "2026-11-12", serviceTime: "16:30", guestCount: 50, serviceFormat: "Customer pickup", budget: "$500", requestedMenu: "Chef recommendation requested", requirements: "Provide a realistic menu proposal and pickup instructions.", allergens: "Customer must confirm dietary needs before acceptance.", status: "New", notes: "" });
-  requestFilter = "open"; save(); renderRequests(); toast("New form submission received.");
-});
 q("#addMenuItem").addEventListener("click", () => { if (canEdit()) { current().menu.push({ name: "New menu item", required: 1, yield: 1, portion: "", status: "Researching", ingredients: [] }); ingredientMenuIndex = current().menu.length - 1; save(); renderAll(); } });
 q("#ingredientMenuItem").addEventListener("change", event => { ingredientMenuIndex = Number(event.target.value); renderIngredients(); });
 q("#addIngredient").addEventListener("click", () => {
@@ -492,17 +487,6 @@ q("#newEvent").addEventListener("click", () => {
 });
 q("#liveSectionFilter").addEventListener("change", event => { liveSection = event.target.value; renderLive(); });
 q("#liveStatusFilter").addEventListener("change", event => { liveStatus = event.target.value; renderLive(); });
-q("#simulateUpdate").addEventListener("click", () => {
-  if (!canEdit() || !current().tasks.length) return toast("No editable production task is available.");
-  const task = current().tasks.find(item => taskProgress(item).status !== "Complete") || current().tasks[0];
-  const progress = taskProgress(task);
-  progress.status = progress.status === "Not started" ? "In progress" : progress.status === "In progress" ? "Ready for handoff" : "Complete";
-  progress.quantity = Math.max(progress.quantity, Math.ceil((current().menu[task.menuIndex]?.required || 0) / 2));
-  if (progress.status === "Complete" && task.type === "production") progress.usableYield = current().menu[task.menuIndex]?.required || progress.quantity;
-  progress.storage = progress.status === "Complete" ? "Labeled and staged" : progress.storage;
-  progress.updatedAt = new Date().toISOString(); current().stage = "In production";
-  save(); renderAll(); showPanel("live"); toast(`Update received from ${sectionName(task.section)}.`);
-});
 q("#saveCloseout").addEventListener("click", () => { if (collectCloseout()) { current().stage = "Closeout required"; save(); renderAll(); showPanel("closeout"); toast("Event closeout saved as a draft."); } });
 q("#completeEvent").addEventListener("click", () => {
   if (!collectCloseout()) return;
@@ -510,7 +494,7 @@ q("#completeEvent").addEventListener("click", () => {
   if (unfinished && !confirm(`${unfinished} production tasks are not marked complete. Complete the event anyway?`)) return;
   current().stage = "Completed"; current().completedAt = new Date().toISOString(); save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
 });
-q("#resetDemo").addEventListener("click", () => {
+q("#refreshData").addEventListener("click", () => {
   initialize(true);
 });
 
@@ -541,7 +525,7 @@ async function initialize(force = false) {
     session = { user: result.user }; revision = result.revision;
     const hasEvent = Array.isArray(result.state?.events) && result.state.events.length;
     state = hasEvent ? result.state : clone(seed);
-    state.activeTeacher = activeTeacher();
+    delete state.activeTeacher;
     state.requests ||= [];
     state.events.forEach(event => event.menu?.forEach(item => item.ingredients ||= []));
     currentId = state.events[0].id;
