@@ -17,6 +17,7 @@
     return `<article class="student-live-task" data-task-id="${esc(task.id)}" data-event-id="${esc(event.id)}">
       <header><div><span>${esc(task.station || "Production")} · ${esc(task.team || "Team pending")}</span><h4>${esc(task.name)}</h4></div><strong>${esc(task.deadline || "Deadline pending")}</strong></header>
       <p>${esc(task.detail)}</p>
+      ${task.equipment?.length ? `<p><strong>Equipment:</strong> ${esc(task.equipment.join(", "))}</p>` : ""}
       <dl><div><dt>Students</dt><dd>${esc(task.students || "Roster assignment pending")}</dd></div><div><dt>Day / stopping point</dt><dd>${esc(task.day || "Teacher will confirm")}</dd></div><div><dt>Handoff</dt><dd>${esc(task.dependency || "No dependency recorded")}</dd></div></dl>
       <div class="student-progress-grid">
         <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
