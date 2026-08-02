@@ -292,9 +292,14 @@ function renderRecipeSubmissions() {
   const submissions = state.recipeSubmissions || [];
   const awaiting = submissions.filter(item => item.status === "Awaiting review");
   q("#recipeSubmissionCount").textContent = `${awaiting.length} awaiting review`;
-  q("#recipeSubmissionList").innerHTML = awaiting.length ? awaiting.map(item => `<article class="recipe-submission-card" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)}</h4><div class="recipe-submission-meta">Submitted by ${esc(item.submittedBy)} · ${item.yield || "Yield not confirmed"} · ${esc(item.portion || "Portion not confirmed")} · ${(item.ingredients || []).length} ingredients</div><p>${esc(item.sourceNotes || item.testNotes || "No research note supplied.")}</p><div class="recipe-submission-actions"><label>Teacher review note<input data-review-note placeholder="Required corrections or approval note"></label><button class="secondary-button" data-return-recipe type="button">Return for revision</button><button class="primary-button" data-approve-recipe type="button">Approve recipe</button></div></article>`).join("") : '<div class="empty-state"><strong>No student recipes are waiting.</strong><p>New Recipe Studio submissions will appear here.</p></div>';
+  const awaitingHtml = awaiting.length ? awaiting.map(item => `<article class="recipe-submission-card" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)}</h4><div class="recipe-submission-meta">${esc(item.eventName || "Event not identified")} · revision ${Number(item.revision || 1)} · Submitted by ${esc(item.submittedBy)} · ${item.yield || "Yield not confirmed"} · ${esc(item.portion || "Portion not confirmed")} · ${(item.ingredients || []).length} ingredients</div><p>${esc(item.sourceNotes || item.testNotes || "No research note supplied.")}</p><div class="recipe-submission-actions"><label>Teacher review note<input data-review-note placeholder="Required corrections, reason, or approval note"></label><button class="secondary-button" data-return-recipe type="button">Return for revision</button><button class="ghost-danger" data-decline-recipe type="button">Decline</button><button class="primary-button" data-approve-recipe type="button">Approve for production</button></div></article>`).join("") : '<div class="empty-state"><strong>No student recipes are waiting.</strong><p>New Recipe Studio submissions will appear here.</p></div>';
+  const reviewed = submissions.filter(item => ["Approved", "Returned for revision", "Declined", "Revised and resubmitted"].includes(item.status)).sort((a, b) => String(b.reviewedAt || b.submittedAt).localeCompare(String(a.reviewedAt || a.submittedAt))).slice(0, 12);
+  const reviewedHtml = reviewed.length ? `<div class="recipe-review-history"><h4>Recent decisions and revision history</h4>${reviewed.map(item => `<article class="recipe-submission-card compact" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)} · revision ${Number(item.revision || 1)}</h4><div class="recipe-submission-meta">${esc(item.eventName || "Event not identified")} · ${esc(item.submittedBy)}</div>${item.reviewNote ? `<p><strong>Teacher note:</strong> ${esc(item.reviewNote)}</p>` : ""}${item.status === "Approved" ? `<div class="recipe-event-add"><label>Event quantity required<input type="number" min="1" value="${Number(item.yield || 1)}" data-event-quantity></label><button class="primary-button" data-add-approved-recipe type="button" ${item.addedToEventAt ? "disabled" : ""}>${item.addedToEventAt ? "Added to Event Order" : "Add to linked Event Order"}</button></div>` : ""}</article>`).join("")}</div>` : "";
+  q("#recipeSubmissionList").innerHTML = awaitingHtml + reviewedHtml;
   qa("[data-return-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Return for revision")));
+  qa("[data-decline-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Decline")));
   qa("[data-approve-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Approve")));
+  qa("[data-add-approved-recipe]").forEach(button => button.addEventListener("click", () => addApprovedRecipe(button.closest("[data-submission]"))));
 }
 
 async function reviewRecipe(card, decision) {
@@ -302,7 +307,18 @@ async function reviewRecipe(card, decision) {
   const result = await response.json().catch(() => ({}));
   if (!response.ok) return toast(result.error || "Recipe review could not be saved.");
   revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; supplierCatalog = result.supplierCatalog || supplierCatalog; state = result.state || state;
-  renderRecipeLibrary(); renderRecipeSubmissions(); toast(decision === "Approve" ? "Recipe approved and added to the shared library." : "Recipe returned to the student for revision.");
+  if (result.eventId && state.events.some(event => event.id === result.eventId)) currentId = result.eventId;
+  renderRecipeLibrary(); renderRecipeSubmissions(); toast(decision === "Approve" ? "Recipe approved for the shared library. It has not been added to the Event Order." : decision === "Decline" ? "Recipe declined and closed with the teacher note preserved." : "Recipe returned to the student for revision.");
+}
+
+async function addApprovedRecipe(card) {
+  const required = Number(card.querySelector("[data-event-quantity]").value || 0);
+  const response = await fetch(`/api/recipe-submissions/${encodeURIComponent(card.dataset.submission)}/add-to-event`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ required }) });
+  const result = await response.json().catch(() => ({}));
+  if (!response.ok) return toast(result.error || "Recipe could not be added to the Event Order.");
+  revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; supplierCatalog = result.supplierCatalog || supplierCatalog; state = result.state || state;
+  if (result.eventId && state.events.some(event => event.id === result.eventId)) currentId = result.eventId;
+  renderEventSelector(); renderMenu(); renderRecipeSubmissions(); renderReadiness(); toast("Approved recipe added to the linked Event Order.");
 }
 
 function renderMenu() {
@@ -343,7 +359,7 @@ function renderIngredients() {
   const event = current();
   if (!event.menu.length) {
     q("#ingredientMenuItem").innerHTML = "<option>Add a menu item first</option>";
-    q("#ingredientRows").innerHTML = "<tr><td colspan=\"8\">No recipe selected.</td></tr>";
+    q("#ingredientRows").innerHTML = "<tr><td colspan=\"7\">No recipe selected.</td></tr>";
     q("#purchasingRows").innerHTML = "<tr><td colspan=\"5\">Purchasing will appear after recipe ingredients are entered.</td></tr>";
     q("#estimatedPurchaseCost").textContent = "$0.00 estimated";
     q("#addIngredient").disabled = true;
@@ -355,17 +371,18 @@ function renderIngredients() {
   const item = event.menu[ingredientMenuIndex];
   item.ingredients ||= [];
   q("#ingredientNote").textContent = item.recipeId
-    ? `${item.name} is an Event Order snapshot of ${item.sourceCourse || "the shared recipe library"} version ${Number(item.recipeVersion || 1)}.${item.needsStandardization ? " Confirm its standard yield, portion, purchasing units, and allergens before approval." : " Later library revisions will not silently change this event."}`
-    : "This is a new recipe draft. Complete and approve it before publication; use the shared library whenever a suitable recipe already exists.";
+    ? `${item.name} is an Event Order snapshot of ${item.sourceCourse || "the shared recipe library"} version ${Number(item.recipeVersion || 1)}.${item.needsStandardization ? " Confirm its standard yield, portion, purchasing units, and allergens before approval." : " Supplier packages are the actual Wegmans shelf sizes; purchase counts are rounded up after event needs are combined."}`
+    : "This is a new recipe draft. Complete and approve it before publication; supplier packages should describe the actual item purchased, not a converted recipe quantity.";
   q("#ingredientRows").innerHTML = item.ingredients.length ? item.ingredients.map((ingredient, index) => {
     const scaled = scaledIngredient(ingredient, item);
-    return `<tr data-ingredient="${index}"><td><input data-ingredient-field="name" value="${esc(ingredient.name)}">${ingredient.supplierItem ? `<small class="supplier-detail">${esc(ingredient.supplierName)} · ${esc(ingredient.supplierItem)}</small>` : ""}</td><td><input data-ingredient-field="quantity" type="number" min="0" step="0.01" value="${Number(ingredient.quantity || 0)}"></td><td><input data-ingredient-field="unit" value="${esc(ingredient.unit)}" placeholder="lb, oz, each"></td><td><input data-ingredient-field="packSize" type="number" min="0" step="0.01" value="${Number(ingredient.packSize || 0)}">${ingredient.packLabel ? `<small class="supplier-detail">${esc(ingredient.packLabel)}</small>` : ""}</td><td><input data-ingredient-field="packPrice" type="number" min="0" step="0.01" value="${Number(ingredient.packPrice || 0)}">${ingredient.supplierCheckedAt ? `<small class="supplier-detail"><a href="${esc(ingredient.supplierUrl)}" target="_blank" rel="noreferrer">Wegmans source</a> · checked ${esc(ingredient.supplierCheckedAt)}</small>` : ""}</td><td><strong>${scaled.need.toFixed(2)} ${esc(ingredient.unit)}</strong></td><td><strong>${scaled.packs} pack${scaled.packs === 1 ? "" : "s"}</strong>${ingredient.supplierNote ? `<small class="supplier-detail">${esc(ingredient.supplierNote)}</small>` : ""}</td><td><button class="icon-button" data-remove-ingredient="${index}" aria-label="Remove ${esc(ingredient.name)}" type="button">×</button></td></tr>`;
-  }).join("") : "<tr><td colspan=\"8\">No ingredients entered for this approved recipe.</td></tr>";
-  qa("[data-ingredient]").forEach(row => row.addEventListener("change", event => {
+    const packageDisplay = ingredient.packLabel || (ingredient.supplierItem ? "Package details needed" : "Supplier match needed");
+    const priceDisplay = Number(ingredient.packPrice || 0).toLocaleString(undefined, { style: "currency", currency: "USD" });
+    return `<tr data-ingredient="${index}"><td><input data-ingredient-field="name" value="${esc(ingredient.name)}">${ingredient.supplierItem ? `<small class="supplier-detail">${esc(ingredient.supplierName)} · ${esc(ingredient.supplierItem)}</small>` : ""}</td><td><input data-ingredient-field="quantity" type="number" min="0" step="0.01" value="${Number(ingredient.quantity || 0)}"></td><td><input data-ingredient-field="unit" value="${esc(ingredient.unit)}" placeholder="lb, oz, each"></td><td><strong>${scaled.need.toFixed(2)} ${esc(ingredient.unit)}</strong></td><td><strong>${esc(packageDisplay)}</strong>${ingredient.supplierUrl ? `<small class="supplier-detail"><a href="${esc(ingredient.supplierUrl)}" target="_blank" rel="noreferrer">View Wegmans item</a></small>` : ""}${ingredient.supplierNote ? `<small class="supplier-detail">${esc(ingredient.supplierNote)}</small>` : ""}</td><td><strong>${priceDisplay}</strong>${ingredient.supplierCheckedAt ? `<small class="supplier-detail">Checked ${esc(ingredient.supplierCheckedAt)}</small>` : ""}</td><td><button class="icon-button" data-remove-ingredient="${index}" aria-label="Remove ${esc(ingredient.name)}" type="button">×</button></td></tr>`;
+  }).join("") : "<tr><td colspan=\"7\">No ingredients entered for this approved recipe.</td></tr>";
+  qa("[data-ingredient]").forEach(row => row.addEventListener("change", () => {
     if (!canEdit()) return;
     const ingredient = item.ingredients[Number(row.dataset.ingredient)];
-    row.querySelectorAll("[data-ingredient-field]").forEach(field => { ingredient[field.dataset.ingredientField] = ["quantity", "packSize", "packPrice"].includes(field.dataset.ingredientField) ? Number(field.value) : field.value; });
-    if (["packSize", "packPrice"].includes(event.target.dataset.ingredientField)) ingredient.supplierOverride = true;
+    row.querySelectorAll("[data-ingredient-field]").forEach(field => { ingredient[field.dataset.ingredientField] = field.dataset.ingredientField === "quantity" ? Number(field.value) : field.value; });
     save(); renderIngredients();
   }));
   qa("[data-remove-ingredient]").forEach(button => button.addEventListener("click", () => {
@@ -396,7 +413,7 @@ function renderPurchasing() {
     return { ...entry, packs, cost, needLabel };
   }).sort((a, b) => a.name.localeCompare(b.name));
   q("#estimatedPurchaseCost").textContent = `${rows.reduce((sum, row) => sum + row.cost, 0).toLocaleString(undefined, { style: "currency", currency: "USD" })} estimated`;
-  q("#purchasingRows").innerHTML = rows.length ? rows.map(row => `<tr><td><strong>${esc(row.name)}</strong>${row.supplierName ? `<small class="supplier-detail">${esc(row.supplierName)}${row.supplierCheckedAt ? ` · checked ${esc(row.supplierCheckedAt)}` : ""}</small>` : ""}</td><td>${esc(row.needLabel)}</td><td>${row.packs}${row.packLabel ? ` × ${esc(row.packLabel)}` : row.packSize ? ` × ${Number(row.packSize)} ${esc(row.unit)}` : " · supplier match needed"}</td><td>${row.cost.toLocaleString(undefined, { style: "currency", currency: "USD" })}${row.supplierUrl ? `<small class="supplier-detail"><a href="${esc(row.supplierUrl)}" target="_blank" rel="noreferrer">Current product category</a></small>` : ""}</td><td>${esc([...new Set(row.recipes)].join(", "))}</td></tr>`).join("") : "<tr><td colspan=\"5\">Purchasing will appear after recipe ingredients are entered.</td></tr>";
+  q("#purchasingRows").innerHTML = rows.length ? rows.map(row => `<tr><td><strong>${esc(row.name)}</strong>${row.supplierName ? `<small class="supplier-detail">${esc(row.supplierName)}${row.supplierCheckedAt ? ` · checked ${esc(row.supplierCheckedAt)}` : ""}</small>` : ""}</td><td>${esc(row.needLabel)}</td><td><strong>${row.packs ? `${row.packs} × ${esc(row.packLabel || `${Number(row.packSize)} ${row.unit}`)}` : "Supplier match needed"}</strong></td><td>${row.cost.toLocaleString(undefined, { style: "currency", currency: "USD" })}${row.supplierUrl ? `<small class="supplier-detail"><a href="${esc(row.supplierUrl)}" target="_blank" rel="noreferrer">View Wegmans item</a></small>` : ""}</td><td>${esc([...new Set(row.recipes)].join(", "))}</td></tr>`).join("") : "<tr><td colspan=\"5\">Purchasing will appear after recipe ingredients are entered.</td></tr>";
 }
 
 function generateTasks() {

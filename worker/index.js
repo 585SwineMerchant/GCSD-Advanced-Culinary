@@ -59,6 +59,11 @@ function submissionRecord(body, user) {
   const numericYield = Number(body?.yield || 0);
   return {
     id: `submission-${crypto.randomUUID()}`,
+    threadId: String(body?.threadId || `recipe-thread-${crypto.randomUUID()}`).slice(0, 120),
+    revision: Math.max(1, Number(body?.revision || 1)),
+    parentSubmissionId: body?.parentSubmissionId ? String(body.parentSubmissionId).slice(0, 120) : null,
+    eventId: body?.eventId ? String(body.eventId).slice(0, 120) : null,
+    eventName: String(body?.eventName || "").trim().slice(0, 160),
     name,
     course: "Advanced Culinary student research",
     unit: null,
@@ -78,6 +83,29 @@ function submissionRecord(body, user) {
     reviewedBy: null,
     reviewedAt: null,
     reviewNote: ""
+  };
+}
+
+function submissionForUser(submission, user) {
+  return user.role === "student" ? submission.submittedByEmail === user.email : true;
+}
+
+function menuItemFromApprovedRecipe(recipe, required) {
+  return {
+    id: `menu-${crypto.randomUUID()}`,
+    name: recipe.name,
+    required: Math.max(1, Number(required || recipe.yield || 1)),
+    yield: Number(recipe.yield),
+    portion: recipe.portion,
+    status: "Approved",
+    recipeId: recipe.id,
+    recipeVersion: Number(recipe.version || 1),
+    sourceCourse: recipe.course,
+    ingredients: structuredClone(recipe.ingredients || []),
+    equipment: structuredClone(recipe.equipment || []),
+    procedure: structuredClone(recipe.procedure || []),
+    allergens: recipe.allergens || "",
+    recipeSnapshot: structuredClone(recipe)
   };
 }
 
@@ -133,12 +161,27 @@ async function handleApi(request, env, url) {
 
   if (url.pathname === "/api/recipe-submissions" && request.method === "POST") {
     const body = await request.json().catch(() => null);
-    const submission = submissionRecord(body, user);
-    if (!submission || !submission.ingredients.length || !submission.procedure.length) {
-      return json({ error: "A recipe title, ingredient list, and procedure are required." }, 400);
-    }
     const row = await getState(env);
     const state = parseState(row);
+    const parentId = body?.parentSubmissionId ? String(body.parentSubmissionId) : null;
+    let parent = null;
+    if (parentId) {
+      parent = state.recipeSubmissions.find(item => item.id === parentId);
+      if (!parent || parent.submittedByEmail !== user.email) return json({ error: "The returned recipe revision could not be found." }, 404);
+      if (parent.status !== "Returned for revision") return json({ error: "Only a recipe returned for revision can be resubmitted." }, 409);
+      body.threadId = parent.threadId || parent.id;
+      body.revision = Number(parent.revision || 1) + 1;
+      body.eventId ||= parent.eventId;
+      body.eventName ||= parent.eventName;
+    }
+    const submission = submissionRecord(body, user);
+    if (!submission || !submission.eventId || !submission.ingredients.length || !submission.procedure.length) {
+      return json({ error: "Choose an event and include a recipe title, ingredient list, and procedure." }, 400);
+    }
+    const linkedEvent = state.events.find(event => String(event.id) === submission.eventId && event.publishedAt && event.stage !== "Draft");
+    if (!linkedEvent) return json({ error: "Choose a currently published Event Order." }, 400);
+    submission.eventName = linkedEvent.name;
+    if (parent) parent.status = "Revised and resubmitted";
     state.recipeSubmissions.push(submission);
     const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
       .bind(JSON.stringify(state), user.email, row.revision).run();
@@ -147,24 +190,37 @@ async function handleApi(request, env, url) {
     return json({ ok: true, submission, revision: row.revision + 1 }, 201);
   }
 
+  if (url.pathname === "/api/recipe-submissions" && request.method === "GET") {
+    const row = await getState(env);
+    const state = parseState(row);
+    const submissions = state.recipeSubmissions
+      .filter(item => submissionForUser(item, user))
+      .sort((a, b) => String(b.submittedAt).localeCompare(String(a.submittedAt)));
+    return json({ submissions, revision: row.revision, user });
+  }
+
   const recipeReviewMatch = url.pathname.match(/^\/api\/recipe-submissions\/([^/]+)$/);
   if (recipeReviewMatch && request.method === "PATCH") {
     if (!['admin', 'teacher'].includes(user.role)) return json({ error: "Teacher access required." }, 403);
     const body = await request.json().catch(() => null);
     const decision = String(body?.decision || "");
-    if (!["Approve", "Return for revision"].includes(decision)) return json({ error: "Choose a valid review decision." }, 400);
+    if (!["Approve", "Return for revision", "Decline"].includes(decision)) return json({ error: "Choose a valid review decision." }, 400);
     const row = await getState(env);
     const state = parseState(row);
     const submission = state.recipeSubmissions.find(item => item.id === decodeURIComponent(recipeReviewMatch[1]));
     if (!submission) return json({ error: "Recipe submission not found." }, 404);
-    submission.status = decision === "Approve" ? "Approved" : "Returned for revision";
+    if (submission.status !== "Awaiting review") return json({ error: "This submission has already been reviewed." }, 409);
+    if (["Return for revision", "Decline"].includes(decision) && !String(body?.note || "").trim()) {
+      return json({ error: "Enter feedback before returning or declining a recipe." }, 400);
+    }
+    submission.status = decision === "Approve" ? "Approved" : decision === "Decline" ? "Declined" : "Returned for revision";
     submission.reviewedBy = user.display_name;
     submission.reviewedAt = new Date().toISOString();
     submission.reviewNote = String(body?.note || "").trim().slice(0, 1000);
     if (decision === "Approve") {
       const numericYield = Number(submission.yield || 0);
-      if (!(numericYield > 0) || !submission.portion) return json({ error: "Confirm a standard yield and portion before approval." }, 400);
-      const recipeId = `approved-${submission.id.replace(/^submission-/, "")}`;
+      if (!(numericYield > 0) || !submission.portion || !submission.ingredients.length || !submission.procedure.length || !submission.equipment.length || !submission.allergens) return json({ error: "Confirm yield, portion, ingredients, procedure, equipment, and allergen controls before approval." }, 400);
+      const recipeId = `approved-${String(submission.threadId || submission.id).replace(/^(recipe-thread|submission)-/, "")}`;
       const existing = state.approvedRecipes.find(item => item.id === recipeId);
       const version = existing ? Number(existing.version || 1) + 1 : 1;
       const approved = {
@@ -182,8 +238,37 @@ async function handleApi(request, env, url) {
     const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
       .bind(JSON.stringify(state), user.email, row.revision).run();
     if (!result.meta.changes) return json({ error: "Another update arrived first. Reload and review again." }, 409);
-    await audit(env, user, decision === "Approve" ? "approve" : "return", "recipe_submission", submission.id, { name: submission.name });
+    await audit(env, user, decision === "Approve" ? "approve" : decision === "Decline" ? "decline" : "return", "recipe_submission", submission.id, { name: submission.name, eventId: submission.eventId });
     return json({ ok: true, submission, state, recipes: recipeLibrary(state), supplierCatalog: SUPPLIER_CATALOG, revision: row.revision + 1 });
+  }
+
+  const addRecipeMatch = url.pathname.match(/^\/api\/recipe-submissions\/([^/]+)\/add-to-event$/);
+  if (addRecipeMatch && request.method === "POST") {
+    if (!["admin", "teacher"].includes(user.role)) return json({ error: "Teacher access required." }, 403);
+    const body = await request.json().catch(() => null);
+    const row = await getState(env);
+    const state = parseState(row);
+    const submission = state.recipeSubmissions.find(item => item.id === decodeURIComponent(addRecipeMatch[1]));
+    if (!submission || submission.status !== "Approved" || !submission.approvedRecipeId) return json({ error: "Only an approved recipe can be added to an Event Order." }, 409);
+    const eventId = String(body?.eventId || submission.eventId || "");
+    const event = state.events.find(item => String(item.id) === eventId);
+    if (!event) return json({ error: "The linked Event Order could not be found." }, 404);
+    if (!canEditEvent(user, event)) return json({ error: "You do not have edit access to this Event Order." }, 403);
+    const recipe = state.approvedRecipes.find(item => item.id === submission.approvedRecipeId && Number(item.version) === Number(submission.approvedVersion));
+    if (!recipe) return json({ error: "The approved recipe version could not be found." }, 404);
+    event.menu ||= [];
+    const duplicate = event.menu.some(item => item.recipeId === recipe.id && Number(item.recipeVersion) === Number(recipe.version));
+    if (duplicate) return json({ error: "This approved recipe version is already on the Event Order." }, 409);
+    const menuItem = menuItemFromApprovedRecipe(recipe, body?.required);
+    event.menu.push(menuItem);
+    submission.addedToEventAt = new Date().toISOString();
+    submission.addedToEventBy = user.display_name;
+    submission.addedMenuItemId = menuItem.id;
+    const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
+      .bind(JSON.stringify(state), user.email, row.revision).run();
+    if (!result.meta.changes) return json({ error: "Another update arrived first. Reload and try again." }, 409);
+    await audit(env, user, "add_to_event", "recipe_submission", submission.id, { eventId, recipeId: recipe.id, recipeVersion: recipe.version });
+    return json({ ok: true, state, recipes: recipeLibrary(state), supplierCatalog: SUPPLIER_CATALOG, revision: row.revision + 1, eventId, menuItem });
   }
 
   if (url.pathname === "/api/state" && request.method === "GET") {

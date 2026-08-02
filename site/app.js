@@ -315,6 +315,7 @@ const techniques = ["Safety and sanitation", "Mise en place and time management"
 const candidateFields = ["Product or concept", "Source URL / book / chef", "Why it fits the event", "Feasibility concerns"];
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
+const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const eventKey = () => String($("#eventSelect")?.value || localStorage.getItem("advancedCurrentEvent") || "1");
 
 function getState() {
@@ -557,9 +558,20 @@ function renderReferences() {
     </article>`).join("");
 }
 
+let liveRecipeEvents = [];
+let recipeSubmissions = [];
+
+function renderRecipeEventOptions() {
+  const select = $("#recipeExperience");
+  const previous = select.value || localStorage.getItem("advancedRecipeEvent") || "";
+  select.innerHTML = liveRecipeEvents.length
+    ? liveRecipeEvents.map(event => `<option value="${event.id}">${event.name} · ${event.serviceDate || "Date pending"}</option>`).join("")
+    : '<option value="">No published Event Orders available</option>';
+  if (liveRecipeEvents.some(event => String(event.id) === previous)) select.value = previous;
+}
+
 function renderRecipeWorkspace() {
-  $("#recipeExperience").innerHTML = experiences.map(exp => `<option value="${exp.id}">${exp.id}. ${exp.short}</option>`).join("");
-  $("#recipeExperience").value = localStorage.getItem("advancedCurrentEvent") || "1";
+  renderRecipeEventOptions();
   $("#techniqueChoices").innerHTML = techniques.map((technique, index) => `<label><input type="checkbox" data-technique="${index}" /> ${technique}</label>`).join("");
   $("#candidateGrid").innerHTML = [1, 2, 3].map(number => `
     <article class="candidate-card"><h3>Possibility ${number}</h3>
@@ -573,6 +585,12 @@ function collectRecipeData() {
   const data = Object.fromEntries(fields.map(id => [id, $("#" + id).value]));
   data.techniques = $$("[data-technique]").filter(box => box.checked).map(box => box.dataset.technique);
   data.candidates = {}; $$("[data-candidate]").forEach(field => data.candidates[field.dataset.candidate] = field.value);
+  const latest = latestRecipeSubmission($("#recipeExperience").value);
+  if (latest?.status === "Returned for revision") {
+    data.parentSubmissionId = latest.id;
+    data.threadId = latest.threadId || latest.id;
+    data.revision = Number(latest.revision || 1) + 1;
+  }
   return data;
 }
 function fillRecipeData(data = {}) {
@@ -583,12 +601,56 @@ function fillRecipeData(data = {}) {
   updateRecipeSummary();
 }
 function loadRecipeExperience(id) {
-  fillRecipeData(recipeStorage()[id] || {});
-  $("#recipeMessage").textContent = recipeStorage()[id] ? "Saved work loaded for this event." : "No saved work yet for this event.";
+  const saved = recipeStorage()[id];
+  const returned = latestRecipeSubmission(id);
+  const recovered = returned?.status === "Returned for revision" ? {
+    recipeName: returned.name, recipeYield: returned.yield, recipePortion: returned.portion,
+    recipeIngredients: (returned.ingredients || []).join("\n"), recipeEquipment: (returned.equipment || []).join("\n"),
+    recipeProcedure: (returned.procedure || []).join("\n"), recipeAllergens: returned.allergens,
+    recipeTestNotes: returned.testNotes, recipeApproval: "Returned for revision"
+  } : {};
+  fillRecipeData(saved || recovered);
+  $("#recipeMessage").textContent = saved ? "Saved work loaded for this event." : returned?.status === "Returned for revision" ? "The returned recipe and teacher feedback were restored for revision." : "No saved work yet for this event.";
+  renderStudentReviewStatus();
+}
+function latestRecipeSubmission(eventId) {
+  return recipeSubmissions.filter(item => String(item.eventId) === String(eventId)).sort((a, b) => Number(b.revision || 1) - Number(a.revision || 1) || String(b.submittedAt).localeCompare(String(a.submittedAt)))[0] || null;
+}
+function setRecipeLocked(locked) {
+  $$("#recipeForm input, #recipeForm textarea, #recipeForm select, #recipeForm button").forEach(control => {
+    if (control.id === "recipeExperience" || control.id === "copyRecipe") return;
+    control.disabled = locked;
+  });
+}
+function renderStudentReviewStatus() {
+  const status = $("#recipeReviewStatus");
+  const submission = latestRecipeSubmission($("#recipeExperience").value);
+  if (!submission) {
+    status.dataset.status = "draft";
+    status.innerHTML = '<strong>Draft</strong><p>Your saved work stays on this device until you submit it for teacher review.</p>';
+    setRecipeLocked(false);
+    return;
+  }
+  const canRevise = submission.status === "Returned for revision";
+  const locked = ["Awaiting review", "Approved", "Declined", "Revised and resubmitted"].includes(submission.status);
+  const history = recipeSubmissions.filter(item => (item.threadId || item.id) === (submission.threadId || submission.id)).sort((a, b) => Number(a.revision || 1) - Number(b.revision || 1));
+  const historyText = history.length > 1 ? `<p><b>History:</b> ${history.map(item => `revision ${Number(item.revision || 1)} — ${escapeHtml(item.status)}`).join("; ")}</p>` : "";
+  status.dataset.status = submission.status.toLowerCase().replaceAll(" ", "-");
+  status.innerHTML = `<strong>${escapeHtml(submission.status)} · revision ${Number(submission.revision || 1)}</strong><p>${submission.reviewNote ? `<b>Teacher feedback:</b> ${escapeHtml(submission.reviewNote)}` : submission.status === "Awaiting review" ? "This submitted version is locked while your teacher reviews it." : submission.status === "Approved" ? "This version is now in the approved recipe library. Your teacher decides whether to add it to the Event Order." : "No teacher note has been added yet."}</p>${canRevise ? "<p>Edit the draft below and submit a new revision. The earlier version and feedback remain in its history.</p>" : ""}${historyText}`;
+  setRecipeLocked(locked);
+  $("#recipeApproval").value = submission.status === "Approved" ? "Approved for production" : submission.status;
+}
+async function loadRecipeReviewData() {
+  const [eventResponse, submissionResponse] = await Promise.all([fetch("/api/student/events"), fetch("/api/recipe-submissions")]);
+  if (eventResponse.ok) liveRecipeEvents = (await eventResponse.json()).events || [];
+  if (submissionResponse.ok) recipeSubmissions = (await submissionResponse.json()).submissions || [];
+  renderRecipeEventOptions();
+  loadRecipeExperience($("#recipeExperience").value);
 }
 function recipeSummaryText() {
   const data = collectRecipeData();
-  const exp = experiences.find(item => String(item.id) === $("#recipeExperience").value);
+  const liveEvent = liveRecipeEvents.find(item => String(item.id) === $("#recipeExperience").value);
+  const exp = liveEvent ? { short: liveEvent.name } : { short: "Event not selected" };
   const selectedTechniques = data.techniques.map(index => techniques[Number(index)]).join(", ") || "Not selected";
   const possibilities = [1, 2, 3].map(number => `Possibility ${number}: ${data.candidates[`${number}-0`] || "Not entered"}\nSource: ${data.candidates[`${number}-1`] || "No source"}\nFit: ${data.candidates[`${number}-2`] || "No rationale"}\nFeasibility: ${data.candidates[`${number}-3`] || "No concerns recorded"}`).join("\n\n");
   return `${exp.short}
@@ -630,7 +692,7 @@ async function copyText(text, target) {
   }
 }
 function bindRecipeEvents() {
-  $("#recipeExperience").addEventListener("change", event => loadRecipeExperience(event.target.value));
+  $("#recipeExperience").addEventListener("change", event => { localStorage.setItem("advancedRecipeEvent", event.target.value); loadRecipeExperience(event.target.value); });
   $("#recipeForm").addEventListener("input", updateRecipeSummary);
   $("#recipeForm").addEventListener("submit", event => {
     event.preventDefault(); const store = recipeStorage(); store[$("#recipeExperience").value] = collectRecipeData();
@@ -639,10 +701,13 @@ function bindRecipeEvents() {
   $("#copyRecipe").addEventListener("click", () => copyText(recipeSummaryText(), $("#recipeMessage")));
   $("#submitRecipeForReview").addEventListener("click", async () => {
     const data = collectRecipeData();
+    const event = liveRecipeEvents.find(item => String(item.id) === $("#recipeExperience").value);
+    if (!event) { $("#recipeMessage").textContent = "Choose a published Event Order before submitting."; return; }
     const sources = [1, 2, 3].map(number => [data.candidates[`${number}-0`], data.candidates[`${number}-1`]].filter(Boolean).join(": ")).filter(Boolean);
     const response = await fetch("/api/recipe-submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
       name: data.recipeName, yield: data.recipeYield, portion: data.recipePortion,
       ingredients: data.recipeIngredients, equipment: data.recipeEquipment, procedure: data.recipeProcedure,
+      eventId: event.id, eventName: event.name, parentSubmissionId: data.parentSubmissionId, threadId: data.threadId, revision: data.revision,
       allergens: data.recipeAllergens || data.recipeNeeds, sourceNotes: sources.join("\n"), testNotes: data.recipeTestNotes
     }) });
     const result = await response.json().catch(() => ({}));
@@ -651,6 +716,7 @@ function bindRecipeEvents() {
     $("#recipeApproval").value = data.recipeApproval;
     const store = recipeStorage(); store[$("#recipeExperience").value] = data; localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store));
     $("#recipeMessage").textContent = "Submitted to the teacher recipe approval queue."; updateRecipeSummary();
+    await loadRecipeReviewData();
   });
   $("#clearRecipe").addEventListener("click", () => {
     if (!window.confirm("Clear the Recipe Studio work saved for this event?")) return;
@@ -687,6 +753,7 @@ function init() {
   renderRecipeWorkspace();
   bindRecipeEvents();
   bindDynamicButtons();
+  loadRecipeReviewData().catch(() => { $("#recipeReviewStatus").innerHTML = "<strong>Status unavailable</strong><p>Saved work is still available on this device. Refresh to reconnect to the review queue.</p>"; });
 
   $("#menuButton").addEventListener("click", () => {
     const open = $("#primaryNav").classList.toggle("open");

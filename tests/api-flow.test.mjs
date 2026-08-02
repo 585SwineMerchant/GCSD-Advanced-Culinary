@@ -72,11 +72,11 @@ test("shared recipe library includes the complete Culinary Arts 1 & 2 source set
 });
 
 test("student research requires teacher review before entering the recipe library", async () => {
-  const db = new FakeDB({ requests: [], events: [] });
+  const db = new FakeDB({ requests: [], events: [event] });
   const env = { DB: db };
   const submitted = await worker.fetch(request("/api/recipe-submissions", "student@district.example", {
     method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-      name: "Student Soup", yield: 8, portion: "8 oz bowl", ingredients: "2 lb squash\n1 qt stock",
+      eventId: "event-1", name: "Student Soup", yield: 8, portion: "8 oz bowl", ingredients: "2 lb squash\n1 qt stock",
       equipment: "Stockpot", procedure: "Roast squash\nSimmer with stock", allergens: "None identified"
     })
   }), env);
@@ -90,6 +90,58 @@ test("student research requires teacher review before entering the recipe librar
   assert.equal(approved.status, 200);
   library = await (await worker.fetch(request("/api/recipes", "student@district.example"), env)).json();
   assert.equal(library.recipes.find(recipe => recipe.name === "Student Soup").approvalStatus, "Approved for production");
+});
+
+test("returned recipe preserves feedback and creates a new revision", async () => {
+  const db = new FakeDB({ requests: [], events: [event] });
+  const env = { DB: db };
+  const firstResponse = await worker.fetch(request("/api/recipe-submissions", "student@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      eventId: "event-1", name: "Student Tart", yield: 8, portion: "1 tart", ingredients: "8 tart shells\n2 cups filling",
+      equipment: "Sheet pan", procedure: "Fill shells\nBake", allergens: "Wheat, dairy"
+    })
+  }), env);
+  const first = (await firstResponse.json()).submission;
+  const returned = await worker.fetch(request(`/api/recipe-submissions/${first.id}`, "admin@district.example", {
+    method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "Return for revision", note: "Add the cooling procedure." })
+  }), env);
+  assert.equal(returned.status, 200);
+  const revisedResponse = await worker.fetch(request("/api/recipe-submissions", "student@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      parentSubmissionId: first.id, eventId: "event-1", name: "Student Tart", yield: 8, portion: "1 tart", ingredients: "8 tart shells\n2 cups filling",
+      equipment: "Sheet pan\nCooling rack", procedure: "Fill shells\nBake\nCool on rack", allergens: "Wheat, dairy"
+    })
+  }), env);
+  assert.equal(revisedResponse.status, 201);
+  const revised = (await revisedResponse.json()).submission;
+  assert.equal(revised.revision, 2);
+  assert.equal(revised.threadId, first.threadId);
+  const own = await (await worker.fetch(request("/api/recipe-submissions", "student@district.example"), env)).json();
+  assert.deepEqual(new Set(own.submissions.map(item => item.status)), new Set(["Revised and resubmitted", "Awaiting review"]));
+  assert.equal(own.submissions.find(item => item.id === first.id).reviewNote, "Add the cooling procedure.");
+});
+
+test("declined recipe stays out of library and approved recipe requires deliberate Event Order addition", async () => {
+  const db = new FakeDB({ requests: [], events: [event] });
+  const env = { DB: db };
+  const submit = async name => (await (await worker.fetch(request("/api/recipe-submissions", "student@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ eventId: "event-1", name, yield: 12, portion: "1 piece", ingredients: "12 oz dough", equipment: "Sheet pan", procedure: "Shape\nBake", allergens: "Wheat" })
+  }), env)).json()).submission;
+  const declined = await submit("Declined Bread");
+  const declineResponse = await worker.fetch(request(`/api/recipe-submissions/${declined.id}`, "admin@district.example", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "Decline", note: "Duplicate menu item." }) }), env);
+  assert.equal(declineResponse.status, 200);
+  let library = await (await worker.fetch(request("/api/recipes", "student@district.example"), env)).json();
+  assert.equal(library.recipes.some(recipe => recipe.name === "Declined Bread"), false);
+
+  const approvedSubmission = await submit("Approved Bread");
+  await worker.fetch(request(`/api/recipe-submissions/${approvedSubmission.id}`, "admin@district.example", { method: "PATCH", headers: { "content-type": "application/json" }, body: JSON.stringify({ decision: "Approve", note: "Ready." }) }), env);
+  assert.equal(JSON.parse(db.stateRow.state_json).events[0].menu.length, 0);
+  const added = await worker.fetch(request(`/api/recipe-submissions/${approvedSubmission.id}/add-to-event`, "admin@district.example", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ required: 30 }) }), env);
+  assert.equal(added.status, 200);
+  const menu = JSON.parse(db.stateRow.state_json).events[0].menu;
+  assert.equal(menu.length, 1);
+  assert.equal(menu[0].required, 30);
+  assert.equal(menu[0].recipeSnapshot.name, "Approved Bread");
 });
 
 test("bootstrap administrator is normalized to Kevin McCann", async () => {

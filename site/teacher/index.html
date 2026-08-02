@@ -134,20 +134,21 @@
               <div><p class="eyebrow">Approved recipe detail</p><h3 id="ingredientTitle">Ingredients &amp; purchasing forecast</h3></div>
               <label>Recipe<select id="ingredientMenuItem"></select></label>
             </header>
-            <p class="section-note" id="ingredientNote">Recipe data is copied into this Event Order as a versioned snapshot. Confirm legacy pathway recipes that still need a standard yield or normalized purchasing units.</p>
+            <p class="section-note" id="ingredientNote">Recipe data is copied into this Event Order as a versioned snapshot. Supplier packages show the actual Wegmans shelf package; package counts are rounded up after the event's ingredient needs are combined.</p>
             <div class="table-wrap"><table class="ingredient-table">
-              <thead><tr><th>Ingredient</th><th>Per batch</th><th>Unit</th><th>Purchase pack</th><th>Pack price</th><th>Scaled need</th><th>Buy</th><th></th></tr></thead>
+              <thead><tr><th>Ingredient</th><th>Per batch</th><th>Unit</th><th>Event need</th><th>Wegmans product / package</th><th>Price / package</th><th></th></tr></thead>
               <tbody id="ingredientRows"></tbody>
             </table></div>
             <button class="add-row-button" id="addIngredient" type="button">+ Add ingredient</button>
             <div class="purchasing-preview">
               <div class="subheading"><div><p class="eyebrow">All menu items combined</p><h3>Purchasing forecast</h3></div><strong id="estimatedPurchaseCost"></strong></div>
-              <div class="table-wrap"><table><thead><tr><th>Ingredient</th><th>Total need</th><th>Purchase packs</th><th>Estimated cost</th><th>Used by</th></tr></thead><tbody id="purchasingRows"></tbody></table></div>
+              <p class="section-note">The forecast combines matching ingredients across every menu item before rounding up to whole packages.</p>
+              <div class="table-wrap"><table><thead><tr><th>Ingredient</th><th>Total recipe need</th><th>What to buy</th><th>Estimated cost</th><th>Used by</th></tr></thead><tbody id="purchasingRows"></tbody></table></div>
             </div>
           </section>
           <section class="recipe-review" aria-labelledby="recipeReviewTitle">
             <header class="subheading"><div><p class="eyebrow">Student research workflow</p><h3 id="recipeReviewTitle">Recipe approval queue</h3></div><strong id="recipeSubmissionCount"></strong></header>
-            <p class="section-note">Student research remains a draft until a teacher confirms yield, portion, ingredients, procedure, equipment, allergens, and production suitability.</p>
+            <p class="section-note">Each submission is linked to a published Event Order. Return preserves feedback for a new revision; Decline closes the proposal; Approve creates a versioned production recipe without placing it on the menu.</p>
             <div id="recipeSubmissionList" class="recipe-submission-list"></div>
           </section>
           <div class="panel-actions"><button class="primary-button" data-save="menu" type="button">Save menu</button><button class="next-button" data-next="production" type="button">Generate production plan →</button></div>

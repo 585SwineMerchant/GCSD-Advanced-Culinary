@@ -231,6 +231,10 @@
           <div><p class="eyebrow">Research → test → teacher approval → shared library</p><h2>Build a production-recipe draft</h2></div>
           <p>Save work while researching. When the record is complete, submit it to the teacher approval queue; only a teacher-approved version enters the shared recipe library.</p>
         </div>
+        <section class="recipe-review-status" id="recipeReviewStatus" aria-live="polite">
+          <strong>Submission status</strong>
+          <p>Choose a published Event Order to begin a recipe proposal.</p>
+        </section>
         <form id="recipeForm">
           <fieldset>
             <legend><span>1</span> Event and recipient</legend>
@@ -262,7 +266,7 @@
             <legend><span>4</span> Test and approval</legend>
             <div class="form-grid two">
               <label>Selected possibility<select id="recipeSelection"><option value="">Choose after research</option><option>Possibility 1</option><option>Possibility 2</option><option>Possibility 3</option></select></label>
-              <label>Status<select id="recipeApproval"><option>Researching</option><option>Approved for test</option><option>Revise and retest</option><option>Submitted for teacher review</option><option>Approved for production</option></select></label>
+              <label>Status<select id="recipeApproval"><option>Researching</option><option>Approved for test</option><option>Revise and retest</option><option>Submitted for teacher review</option><option>Returned for revision</option><option>Declined</option><option>Approved for production</option></select></label>
             </div>
             <label>Test results, changes, and approved quality standard<textarea id="recipeTestNotes" rows="4"></textarea></label>
           </fieldset>
