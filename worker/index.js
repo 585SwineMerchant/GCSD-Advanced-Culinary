@@ -1,4 +1,5 @@
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
+const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), { status, headers: JSON_HEADERS });
@@ -11,15 +12,17 @@ function emailFrom(request) {
 async function currentUser(request, env) {
   const email = emailFrom(request);
   if (!email) return null;
+  const bootstrapEmail = String(env.BOOTSTRAP_ADMIN_EMAIL || "").trim().toLowerCase();
   const assigned = await env.DB.prepare("SELECT email, display_name, role, school, section_id FROM users WHERE email = ? AND active = 1")
     .bind(email).first();
-  if (assigned) return assigned;
-  if (env.BOOTSTRAP_ADMIN_EMAIL && email === String(env.BOOTSTRAP_ADMIN_EMAIL).trim().toLowerCase()) {
-    const displayName = request.headers.get("Cf-Access-Authenticated-User-Name") || "Culinary Administrator";
-    await env.DB.prepare("INSERT INTO users (email, display_name, role, school, active) VALUES (?, ?, 'admin', 'Districtwide', 1)")
-      .bind(email, displayName).run();
-    return { email, display_name: displayName, role: "admin", school: "Districtwide", section_id: null };
+  if (email === bootstrapEmail) {
+    if (!assigned || assigned.display_name !== BOOTSTRAP_ADMIN_NAME || assigned.role !== "admin") {
+      await env.DB.prepare("INSERT INTO users (email, display_name, role, school, active, updated_at) VALUES (?, ?, 'admin', 'Districtwide', 1, CURRENT_TIMESTAMP) ON CONFLICT(email) DO UPDATE SET display_name = excluded.display_name, role = 'admin', school = 'Districtwide', section_id = NULL, active = 1, updated_at = CURRENT_TIMESTAMP")
+        .bind(email, BOOTSTRAP_ADMIN_NAME).run();
+    }
+    return { email, display_name: BOOTSTRAP_ADMIN_NAME, role: "admin", school: "Districtwide", section_id: null };
   }
+  if (assigned) return assigned;
   return null;
 }
 
@@ -87,7 +90,7 @@ async function handleApi(request, env, url) {
     const previous = parseState(row);
     const violation = validateTeacherChange(user, previous, body.state);
     if (violation) return json({ error: violation }, 403);
-    body.state.activeTeacher = user.display_name;
+    delete body.state.activeTeacher;
     const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
       .bind(JSON.stringify(body.state), user.email, body.revision).run();
     if (!result.meta.changes) return json({ error: "The Event Order changed while saving. Reload and try again." }, 409);
