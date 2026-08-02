@@ -60,6 +60,12 @@ test("shared recipe library includes the complete Culinary Arts 1 & 2 source set
   assert.equal(body.recipes.filter(recipe => recipe.course === "Culinary Arts 1 & 2").length, 37);
   assert.ok(body.recipes.some(recipe => recipe.name === "Rosemary Focaccia"));
   assert.ok(body.recipes.some(recipe => recipe.name === "Crème Brûlée"));
+  const pathwayRecipes = body.recipes.filter(recipe => recipe.course === "Culinary Arts 1 & 2");
+  assert.equal(pathwayRecipes.every(recipe => Number(recipe.yield) > 0 && recipe.portion), true);
+  assert.equal(pathwayRecipes.find(recipe => recipe.name === "Cinnamon Rolls").yield, 16);
+  assert.equal(pathwayRecipes.find(recipe => recipe.name === "Cinnamon Rolls").portion, "1 cinnamon roll");
+  assert.equal(pathwayRecipes.find(recipe => recipe.name === "Whipped Cream").yield, 2);
+  assert.equal(pathwayRecipes.find(recipe => recipe.name === "Whipped Cream").portion, "1 cup finished whipped cream");
 });
 
 test("student research requires teacher review before entering the recipe library", async () => {
