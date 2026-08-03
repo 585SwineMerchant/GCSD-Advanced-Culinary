@@ -1,4 +1,4 @@
-import { offsetDate } from "../shared/scheduling.js";
+import { isAdvancedSection, offsetDate } from "../shared/scheduling.js";
 
 const DEFAULT_PROGRESS = { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null };
 
@@ -144,6 +144,7 @@ function stageSchedule(stages, readyMinutes) {
 }
 
 export function buildProductionTasks(item, menuIndex, event, sections, previousTasks = []) {
+  const assignmentSections = sections.filter(isAdvancedSection);
   const stages = procedureStages(item);
   const readyMinutes = requiredReadyTime(event);
   const batchCount = item.yield > 0 ? Math.ceil(Number(item.required || 0) / Number(item.yield)) : 0;
@@ -168,7 +169,7 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
       workDate: prior.workDate || offsetDate(event.serviceDate, schedule[index].dayOffset),
       day: prior.day || datedPoint(event, schedule[index].dayOffset, pointLabel),
       deadline: prior.deadline || schedule[index].deadline,
-      section: prior.section || sections[menuIndex % Math.max(1, sections.length - 1)]?.id || sections[0]?.id || "",
+      section: prior.section || assignmentSections[menuIndex % Math.max(1, assignmentSections.length)]?.id || "",
       station: prior.station || `${item.name} station`, team: prior.team || "Team A", students: prior.students || "",
       dependency: prior.dependency || (index ? `Begin after ${stages[index - 1].title.toLowerCase()} passes its quality check.` : "Ingredients, equipment, and station setup verified."),
       equipment: equipmentFor(stage.title, equipment), qualityControls: controls,

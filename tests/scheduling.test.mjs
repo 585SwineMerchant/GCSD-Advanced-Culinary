@@ -27,16 +27,45 @@ import {
 import { validateTeacherChange } from "../worker/index.js";
 
 const sections = normalizeSections([
-  { id: "adv-p2", teams: [
+  { id: "kevin-advanced-p3", teams: [
     { id: "adv-p2-team-a", name: "Team A", students: ["Ada", "Luis"] },
     { id: "adv-p2-team-b", name: "Team B", students: ["Mina"] }
   ] },
-  { id: "adv-p5", teams: [{ id: "adv-p5-team-a", name: "Team A", students: ["Noah"] }] },
+  { id: "carlson-advanced-p5", teams: [{ id: "carlson-p5-team-a", name: "Team A", students: ["Noah"] }] },
   { id: "carlson-advanced-p4", teams: [
     { id: "carlson-p4-team-a", name: "Team A", students: ["Rae"] },
     { id: "carlson-p4-team-b", name: "Team B", students: ["Sol"] }
   ] }
 ]);
+
+test("kitchen section inventory has nine active stable sections", () => {
+  const active = sections.filter(section => section.active !== false);
+  assert.equal(active.length, 9);
+  assert.equal(active.filter(section => section.course === "Advanced Culinary Arts").length, 3);
+  assert.equal(active.filter(section => section.course === "Culinary Arts & Nutrition I").length, 5);
+  assert.equal(active.filter(section => section.course === "Kitchen & Restaurant Management").length, 1);
+  assert.equal(active.filter(section => section.course === "Advanced Culinary Arts" && section.teacher === "Kevin McCann").length, 1);
+  assert.equal(active.filter(section => section.course === "Advanced Culinary Arts" && section.teacher === "Jason Carlson").length, 2);
+  assert.equal(active.filter(section => section.course === "Culinary Arts & Nutrition I" && section.teacher === "Kevin McCann").length, 4);
+  assert.equal(active.filter(section => section.course === "Culinary Arts & Nutrition I" && section.teacher === "Jason Carlson").length, 1);
+});
+
+test("split-period sections remain one stable section with nullable official numbers", () => {
+  const intro45 = sections.filter(section => section.teacher === "Kevin McCann" && section.course === "Culinary Arts & Nutrition I" && section.allowedPeriods?.join("/") === "4/5");
+  assert.deepEqual(intro45.map(section => section.id).sort(), ["kevin-culinary-p4", "kevin-culinary-p6"]);
+  assert.ok(sections.find(section => section.id === "carlson-advanced-p5")?.requiresRotationConfirmation);
+  assert.equal(sectionMeetsOnDate("carlson-advanced-p5", "2026-09-22", sections), null);
+  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p5", "2026-09-22", ["carlson-p5-team-a"])] }, sections).join(" "), /requires district confirmation/);
+  assert.ok(sections.every(section => section.officialSectionNumber === ""));
+});
+
+test("surplus provisional Advanced records are inactive instead of deleted", () => {
+  const inactive = sections.filter(section => section.active === false);
+  assert.deepEqual(inactive.map(section => section.id).sort(), ["adv-p2", "adv-p5", "carlson-advanced-p6", "carlson-culinary-p2"]);
+  assert.equal(sections.find(section => section.id === "adv-p2")?.retiredIntoSectionId, "kevin-advanced-p3");
+  assert.equal(sections.find(section => section.id === "adv-p5")?.retiredIntoSectionId, "kevin-advanced-p3");
+  assert.equal(sections.find(section => section.id === "carlson-advanced-p6")?.retiredIntoSectionId, "carlson-advanced-p5");
+});
 
 test("calendar scheduling produces stable ISO dates across service-day offsets", () => {
   assert.equal(offsetDate("2026-09-24", -1), "2026-09-23");
@@ -61,21 +90,22 @@ test("teacher course and period mapping derives a meeting window", () => {
   assert.equal(meeting.end, BELL_SCHEDULE[4].end);
 });
 
-test("stable section identity is independent of provisional label and official section number", () => {
-  const configured = normalizeSections([{ id: "adv-p2", provisionalLabel: "Section TBD A", officialSectionNumber: "", teams: [{ id: "adv-p2-team-a", name: "Team A", students: ["Ada"] }] }]);
-  const before = configured.find(section => section.id === "adv-p2");
-  assert.equal(sectionDisplayLabel(before), "McCann - Section TBD A");
+test("stable section identity is independent of label and official section number", () => {
+  const configured = normalizeSections([{ id: "kevin-advanced-p3", officialSectionNumber: "", teams: [{ id: "kevin-p3-team-a", name: "Team A", students: ["Ada"] }] }]);
+  const before = configured.find(section => section.id === "kevin-advanced-p3");
+  assert.equal(sectionDisplayLabel(before), "McCann Advanced - Period 3");
   before.officialSectionNumber = "12345";
-  assert.equal(before.id, "adv-p2");
+  assert.equal(before.id, "kevin-advanced-p3");
   assert.equal(sectionDisplayLabel(before), "McCann - Section 12345");
-  assert.deepEqual(teamsForSection(configured, "adv-p2")[0].students, ["Ada"]);
+  assert.deepEqual(teamsForSection(configured, "kevin-advanced-p3")[0].students, ["Ada"]);
 });
 
-test("legacy period labels are mapped to canonical Advanced Culinary identity without losing rosters", () => {
+test("legacy provisional Advanced records stay inactive without losing rosters", () => {
   const configured = normalizeSections([{ id: "adv-p2", name: "Culinary Arts & Nutrition I - Kevin Period 2", course: "Culinary Arts & Nutrition I", teams: [{ id: "adv-p2-team-a", name: "Team A", students: ["Ada"] }] }]);
   const section = configured.find(item => item.id === "adv-p2");
   assert.equal(section.course, "Advanced Culinary Arts");
-  assert.equal(sectionDisplayLabel(section), "McCann - Section TBD A");
+  assert.equal(section.active, false);
+  assert.equal(section.retiredIntoSectionId, "kevin-advanced-p3");
   assert.deepEqual(teamsForSection(configured, "adv-p2")[0].students, ["Ada"]);
 });
 
@@ -87,43 +117,43 @@ test("date-first filtering shows only Advanced Culinary meetings for the selecte
   assert.equal(meetings.some(meeting => meeting.section.id === "km"), false);
 });
 
-test("a section unavailable on a non-meeting date is blocked", () => {
-  assert.equal(sectionMeetsOnDate("carlson-advanced-p4", "2026-09-17", sections), null);
-  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p4", "2026-09-17", ["carlson-p4-team-a"])] }, sections).join(" "), /does not meet/);
+test("a split section with unconfirmed rotation mapping is blocked", () => {
+  assert.equal(sectionMeetsOnDate("carlson-advanced-p5", "2026-09-17", sections), null);
+  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p5", "2026-09-17", ["carlson-p5-team-a"])] }, sections).join(" "), /requires district confirmation/);
 });
 
 test("team choices are dependent on the selected period", () => {
-  assert.deepEqual(teamsForSection(sections, "adv-p2").map(team => team.id), ["adv-p2-team-a", "adv-p2-team-b"]);
-  assert.deepEqual(teamsForSection(sections, "adv-p5").map(team => team.id), ["adv-p5-team-a"]);
+  assert.deepEqual(teamsForSection(sections, "kevin-advanced-p3").map(team => team.id), ["adv-p2-team-a", "adv-p2-team-b"]);
+  assert.deepEqual(teamsForSection(sections, "carlson-advanced-p4").map(team => team.id), ["carlson-p4-team-a", "carlson-p4-team-b"]);
 });
 
 test("selecting a saved team propagates its assignment record, name, and student roster", () => {
-  const task = applyTeamToTask({}, sections, "adv-p2", "adv-p2-team-b");
-  assert.equal(task.section, "adv-p2");
+  const task = applyTeamToTask({}, sections, "kevin-advanced-p3", "adv-p2-team-b");
+  assert.equal(task.section, "kevin-advanced-p3");
   assert.equal(task.teamId, "adv-p2-team-b");
   assert.equal(task.team, "Team B");
   assert.equal(task.students, "Mina");
-  assert.deepEqual(task.assignmentRecords.map(record => ({ sectionId: record.sectionId, teamIds: record.teamIds })), [{ sectionId: "adv-p2", teamIds: ["adv-p2-team-b"] }]);
+  assert.deepEqual(task.assignmentRecords.map(record => ({ sectionId: record.sectionId, teamIds: record.teamIds })), [{ sectionId: "kevin-advanced-p3", teamIds: ["adv-p2-team-b"] }]);
 });
 
 test("period changes refresh and validate team choices", () => {
-  const task = { id: "task", workDate: "2026-09-23", assignmentRecords: [{ sectionId: "adv-p2", workDate: "2026-09-23", teamIds: ["adv-p2-team-b"] }] };
-  task.assignmentRecords[0].sectionId = "adv-p5";
+  const task = { id: "task", workDate: "2026-09-23", assignmentRecords: [{ sectionId: "kevin-advanced-p3", workDate: "2026-09-23", teamIds: ["adv-p2-team-b"] }] };
+  task.assignmentRecords[0].sectionId = "carlson-advanced-p4";
   normalizeTaskAssignments(task, sections);
-  assert.equal(task.teamId, "adv-p5-team-a");
+  assert.equal(task.teamId, "carlson-p4-team-a");
   assert.equal(task.assignmentRecords[0].teamIds.includes("adv-p2-team-b"), false);
 });
 
 test("one task can hold multiple sections and multiple teams without multiplying yield", () => {
   const task = { id: "task", name: "Bake", outputRecord: true, progress: { usableYield: 0 }, assignmentRecords: [
-    makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"]),
+    makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"]),
     makeAssignment(sections, "carlson-advanced-p4", "2026-09-23", ["carlson-p4-team-a"])
   ] };
   normalizeTaskAssignments(task, sections);
   assert.equal(task.assignmentRecords.length, 2);
   assert.equal(task.assignmentRecords[0].teamIds.length, 2);
   task.assignmentProgress = {
-    "adv-p2": { status: "In progress", quantity: 3, usableYield: 0, waste: 1 },
+    "kevin-advanced-p3": { status: "In progress", quantity: 3, usableYield: 0, waste: 1 },
     "carlson-advanced-p4": { status: "Complete", quantity: 2, usableYield: 5, waste: 0 }
   };
   assert.equal(aggregateProgress(task).quantity, 5);
@@ -131,7 +161,7 @@ test("one task can hold multiple sections and multiple teams without multiplying
 });
 
 test("assignment-level production contributions are keyed by task, assignment, and team", () => {
-  const task = { id: "task", detail: "1 batch", assignmentRecords: [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"])] };
+  const task = { id: "task", detail: "1 batch", assignmentRecords: [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"])] };
   const contributions = assignmentContributions(task, sections);
   assert.equal(contributions.length, 2);
   assert.ok(contributions.every(item => item.key === assignmentContributionKey("task", item.record, item.team.id)));
@@ -140,8 +170,8 @@ test("assignment-level production contributions are keyed by task, assignment, a
 
 test("live production date filtering and counts keep one operational date at a time", () => {
   const event = { tasks: [
-    { id: "mix", assignmentRecords: [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a"])], assignmentProgress: {} },
-    { id: "bake", assignmentRecords: [makeAssignment(sections, "adv-p5", "2026-09-24", ["adv-p5-team-a"])], assignmentProgress: {} }
+    { id: "mix", assignmentRecords: [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])], assignmentProgress: {} },
+    { id: "bake", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p4", "2026-09-24", ["carlson-p4-team-a"])], assignmentProgress: {} }
   ] };
   event.tasks[0].assignmentProgress[assignmentContributionKey("mix", event.tasks[0].assignmentRecords[0], "adv-p2-team-a")] = { status: "Complete", quantity: 1 };
   assert.deepEqual(productionDates(event, sections), ["2026-09-23", "2026-09-24"]);
@@ -151,7 +181,7 @@ test("live production date filtering and counts keep one operational date at a t
 });
 
 test("removing one participating team does not delete the task or section assignment", () => {
-  const task = { id: "task", assignmentRecords: [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"])] };
+  const task = { id: "task", assignmentRecords: [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"])] };
   task.assignmentRecords[0].teamIds = task.assignmentRecords[0].teamIds.filter(teamId => teamId !== "adv-p2-team-b");
   normalizeTaskAssignments(task, sections);
   assert.equal(task.id, "task");
@@ -161,10 +191,10 @@ test("removing one participating team does not delete the task or section assign
 test("publication is blocked until every task has a valid date, meeting section, and team", () => {
   const previous = { sections, events: [{ id: "evt", name: "Breakfast", owner: "Kevin McCann", collaborators: [], version: 0, stage: "Draft", tasks: [] }] };
   const next = structuredClone(previous);
-  next.events[0] = { ...next.events[0], version: 1, stage: "Published", publishedAt: "2026-08-03T12:00:00Z", tasks: [{ id: "task", name: "Bake", assignmentRecords: [{ workDate: "", sectionId: "adv-p2", teamIds: [] }] }] };
+  next.events[0] = { ...next.events[0], version: 1, stage: "Published", publishedAt: "2026-08-03T12:00:00Z", tasks: [{ id: "task", name: "Bake", assignmentRecords: [{ workDate: "", sectionId: "kevin-advanced-p3", teamIds: [] }] }] };
   assert.match(taskPublicationIssues(next.events[0], sections).join(" "), /production date/);
   assert.match(validateTeacherChange({ role: "admin", display_name: "Kevin McCann" }, previous, next), /production date/);
-  next.events[0].tasks[0].assignmentRecords = [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a"])];
+  next.events[0].tasks[0].assignmentRecords = [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])];
   assert.equal(taskPublicationIssues(next.events[0], sections).length, 0);
   assert.equal(validateTeacherChange({ role: "admin", display_name: "Kevin McCann" }, previous, next), null);
 });
@@ -190,7 +220,7 @@ test("teacher UI uses stage-aware workflow, stable-section terminology, and labe
   const teacherOperations = readFileSync(new URL("../site/teacher/teacher-operations.js", import.meta.url), "utf8");
   assert.match(teacherHtml, /1<\/span> Request inbox/);
   assert.match(teacherHtml, /8<\/span> Access &amp; rosters/);
-  assert.match(teacherHtml, /Sections, teams &amp; rosters/);
+  assert.match(teacherHtml, /Kitchen sections, teams &amp; rosters/);
   assert.doesNotMatch(teacherHtml, /Teams by period/);
   assert.match(teacherOperations, /stageContext/);
   assert.match(teacherOperations, /Remove assignment/);

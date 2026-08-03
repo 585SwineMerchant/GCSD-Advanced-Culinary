@@ -3,7 +3,11 @@ import assert from "node:assert/strict";
 import { PATHWAY_RECIPES } from "../worker/pathway-recipes.js";
 import { buildEventProductionTasks, buildProductionTasks, productionUnit } from "../site/teacher/production-planner.js";
 
-const sections = [{ id: "adv-p2" }, { id: "adv-p5" }, { id: "km" }];
+const sections = [
+  { id: "kevin-advanced-p3", course: "Advanced Culinary Arts", active: true },
+  { id: "carlson-advanced-p4", course: "Advanced Culinary Arts", active: true },
+  { id: "km", course: "Kitchen & Restaurant Management", active: true }
+];
 const cinnamonRolls = {
   id: "menu-cinnamon", name: "Cinnamon Rolls", required: 40, yield: 16, portion: "1 cinnamon roll",
   ingredients: [{ name: "AP flour" }, { name: "yeast" }],
@@ -49,10 +53,10 @@ test("temperature, equipment, quality controls, and dependencies carry into task
 
 test("regeneration preserves teacher assignments and progress through stable plan keys", () => {
   const first = buildProductionTasks(cinnamonRolls, 0, event, sections);
-  first[1].section = "adv-p5"; first[1].team = "Dough team"; first[1].progress = { status: "In progress", quantity: 3 };
+  first[1].section = "carlson-advanced-p4"; first[1].team = "Dough team"; first[1].progress = { status: "In progress", quantity: 3 };
   const second = buildProductionTasks(cinnamonRolls, 0, event, sections, first);
   assert.equal(second[1].id, first[1].id);
-  assert.equal(second[1].section, "adv-p5");
+  assert.equal(second[1].section, "carlson-advanced-p4");
   assert.equal(second[1].team, "Dough team");
   assert.equal(second[1].progress.status, "In progress");
 });

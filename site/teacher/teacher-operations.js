@@ -180,7 +180,13 @@ function meetingOptions(workDate, selected = "") {
   if (!workDate) return '<option value="">Select a production date first</option>';
   const meetings = availableMeetingsForDate(workDate, sections);
   const current = selected && !meetings.some(meeting => meeting.section.id === selected) ? sections.find(section => section.id === selected) : null;
-  return `${current ? `<option value="${esc(current.id)}" selected>Review - ${esc(sectionDisplayLabel(current))}</option>` : '<option value="">Choose meeting</option>'}${meetings.map(meeting => `<option value="${esc(meeting.section.id)}" ${selected === meeting.section.id ? "selected" : ""}>${esc(sectionDisplayLabel(meeting.section))} - P${meeting.period}</option>`).join("")}`;
+  const meetingBySection = new Map(meetings.map(meeting => [meeting.section.id, meeting]));
+  const options = sections.filter(isAdvancedSection).map(section => {
+    const meeting = meetingBySection.get(section.id);
+    const label = meeting ? `${sectionDisplayLabel(section)} - P${meeting.period}` : `${sectionDisplayLabel(section)} - periods ${section.allowedPeriods?.join("/") || "pending"} mapping pending`;
+    return `<option value="${esc(section.id)}" ${selected === section.id ? "selected" : ""}>${esc(label)}</option>`;
+  }).join("");
+  return `${current && !isAdvancedSection(current) ? `<option value="${esc(current.id)}" selected>Review - ${esc(sectionDisplayLabel(current))}</option>` : '<option value="">Choose meeting</option>'}${options}`;
 }
 function ensureTaskAssignment(task, event = current()) {
   if (!task.workDate && event?.serviceDate) {
@@ -1010,12 +1016,22 @@ function renderTeamSetup() {
   state.sections = sections = normalizeSections(state.sections || sections);
   const list = q("#teamSetupList");
   if (!list) return;
-  list.innerHTML = sections.filter(section => section.course === "Advanced Culinary Arts").map(section => `<article class="team-period section-card" data-section-card="${esc(section.id)}"><header><div><h4>${esc(sectionDisplayLabel(section))}</h4><small>${esc(section.teacher)} - ${esc(section.site)} - ${esc(section.active === false ? "Inactive" : "Active")}</small></div><span class="stable-id">ID: ${esc(section.id)}</span></header>
-    <div class="section-admin-grid"><label>Official section number<input data-section-field="officialSectionNumber" data-team-section="${esc(section.id)}" value="${esc(section.officialSectionNumber || "")}" placeholder="Pending"></label><label>Active state<select data-section-field="active" data-team-section="${esc(section.id)}"><option value="true" ${section.active !== false ? "selected" : ""}>Active</option><option value="false" ${section.active === false ? "selected" : ""}>Inactive</option></select></label><div class="assignment-meta"><span>Rotation mapping</span><strong>Day 1-Day 4 rules in scheduling configuration</strong></div></div>
+  const scheduleSummary = section => section.requiresRotationConfirmation
+    ? `Allowed periods ${section.allowedPeriods?.join("/") || "pending"} - Day 1-Day 4 mapping requires district confirmation`
+    : `Period ${section.period || section.allowedPeriods?.[0] || "pending"}`;
+  const renderSectionCard = section => `<article class="team-period section-card ${section.active === false ? "inactive-section" : ""}" data-section-card="${esc(section.id)}"><header><div><h4>${esc(sectionDisplayLabel(section))}</h4><small>${esc(section.course)} - ${esc(section.teacher)} - ${esc(section.site)} - ${esc(section.active === false ? "Inactive legacy" : "Active")}</small></div><span class="stable-id">ID: ${esc(section.id)}</span></header>
+    <div class="section-admin-grid"><label>Official section number<input data-section-field="officialSectionNumber" data-team-section="${esc(section.id)}" value="${esc(section.officialSectionNumber || "")}" placeholder="Pending"></label><label>Active state<select data-section-field="active" data-team-section="${esc(section.id)}"><option value="true" ${section.active !== false ? "selected" : ""}>Active</option><option value="false" ${section.active === false ? "selected" : ""}>Inactive</option></select></label><div class="assignment-meta"><span>Schedule model</span><strong>${esc(scheduleSummary(section))}</strong>${section.retiredIntoSectionId ? `<small>Retained for history; active successor: ${esc(section.retiredIntoSectionId)}</small>` : ""}</div></div>
     ${section.officialSectionNumber ? "" : `<div class="provisional-warning"><strong>Official district section number pending.</strong><p>This provisional label may be used for planning; adding the official number later will not change the durable section ID or connected records.</p></div>`}
     <div class="team-list">${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Student roster<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label><small class="save-meta">${esc(team.updatedAt ? `Saved ${new Date(team.updatedAt).toLocaleString()} by ${team.updatedBy || "administrator"}` : "Roster not yet updated in this session.")}</small></div><button class="ghost-danger" data-remove-team type="button">Remove team</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this stable section cannot be published.</p>'}</div>
     <form class="team-inline-form" data-add-team-section="${esc(section.id)}"><label>Team name<input name="teamName" placeholder="Team B" required></label><label>Student roster<textarea name="students" rows="2" placeholder="One name per line"></textarea></label><button class="primary-button" type="submit">Add team</button></form>
-  </article>`).join("");
+  </article>`;
+  const courseOrder = ["Advanced Culinary Arts", "Culinary Arts & Nutrition I", "Kitchen & Restaurant Management"];
+  const activeSections = sections.filter(section => section.active !== false);
+  const inactiveSections = sections.filter(section => section.active === false);
+  list.innerHTML = courseOrder.map(course => {
+    const courseSections = activeSections.filter(section => section.course === course);
+    return `<section class="course-section-group"><header><h4>${esc(course)}</h4><strong>${courseSections.length} active section${courseSections.length === 1 ? "" : "s"}</strong></header>${courseSections.map(renderSectionCard).join("")}</section>`;
+  }).join("") + (inactiveSections.length ? `<section class="course-section-group inactive-history"><header><h4>Inactive legacy records</h4><strong>${inactiveSections.length} retained</strong></header>${inactiveSections.map(renderSectionCard).join("")}</section>` : "");
   const sectionOptions = sections.filter(isAdvancedSection).map(section => `<option value="${esc(section.id)}">${esc(sectionDisplayLabel(section))}</option>`).join("");
   if (q("#teamSection")) q("#teamSection").innerHTML = sectionOptions;
   q("#userSection").innerHTML = `<option value="">Not assigned</option>${sectionOptions}`;
