@@ -182,3 +182,36 @@ test("teacher update uses optimistic revision protection", async () => {
   const stale = await worker.fetch(request("/api/state", "admin@district.example", { method: "PUT", headers: { "content-type": "application/json" }, body: JSON.stringify({ revision: 0, state: { requests: [], events: [changed] } }) }), env);
   assert.equal(stale.status, 409);
 });
+
+test("new account creation requires an explicit role", async () => {
+  const db = new FakeDB({ requests: [], events: [event] });
+  const env = { DB: db };
+  const response = await worker.fetch(request("/api/users", "admin@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "new@greececsd.org", displayName: "New User", school: "Arcadia" })
+  }), env);
+  assert.equal(response.status, 400);
+});
+
+test("teacher and administrator account scopes do not retain a student section", async () => {
+  const db = new FakeDB({ requests: [], events: [event] });
+  const env = { DB: db };
+  const response = await worker.fetch(request("/api/users", "admin@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "teacher@greececsd.org", displayName: "Teacher One", role: "teacher", school: "Arcadia", sectionId: "adv-p2" })
+  }), env);
+  assert.equal(response.status, 201);
+  assert.equal(db.users.get("teacher@greececsd.org").section_id, null);
+});
+
+test("an already authorized external bootstrap account can be preserved without opening general external creation", async () => {
+  const db = new FakeDB({ requests: [], events: [event] });
+  db.users.set("kevin@gmail.example", { email: "kevin@gmail.example", display_name: "Kevin McCann", role: "admin", school: "Districtwide", section_id: null });
+  const env = { DB: db, BOOTSTRAP_ADMIN_EMAIL: "kevin@gmail.example" };
+  const preserved = await worker.fetch(request("/api/users", "admin@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "kevin@gmail.example", displayName: "Kevin McCann", role: "admin", school: "Districtwide" })
+  }), env);
+  assert.equal(preserved.status, 201);
+  const rejected = await worker.fetch(request("/api/users", "admin@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ email: "new@gmail.example", displayName: "External User", role: "teacher", school: "Arcadia" })
+  }), env);
+  assert.equal(rejected.status, 400);
+});

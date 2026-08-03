@@ -178,8 +178,9 @@
             <p>Publishing creates the dated student instructions. Later changes become a new visible revision.</p>
           </header>
           <div class="publish-grid">
-            <article><h3>Master Event Order</h3><div id="masterOrderPreview"></div></article>
-            <article><h3>Student packet preview</h3><label>View as<select id="packetView"></select></label><div id="studentPacketPreview"></div></article>
+            <article class="publish-summary-card"><h3>Publication summary</h3><div id="publicationSummary"></div></article>
+            <article class="packet-audience-card"><h3>Student packet preview</h3><label>View as<select id="packetView"></select></label><div id="studentPacketPreview"></div></article>
+            <article class="master-order-card"><h3>Master Event Order</h3><div class="preview-actions"><button class="secondary-button" id="toggleMasterOrder" type="button">Collapse Master Event Order</button><button class="secondary-button" id="printPreview" type="button">Print</button><button class="secondary-button" id="openPacketView" type="button">Open packet full page</button></div><div id="masterOrderPreview"></div></article>
           </div>
           <div class="publish-warning" id="publishWarning"></div>
           <div class="panel-actions"><button class="secondary-button" id="saveDraft" type="button">Save as draft</button><button class="primary-button" id="publishOrder" type="button">Publish Event Order</button></div>
@@ -187,12 +188,13 @@
 
         <section class="workspace-panel" data-panel-view="live">
           <header class="panel-heading">
-            <div><p class="eyebrow">Today’s command view</p><h2>Live production</h2></div>
-            <p>See every section’s progress, handoffs, yield, waste, storage location, and requests for help in one operational view.</p>
+            <div><p class="eyebrow">Operational date command view</p><h2 id="liveProductionTitle">Live production</h2></div>
+            <p>Record assignment-level contributions for one production date at a time while preserving the event-level overview.</p>
           </header>
           <div class="production-summary" id="liveSummary"></div>
           <div class="live-filters" role="group" aria-label="Production filters">
             <label>Section<select id="liveSectionFilter"></select></label>
+            <label>Production date<select id="liveDateFilter"></select></label>
             <label>Status<select id="liveStatusFilter"><option value="all">All statuses</option><option>Not started</option><option>In progress</option><option>Blocked</option><option>Ready for handoff</option><option>Complete</option></select></label>
           </div>
           <div class="live-board" id="liveBoard"></div>
@@ -209,9 +211,12 @@
               <h3>Event results</h3>
               <div class="form-grid compact-grid">
                 <label>Customers served / orders completed<input id="actualGuests" type="number" min="0" /></label>
-                <label>Actual revenue / program value<input id="actualRevenue" placeholder="$0.00" /></label>
-                <label>Actual ingredient cost<input id="actualCost" placeholder="$0.00" /></label>
-                <label>Customer feedback received<select id="feedbackReceived"><option>No</option><option>Yes</option></select></label>
+                <label>Actual revenue<input id="actualRevenue" placeholder="$0.00 or N/A" /></label>
+                <label>Estimated program value<input id="estimatedProgramValue" placeholder="$0.00 or N/A" /></label>
+                <label>Actual ingredient cost<input id="actualCost" placeholder="$0.00 or N/A" /></label>
+                <label>Customer feedback received<select id="feedbackReceived"><option>No</option><option>Yes</option><option>Not applicable</option></select></label>
+                <label>Closeout exception<select id="closeoutException"><option value="">None</option><option>Cancellation</option><option>Authorized zero-output exception</option></select></label>
+                <label>Exception reason<input id="closeoutExceptionReason" placeholder="Required for cancellation or zero-output exception" /></label>
               </div>
               <label class="full-field">Objective customer feedback<textarea id="customerFeedback" rows="3" placeholder="Record the customer’s words or a factual summary."></textarea></label>
             </article>
@@ -224,19 +229,21 @@
             <thead><tr><th>Menu output</th><th>Planned</th><th>Usable produced</th><th>Waste</th><th>Variance</th></tr></thead>
             <tbody id="closeoutRows"></tbody>
           </table></div>
+          <details class="production-record" open><summary>Production record evidence</summary><div id="productionRecord"></div></details>
           <label class="full-field">Operational notes for the next event<textarea id="operationalNotes" rows="4" placeholder="Document schedule, yield, purchasing, equipment, or workflow facts that should change next time."></textarea></label>
+          <div class="closeout-status" id="closeoutStatus"></div>
           <div class="panel-actions"><button class="secondary-button" id="saveCloseout" type="button">Save closeout draft</button><button class="primary-button" id="completeEvent" type="button">Complete event</button></div>
         </section>
         <section class="workspace-panel" data-panel-view="access">
           <header class="panel-heading">
-            <div><p class="eyebrow">Periods, teams, and district accounts</p><h2>Access &amp; rosters</h2></div>
-            <p>Set up the reusable teams for each class period, then route approved student accounts to the correct period.</p>
+            <div><p class="eyebrow">Stable sections, teams, rosters, and authorized accounts</p><h2>Access &amp; rosters</h2></div>
+            <p>Maintain stable Advanced Culinary sections, teams, rosters, official section numbers, and authorized account scopes.</p>
           </header>
           <section class="team-setup" aria-labelledby="teamSetupTitle">
-            <div class="subheading"><div><p class="eyebrow">Reusable event assignments</p><h3 id="teamSetupTitle">Teams by period</h3></div><strong>Used automatically in sections 4 and 5</strong></div>
-            <p class="section-note">Team names and student rosters are saved once and become the available choices for every production task assigned to that period.</p>
+            <div class="subheading"><div><p class="eyebrow">Reusable stable-section data</p><h3 id="teamSetupTitle">Sections, teams &amp; rosters</h3></div><strong>Supports Production Plan, Review &amp; Publish, Live Production, and Closeout</strong></div>
+            <p class="section-note">Team names and student rosters are saved against the stable section and remain attached when that section meets in different periods on different rotation days.</p>
             <div id="teamSetupList" class="team-setup-list"></div>
-            <form id="teamForm" class="team-form">
+            <form id="teamForm" class="team-form" hidden>
               <label>Period<select name="sectionId" id="teamSection"></select></label>
               <label>Team name<input name="teamName" placeholder="Team B" required></label>
               <label class="team-students">Students<textarea name="students" rows="2" placeholder="One name per line or separated by commas"></textarea></label>
@@ -244,9 +251,9 @@
             </form>
           </section>
           <form id="userForm" class="form-grid compact-grid">
-            <label>District email<input name="email" type="email" placeholder="name@greececsd.org" required></label>
+            <label>Authorized email<input name="email" type="email" placeholder="name@example.org" required></label>
             <label>Display name<input name="displayName" required></label>
-            <label>Role<select name="role"><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Administrator</option></select></label>
+            <label>Role<select name="role" id="accountRoleSelect" required><option value="">Choose a role</option><option value="student">Student</option><option value="teacher">Teacher</option><option value="admin">Administrator</option></select></label>
             <label>School<select name="school"><option>Arcadia</option><option>Olympia</option><option>Districtwide</option></select></label>
             <label>Student section<select name="sectionId" id="userSection"><option value="">Not assigned</option></select></label>
             <div class="panel-actions"><button class="primary-button" type="submit">Add or update account</button></div>

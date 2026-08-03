@@ -1,7 +1,7 @@
 import { buildEventProductionTasks } from "./production-planner.js";
-import { DEFAULT_SECTIONS, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, formatMeetingWindow, isAdvancedSection, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, sectionDisplayLabel, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
+import { DEFAULT_SECTIONS, HANDOFF_DISPOSITIONS, PRODUCTION_STATUSES, WASTE_CATEGORIES, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionsForDate, formatMeetingWindow, isAdvancedSection, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, sectionDisplayLabel, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
-const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
+const statuses = PRODUCTION_STATUSES;
 let sections = normalizeSections(DEFAULT_SECTIONS);
 const seed = {
   sections: cloneForSeed(DEFAULT_SECTIONS),
@@ -41,6 +41,8 @@ let state = clone(seed);
 let currentId = state.events[0].id;
 let liveSection = "all";
 let liveStatus = "all";
+let liveDate = "";
+let activePanel = "requests";
 let requestFilter = "open";
 let ingredientMenuIndex = 0;
 let recipeLibrary = [];
@@ -173,11 +175,12 @@ function hydrateEventOrderItem(item) {
 }
 function dateLabel(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not scheduled"; }
 function sectionName(id) { const section = sections.find(section => section.id === id); return sectionDisplayLabel(section); }
+function shortDate(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric" }) : "Date needed"; }
 function meetingOptions(workDate, selected = "") {
   if (!workDate) return '<option value="">Select a production date first</option>';
   const meetings = availableMeetingsForDate(workDate, sections);
   const current = selected && !meetings.some(meeting => meeting.section.id === selected) ? sections.find(section => section.id === selected) : null;
-  return `${current ? `<option value="${esc(current.id)}" selected>Review needed - ${esc(sectionDisplayLabel(current))}</option>` : '<option value="">Choose an Advanced Culinary meeting</option>'}${meetings.map(meeting => `<option value="${esc(meeting.section.id)}" ${selected === meeting.section.id ? "selected" : ""}>${esc(sectionDisplayLabel(meeting.section))} - Period ${meeting.period} - ${meeting.start}-${meeting.end}</option>`).join("")}`;
+  return `${current ? `<option value="${esc(current.id)}" selected>Review - ${esc(sectionDisplayLabel(current))}</option>` : '<option value="">Choose meeting</option>'}${meetings.map(meeting => `<option value="${esc(meeting.section.id)}" ${selected === meeting.section.id ? "selected" : ""}>${esc(sectionDisplayLabel(meeting.section))} - P${meeting.period}</option>`).join("")}`;
 }
 function ensureTaskAssignment(task, event = current()) {
   if (!task.workDate && event?.serviceDate) {
@@ -205,6 +208,29 @@ function assignmentRows(task, index, mode = "production") {
       <div class="team-chip-list"><span>Teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small>Set up a team in section 9.</small>"}</div>
       <div class="meeting-window ${meeting ? "" : "invalid-window"}">${esc(formatMeetingWindow(meeting))}</div>
       ${records.length > 1 ? `<button class="icon-button" data-remove-assignment type="button" aria-label="Remove assignment">×</button>` : ""}
+    </div>`;
+  }).join("")}<button class="secondary-button add-assignment-row" data-add-assignment="${index}" data-mode="${esc(mode)}" type="button">Add class section</button></div>`;
+}
+
+function assignmentRowsV2(task, index, mode = "production") {
+  const records = normalizeTaskAssignments(task, sections);
+  return `<div class="assignment-records">${records.map((record, recordIndex) => {
+    const teams = teamsForSection(sections, record.sectionId);
+    const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
+    const section = sections.find(item => item.id === record.sectionId);
+    return `<div class="assignment-record" data-task="${index}" data-record="${recordIndex}">
+      <label>Production date<input data-assignment-record-field="workDate" type="date" value="${esc(record.workDate)}"></label>
+      <label>Valid Advanced Culinary meeting<select data-assignment-record-field="sectionId">${meetingOptions(record.workDate, record.sectionId)}</select></label>
+      <div class="meeting-window ${meeting ? "" : "invalid-window"}"><strong>${esc(meeting ? `Day ${meeting.rotationDay} - Period ${meeting.period}` : "Schedule review required")}</strong><span>${esc(formatMeetingWindow(meeting))}</span></div>
+      <div class="assignment-meta"><span>Teacher</span><strong>${esc(section?.teacher || "Teacher pending")}</strong></div>
+      <div class="assignment-meta"><span>Stable section</span><strong>${esc(sectionDisplayLabel(section))}</strong><small>${esc(section?.officialSectionNumber ? "Official section number recorded." : "Official district section number pending.")}</small></div>
+      <div class="assignment-meta"><span>Actual bell window</span><strong>${esc(meeting ? `${meeting.start}-${meeting.end}` : "Not assignable")}</strong></div>
+      <div class="team-chip-list"><span>Participating teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small class=\"roster-warning\">No teams are saved for this stable section.</small>"}</div>
+      <label>Optional station<input data-assignment-record-field="station" value="${esc(record.station)}" placeholder="${esc(task.station || "Station")}"></label>
+      <label>Optional student details<input data-assignment-record-field="studentDetails" value="${esc(record.studentDetails)}" placeholder="Use the team roster unless noting a change"></label>
+      <label>Assignment status<select data-assignment-record-field="status">${statuses.map(status => `<option ${record.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
+      <label class="check-row"><input data-assignment-record-field="handoffConfirmed" type="checkbox" ${record.handoffConfirmed ? "checked" : ""}>Dependency or handoff confirmed</label>
+      ${records.length > 1 ? `<button class="ghost-danger remove-assignment-button" data-remove-assignment type="button">Remove assignment</button>` : ""}
     </div>`;
   }).join("")}<button class="secondary-button add-assignment-row" data-add-assignment="${index}" data-mode="${esc(mode)}" type="button">Add class section</button></div>`;
 }
@@ -471,23 +497,64 @@ function generateTasks() {
   toast("Production plan regenerated from the current menu.");
 }
 
+function taskCollapsedSummary(task) {
+  const records = normalizeTaskAssignments(task, sections);
+  const dates = [...new Set(records.map(record => record.workDate).filter(Boolean))].map(shortDate).join(", ") || "Date needed";
+  const sectionLabels = [...new Set(records.map(record => sectionDisplayLabel(sections.find(section => section.id === record.sectionId))))].join("; ") || "Section needed";
+  const teamLabels = [...new Set(records.flatMap(record => teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => team.name)))].join(", ") || "Teams needed";
+  const issues = assignmentIssues(task, sections);
+  const progress = taskProgress(task);
+  return `<div class="task-collapsed-summary"><span>${esc(task.detail.match(/^([^·]+)/)?.[1]?.trim() || "Planned quantity in procedure")}</span><span>${esc(dates)}</span><span>${esc(sectionLabels)}</span><span>${esc(teamLabels)}</span><strong>${esc(progress.status || "Not started")}</strong>${issues.length ? `<b class="warning-chip">${issues.length} warning${issues.length === 1 ? "" : "s"}</b>` : ""}</div>`;
+}
+
+function taskCardHtml(task, index, defaultOpenIndex) {
+  const issues = assignmentIssues(task, sections);
+  const progress = taskProgress(task);
+  const open = task.uiExpanded ?? (index === defaultOpenIndex || (progress.status !== "Complete" && issues.length > 0));
+  const quantity = task.detail.match(/^([^·]+)/)?.[1]?.trim() || "Planned quantity in procedure";
+  return `<details class="task-card production-task-card" data-task="${index}" ${open ? "open" : ""}>
+    <summary>
+      <span class="task-number">${index + 1}</span>
+      <div class="task-summary-main"><strong>${esc(task.name)}</strong>${taskCollapsedSummary(task)}</div>
+    </summary>
+    <div class="task-card-body">
+      <section class="task-layer generated-layer" aria-label="Generated production requirements">
+        <h3>Generated production requirements</h3>
+        <dl>
+          <div><dt>Stage</dt><dd>${index + 1}. ${esc(task.name)}</dd></div>
+          <div><dt>Planned quantity</dt><dd>${esc(quantity)}</dd></div>
+          <div><dt>Procedure</dt><dd>${esc(task.detail)}</dd></div>
+          <div><dt>Equipment</dt><dd>${esc(task.equipment?.length ? task.equipment.join(", ") : "No special equipment listed")}</dd></div>
+          <div><dt>Quality controls</dt><dd>${esc(task.qualityControls?.length ? task.qualityControls.join(" | ") : "Teacher quality check required")}</dd></div>
+          <div><dt>Dependencies</dt><dd>${esc(task.dependency || "Ingredients, equipment, and station setup verified.")}</dd></div>
+          <div><dt>Required handoff</dt><dd>${esc(task.outputRecord ? "Final usable output, labeling, storage, and handoff must be recorded." : task.dependency || "Next production stage receives verified work.")}</dd></div>
+        </dl>
+      </section>
+      <section class="task-layer delegation-layer" aria-label="Teacher scheduling and delegation">
+        <h3>Teacher scheduling and delegation</h3>
+        ${assignmentRowsV2(task, index, "production")}
+        <div class="task-detail-controls">
+          <label>Default station<input data-assignment-field="station" value="${esc(task.station)}"></label>
+          <label>Roster-derived students<input value="${esc(task.students || "Students appear from selected team rosters")}" readonly aria-label="Students assigned through the selected teams"></label>
+          <label>Dependency / handoff<input data-assignment-field="dependency" value="${esc(task.dependency)}" placeholder="What must arrive first or where this goes next"></label>
+        </div>
+      </section>
+    </div>
+  </details>`;
+}
+
 function renderProduction() {
   const event = current();
   event.tasks.forEach(task => ensureTaskAssignment(task, event));
   const totalBatches = event.menu.reduce((sum, item) => sum + batches(item), 0);
   q("#productionSummary").innerHTML = `<div class="metric"><span>Menu outputs</span><strong>${event.menu.length}</strong></div><div class="metric"><span>Production batches</span><strong>${totalBatches}</strong></div><div class="metric"><span>Generated tasks</span><strong>${event.tasks.length}</strong></div>`;
-  q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => `<article class="task-card production-task-card" data-task="${index}">
-    <span class="task-number">${index + 1}</span><div class="task-main"><div class="task-title-row"><strong>${esc(task.name)}</strong><span>${esc(taskProgress(task).status || "Not started")}</span></div><p>${esc(task.detail)}</p>${task.equipment?.length ? `<small class="task-equipment"><b>Equipment:</b> ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}${task.dependency ? `<small class="task-dependency"><b>Handoff:</b> ${esc(task.dependency)}</small>` : ""}</div>
-    <div class="task-controls wide-task-controls">
-      ${assignmentRows(task, index, "production")}
-      <div class="task-detail-controls">
-        <label>Station<input data-assignment-field="station" value="${esc(task.station)}"></label>
-        <label>Students<input value="${esc(task.students)}" readonly aria-label="Students assigned through the selected teams"></label>
-        <label>Dependency / handoff<input data-assignment-field="dependency" value="${esc(task.dependency)}" placeholder="What must arrive first or where this goes next"></label>
-      </div>
-    </div>
-  </article>`).join("") : "<p>No tasks yet. Generate the production plan from the approved menu.</p>";
+  const defaultOpenIndex = event.tasks.findIndex(task => taskProgress(task).status !== "Complete" || assignmentIssues(task, sections).length);
+  q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => taskCardHtml(task, index, defaultOpenIndex)).join("") : "<p>No tasks yet. Generate the production plan from the approved menu.</p>";
   qa('[data-panel-view="production"] [data-task]').forEach(card => {
+    card.addEventListener("toggle", () => {
+      const task = event.tasks[Number(card.dataset.task)];
+      if (task) task.uiExpanded = card.open;
+    });
     card.addEventListener("input", input => {
       if (!canEdit() || !input.target.dataset.assignmentField) return;
       const task = event.tasks[Number(card.dataset.task)];
@@ -496,7 +563,6 @@ function renderProduction() {
   });
   bindAssignmentRecords("production");
 }
-
 function renderAssignments() {
   const event = current();
   event.tasks.forEach(task => ensureTaskAssignment(task, event));
@@ -534,12 +600,16 @@ function bindAssignmentRecords(mode) {
     const task = event.tasks[Number(row.dataset.task)];
     const record = normalizeTaskAssignments(task, sections)[Number(row.dataset.record)];
     if (change.target.dataset.assignmentRecordField === "workDate") record.workDate = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "station") record.station = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "studentDetails") record.studentDetails = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "status") record.status = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "handoffConfirmed") record.handoffConfirmed = change.target.checked;
     if (change.target.dataset.assignmentRecordField === "sectionId") {
       record.sectionId = change.target.value;
       record.teamIds = teamsForSection(sections, record.sectionId).slice(0, 1).map(team => team.id);
     }
     normalizeTaskAssignments(task, sections);
-    renderProduction(); renderAssignments(); renderPublish(); renderLiveFilters(); renderLive();
+    renderProduction(); renderAssignments(); renderPublish(); renderLiveFilters(); renderLive(); renderAttention();
   }));
   qa(`${scope} [data-assignment-team]`).forEach(field => field.addEventListener("change", change => {
     if (!canEdit()) return;
@@ -569,6 +639,26 @@ function bindAssignmentRecords(mode) {
   }));
 }
 
+function stageContext(event, panel = activePanel) {
+  const ready = readiness(event);
+  const issues = taskPublicationIssues(event, sections);
+  const dates = productionDates(event, sections);
+  const selectedDate = liveDate || preferredProductionDate(event, new Date().toISOString(), sections);
+  const counts = productionCounts(event, sections, selectedDate);
+  const contexts = {
+    requests: ["Request review", `${(state.requests || []).filter(requestIsOpen).length} open request(s). Accept, clarify, or decline before an Event Order becomes active.`],
+    brief: ["Event definition", event.customer && event.serviceDate && event.guestCount ? "Customer, date, service format, and quantity are defined." : "Complete the customer, service date, count, format, and required controls."],
+    menu: ["Menu readiness", `${event.menu.filter(item => item.status === "Approved").length}/${event.menu.length} recipes approved. Purchasing and cost forecast update from recipe snapshots.`],
+    production: ["Scheduling and delegation", `${event.tasks.length} generated tasks across ${dates.length || 0} production date(s). Assign valid Advanced Culinary meetings, sections, teams, stations, and handoffs.`],
+    publish: [event.publishedAt ? "Published revision" : "Review required", issues.length ? `${issues.length} validation warning(s) remain before publication.` : "Validation is clear. Publish only when this revision is authoritative for students."],
+    live: ["Operational date", selectedDate ? `${dateLabel(selectedDate)}: ${counts.completed}/${counts.contributionTotal} assignment contribution(s) complete; ${counts.blocked} blocked.` : "Choose a production date once tasks are scheduled."],
+    closeout: ["Reconciliation", "Verify usable final yield, cost, waste, handoffs, cleanup, sanitation, and instructor closeout before completion."],
+    access: ["Sections, teams, rosters, accounts", "Administer stable sections, team rosters, authorized identities, and packet permissions without changing section identity."]
+  };
+  const fallback = [`Readiness ${ready.percent}%`, "Complete the active workflow step before moving forward."];
+  return contexts[panel] || fallback;
+}
+
 function renderAttention() {
   const event = current();
   const items = [];
@@ -580,36 +670,81 @@ function renderAttention() {
   if (!event.tasks.length) items.push(["Production plan missing", "Generate tasks from the menu."]);
   const blocked = event.tasks.filter(task => taskProgress(task).status === "Blocked").length;
   if (blocked) items.push([`${blocked} blocked task${blocked === 1 ? "" : "s"}`, "Open Live production and respond."]);
-  if (!items.length) items.push(["Ready for review", "All required planning areas are present."]);
+  const [contextTitle, contextDetail] = stageContext(event);
+  if (!items.length) items.push([activePanel === "publish" ? "Ready to publish" : "No critical alerts", contextDetail]);
   q("#attentionList").innerHTML = items.map(([title, detail]) => `<div class="attention-item"><strong>${esc(title)}</strong><span>${esc(detail)}</span></div>`).join("");
-  q(".rail-note").innerHTML = `<strong>${isOwner(event) ? "You control publication" : canEdit(event) ? "You are a collaborator" : "Teacher viewer access"}</strong><p>${isOwner(event) ? "Publish revisions after reviewing every affected output and team." : canEdit(event) ? `You may edit planning and production. ${event.owner} publishes the controlling order.` : "You can see the complete event and student activity without changing the controlling order."}</p>`;
+  q(".rail-note").innerHTML = `<strong>${esc(contextTitle)}</strong><p>${esc(contextDetail)}</p>`;
+}
+
+function publicationSignature(event) {
+  const publicTasks = (event.tasks || []).map(({ progress, assignmentProgress, uiExpanded, ...task }) => task);
+  return JSON.stringify({
+    name: event.name, customer: event.customer, serviceDate: event.serviceDate, serviceTime: event.serviceTime,
+    guestCount: event.guestCount, serviceFormat: event.serviceFormat, requirements: event.requirements,
+    allergens: event.allergens, menu: event.menu, tasks: publicTasks
+  });
+}
+
+function hasUnpublishedEdits(event) {
+  return Boolean(event.publishedAt && event.publishedSignature && event.publishedSignature !== publicationSignature(event));
+}
+
+function publicationSummary(event) {
+  const assignments = event.tasks.flatMap(task => normalizeTaskAssignments(task, sections));
+  const sectionIds = new Set(assignments.map(record => record.sectionId).filter(Boolean));
+  const scheduled = assignments.filter(record => record.workDate && record.sectionId && record.teamIds?.length).length;
+  const issues = taskPublicationIssues(event, sections);
+  q("#publicationSummary").innerHTML = `<div class="publication-facts">
+    <div><span>Current authoritative revision</span><strong>${event.version ? `Revision ${event.version}` : "No published revision"}</strong></div>
+    <div><span>Published/draft status</span><strong>${esc(event.publishedAt ? event.stage : "Draft only")}</strong></div>
+    <div><span>Publication date and time</span><strong>${esc(event.publishedAt ? new Date(event.publishedAt).toLocaleString() : "Not published")}</strong></div>
+    <div><span>Published by</span><strong>${esc(event.publishedBy || (event.publishedAt ? event.owner : "Not published"))}</strong></div>
+    <div><span>Student packets</span><strong>${sectionIds.size}</strong></div>
+    <div><span>Participating sections</span><strong>${esc([...sectionIds].map(sectionName).join("; ") || "None assigned")}</strong></div>
+    <div><span>Scheduled task assignments</span><strong>${scheduled}</strong></div>
+    <div><span>Outstanding warnings</span><strong>${issues.length}</strong></div>
+  </div>
+  <div class="${hasUnpublishedEdits(event) ? "publish-warning" : "publication-current"}"><strong>${hasUnpublishedEdits(event) ? "Unpublished teacher changes exist." : event.publishedAt ? "Published revision is current." : "No student-facing revision yet."}</strong><p>${hasUnpublishedEdits(event) ? "Students still receive the last authoritative published revision until a new revision is published." : event.publishedAt ? "Student packets reflect the current authoritative revision." : "Publish after validation to make packets available."}</p></div>`;
 }
 
 function masterPreview() {
   const event = current();
   const ready = readiness(event);
-  q("#masterOrderPreview").innerHTML = `<div class="preview-block"><span>Customer commitment</span><strong>${esc(event.customer || "Not entered")} · ${event.guestCount || 0} guests</strong><small>${dateLabel(event.serviceDate)} at ${esc(event.serviceTime || "time pending")} · ${esc(event.serviceFormat)}</small></div>
-    <div class="preview-block"><span>Menu and output</span><strong>${event.menu.length} items · ${event.menu.reduce((sum, item) => sum + item.required, 0)} total portions</strong><small>${event.menu.filter(item => item.status === "Approved").length} approved recipes</small></div>
+  const grouped = new Map();
+  for (const task of event.tasks) {
+    for (const record of normalizeTaskAssignments(task, sections)) {
+      const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
+      const key = `${record.workDate || "unscheduled"}|${meeting ? `Period ${meeting.period}` : "meeting review"}`;
+      const list = grouped.get(key) || [];
+      list.push({ task, record, meeting });
+      grouped.set(key, list);
+    }
+  }
+  q("#masterOrderPreview").innerHTML = `<div class="preview-block"><span>Customer commitment</span><strong>${esc(event.customer || "Not entered")} - ${event.guestCount || 0} guests</strong><small>${dateLabel(event.serviceDate)} at ${esc(event.serviceTime || "time pending")} - ${esc(event.serviceFormat)}</small></div>
+    <div class="preview-block"><span>Menu and output</span><strong>${event.menu.length} items - ${event.menu.reduce((sum, item) => sum + item.required, 0)} total portions</strong><small>${event.menu.filter(item => item.status === "Approved").length} approved recipes</small></div>
     <div class="preview-block"><span>Production system</span><strong>${event.tasks.length} tasks across ${new Set(event.tasks.flatMap(task => normalizeTaskAssignments(task, sections).map(record => record.sectionId))).size} sections</strong><small>Readiness ${ready.percent}%</small></div>
-    <div class="preview-block"><span>Task schedule</span>${event.tasks.map(task => `<strong>${esc(task.name)}</strong>${assignmentSummary(task)}`).join("")}</div>
+    <div class="preview-block grouped-order"><span>Task schedule by production date and class meeting</span>${[...grouped.entries()].map(([key, items]) => `<details open><summary>${esc(key.replace("|", " - "))}</summary>${items.map(({ task }) => `<strong>${esc(task.name)}</strong>${assignmentSummary(task)}`).join("")}</details>`).join("") || "<p>No scheduled production tasks.</p>"}</div>
     <div class="preview-block"><span>Version</span><strong>${event.version ? `Published v${event.version}` : "Unpublished draft"}</strong><small>${event.publishedAt ? new Date(event.publishedAt).toLocaleString() : "No student instructions have been published."}</small></div>`;
 }
-
 function packetPreview() {
   const event = current();
-  const sectionId = q("#packetView").value || sections[0].id;
+  const sectionId = q("#packetView").value || sections.find(isAdvancedSection)?.id || sections[0].id;
   const section = sections.find(item => item.id === sectionId);
   const tasks = event.tasks.filter(task => assignmentsForSection(task, sectionId, sections).length);
-  q("#studentPacketPreview").innerHTML = `<div class="preview-block"><span>Shared purpose</span><strong>${esc(event.name)}</strong><small>${esc(event.customer)} · ${event.guestCount} guests · ${dateLabel(event.serviceDate)}</small></div>
-    <div class="preview-block"><span>Your section</span><strong>${esc(section.name)}</strong><small>${esc(section.focus)}</small></div>
-    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}${assignmentsForSection(task, sectionId, sections).map(record => `<small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small>`).join("")}<small>${esc(task.station)} · ${esc(task.team || "Teams assigned by section")}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
+  const firstMeeting = tasks.flatMap(task => assignmentsForSection(task, sectionId, sections).map(record => sectionMeetsOnDate(record.sectionId, record.workDate, sections))).filter(Boolean)[0];
+  const warning = section?.officialSectionNumber ? "" : `<div class="provisional-warning"><strong>Official section number pending.</strong><p>${esc(section?.teacher || "Teacher")} may keep planning with this provisional stable section label; update the official number in Access & Rosters when confirmed.</p></div>`;
+  q("#studentPacketPreview").innerHTML = `<div class="preview-block packet-audience"><span>Selected packet audience</span><strong>${esc(sectionDisplayLabel(section))}</strong><small>Teacher: ${esc(section?.teacher || "Teacher pending")} - ${firstMeeting ? `Day ${firstMeeting.rotationDay} - Period ${firstMeeting.period} - ${firstMeeting.date}` : "Rotation day, period, and date depend on the assigned meeting."}</small></div>
+    ${warning}
+    <div class="preview-block"><span>Shared purpose</span><strong>${esc(event.name)}</strong><small>${esc(event.customer)} - ${event.guestCount} guests - ${dateLabel(event.serviceDate)}</small></div>
+    <div class="preview-block"><span>Authorized revision</span><strong>${event.version ? `Revision ${event.version}` : "Draft preview"}</strong><small>${event.publishedAt ? `Published ${new Date(event.publishedAt).toLocaleString()}` : "Not yet available to students"}</small></div>
+    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" | "))}</small>` : ""}${assignmentsForSection(task, sectionId, sections).map(record => `<small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small>`).join("")}<small>${esc(task.station)} - ${esc(task.team || "Teams assigned by section")}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
 }
-
 function renderPublish() {
   const event = current();
   const previous = q("#packetView").value;
-  q("#packetView").innerHTML = sections.map(section => `<option value="${section.id}">${esc(section.name)}</option>`).join("");
+  q("#packetView").innerHTML = sections.filter(isAdvancedSection).map(section => `<option value="${section.id}">${esc(sectionDisplayLabel(section))}</option>`).join("");
   if (previous) q("#packetView").value = previous;
+  publicationSummary(event);
   masterPreview();
   packetPreview();
   const issues = [];
@@ -618,54 +753,109 @@ function renderPublish() {
   const schedulingIssues = taskPublicationIssues(event, sections);
   if (schedulingIssues.length) issues.push(schedulingIssues.join(" "));
   if (!isOwner(event)) issues.push(`${event.owner} is the event owner and must publish the controlling order.`);
-  q("#publishWarning").innerHTML = issues.length ? `<strong>Publication controls:</strong> ${esc(issues.join(" "))}` : "<strong>Ready:</strong> the Event Order has the required menu, production, and assignment information.";
+  q("#publishWarning").innerHTML = issues.length ? `<strong>Revision readiness warnings:</strong> ${esc(issues.join(" "))}` : "<strong>Revision readiness clear:</strong> menu, production tasks, and section assignments are ready for student packets.";
   q("#publishOrder").disabled = issues.length > 0;
 }
 
 function renderLiveFilters() {
-  const select = q("#liveSectionFilter");
-  select.innerHTML = `<option value="all">All sections</option>${sections.filter(isAdvancedSection).map(section => `<option value="${section.id}">${esc(sectionDisplayLabel(section))}</option>`).join("")}`;
-  select.value = liveSection;
+  const event = current();
+  const dates = productionDates(event, sections);
+  liveDate = dates.includes(liveDate) ? liveDate : preferredProductionDate(event, new Date().toISOString(), sections);
+  const sectionSelect = q("#liveSectionFilter");
+  sectionSelect.innerHTML = `<option value="all">All sections</option>${sections.filter(isAdvancedSection).map(section => `<option value="${esc(section.id)}">${esc(sectionDisplayLabel(section))}</option>`).join("")}`;
+  sectionSelect.value = liveSection;
+  const dateSelect = q("#liveDateFilter");
+  if (dateSelect) {
+    dateSelect.innerHTML = dates.length ? dates.map(date => `<option value="${esc(date)}">${esc(dateLabel(date))}</option>`).join("") : `<option value="">No scheduled dates</option>`;
+    dateSelect.value = liveDate;
+  }
   q("#liveStatusFilter").value = liveStatus;
+}
+
+function contributionStudents(contribution) {
+  const students = contribution.team?.students || [];
+  if (students.length) return students.join(", ");
+  return "Roster warning: no students are saved for this selected team.";
 }
 
 function renderLive() {
   const event = current();
   event.tasks.forEach(taskProgress);
-  const completed = event.tasks.filter(task => task.progress.status === "Complete").length;
-  const blocked = event.tasks.filter(task => task.progress.status === "Blocked").length;
-  const usable = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(task.progress.usableYield || 0), 0);
-  q("#liveSummary").innerHTML = `<div class="metric"><span>Tasks complete</span><strong>${completed}/${event.tasks.length}</strong></div><div class="metric"><span>Blocked / needs help</span><strong>${blocked}</strong></div><div class="metric"><span>Usable output reported</span><strong>${usable}</strong></div>`;
-  const visible = event.tasks.filter(task => (liveSection === "all" || assignmentsForSection(task, liveSection, sections).length) && (liveStatus === "all" || task.progress.status === liveStatus));
-  q("#liveBoard").innerHTML = visible.length ? visible.map(task => {
-    const index = event.tasks.indexOf(task);
-    const progress = task.progress;
-    return `<article class="live-task" data-live-task="${index}" data-status="${esc(progress.status)}">
-      <div class="live-task-title"><strong>${esc(task.name)}</strong><span>${esc(task.station)} · ${esc(task.team || "Teams assigned by section")}</span>${assignmentSummary(task)}<span>${esc(task.students || "Students not assigned")}</span></div>
-      <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
-      <label>${isOutputRecord(task) ? "Finished quantity" : "Batch / quantity completed"}<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
-      ${isOutputRecord(task) ? `<label>Service-ready yield<input data-progress="usableYield" type="number" min="0" value="${Number(progress.usableYield || 0)}"></label>` : ""}
-      <label>Waste<input data-progress="waste" type="number" min="0" value="${Number(progress.waste || 0)}"></label>
-      <label>Storage / handoff<input data-progress="storage" value="${esc(progress.storage)}" placeholder="Rack, cooler, station"></label>
-      <label class="issue-note">Problem or assistance needed<input data-progress="issue" value="${esc(progress.issue)}" placeholder="Leave blank when work is proceeding as planned"></label>
+  liveDate = liveDate || preferredProductionDate(event, new Date().toISOString(), sections);
+  const counts = productionCounts(event, sections, liveDate);
+  const usable = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
+  const title = q("#liveProductionTitle");
+  if (title) title.textContent = `Live production - ${liveDate ? dateLabel(liveDate) : "No scheduled date"}`;
+  q("#liveSummary").innerHTML = `<div class="metric"><span>Assignment contributions complete</span><strong>${counts.completed}/${counts.contributionTotal}</strong></div><div class="metric"><span>Task status</span><strong>${counts.taskCompleted}/${counts.taskTotal} tasks complete</strong></div><div class="metric"><span>In progress / blocked / not started</span><strong>${counts.inProgress} / ${counts.blocked} / ${counts.notStarted}</strong></div><div class="metric"><span>Final usable output reported</span><strong>${usable}</strong></div>`;
+  const contributions = contributionsForDate(event, liveDate, sections).filter(item => (liveSection === "all" || item.record.sectionId === liveSection) && (liveStatus === "all" || item.progress.status === liveStatus));
+  q("#liveBoard").innerHTML = contributions.length ? contributions.map(item => {
+    const taskIndex = event.tasks.indexOf(item.task);
+    const unit = item.progress.unit || item.task.detail.match(/batch(?:es)?|rolls?|portions?|pieces?|units?/i)?.[0] || "units";
+    return `<article class="live-task assignment-contribution" data-live-task="${taskIndex}" data-contribution-key="${esc(item.key)}" data-record-id="${esc(item.record.id)}" data-team-id="${esc(item.team.id)}" data-status="${esc(item.progress.status)}">
+      <div class="live-task-title"><strong>${esc(item.task.name)}</strong><span>${esc(shortDate(item.record.workDate))} - ${esc(sectionDisplayLabel(item.section))} - ${esc(item.team.name)}</span><small>${esc(item.meeting ? `Day ${item.meeting.rotationDay}, Period ${item.meeting.period}, ${item.meeting.start}-${item.meeting.end}` : "Invalid or missing class meeting")}</small><small class="${item.team?.students?.length ? "" : "roster-warning"}">${esc(contributionStudents(item))}</small></div>
+      <label>Status<select data-progress="status">${statuses.map(status => `<option ${item.progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
+      <label>Quantity completed<input data-progress="quantity" type="number" min="0" value="${Number(item.progress.quantity || 0)}"><small>${Number(item.progress.quantity || 0)} of ${esc(item.task.detail.match(/^(.*?)\s*-|^(.*?)\s*·/)?.[1] || "planned work")} ${esc(unit)}</small></label>
+      <label>Unit<input data-progress="unit" value="${esc(unit)}"></label>
+      ${isOutputRecord(item.task) ? `<label>Final usable yield<input data-progress="usableYield" type="number" min="0" value="${Number(item.progress.usableYield || 0)}"></label>` : ""}
+      <label>Waste<input data-progress="waste" type="number" min="0" value="${Number(item.progress.waste || 0)}"></label>
+      <label>Waste category<select data-progress="wasteCategory">${WASTE_CATEGORIES.map(value => `<option value="${esc(value)}" ${item.progress.wasteCategory === value ? "selected" : ""}>${esc(value || "None")}</option>`).join("")}</select></label>
+      <label>Storage or handoff<select data-progress="handoffDisposition">${HANDOFF_DISPOSITIONS.map(value => `<option value="${esc(value)}" ${item.progress.handoffDisposition === value ? "selected" : ""}>${esc(value || "Choose disposition")}</option>`).join("")}</select></label>
+      <label>Storage/handoff note<input data-progress="handoffNote" value="${esc(item.progress.handoffNote)}"></label>
+      <label>Problem or interruption<input data-progress="issue" value="${esc(item.progress.issue)}" placeholder="Leave blank when work is proceeding"></label>
+      <label>Recovery action<input data-progress="recoveryAction" value="${esc(item.progress.recoveryAction)}" placeholder="Correction, support, or next move"></label>
+      <div class="save-meta"><span>${item.progress.updatedAt ? `Saved ${new Date(item.progress.updatedAt).toLocaleString()}` : "Not saved yet"}</span><strong>${esc(item.progress.updatedBy || "Staff member pending")}</strong></div>
     </article>`;
-  }).join("") : "<p>No tasks match the selected filters.</p>";
-  qa('[data-live-task]').forEach(card => card.addEventListener("change", () => {
+  }).join("") : "<p>No assignment contributions match the selected production date, section, and status.</p>";
+  qa('[data-live-task][data-contribution-key]').forEach(card => card.addEventListener("change", () => {
     if (!canEdit()) return toast("This event is view-only for the selected teacher.");
-    const progress = taskProgress(event.tasks[Number(card.dataset.liveTask)]);
+    const task = event.tasks[Number(card.dataset.liveTask)];
+    const progress = {};
     card.querySelectorAll("[data-progress]").forEach(field => { progress[field.dataset.progress] = ["quantity", "usableYield", "waste"].includes(field.dataset.progress) ? Number(field.value) : field.value; });
     progress.updatedAt = new Date().toISOString();
-    if (["In progress", "Blocked", "Ready for handoff"].includes(progress.status)) event.stage = "In production";
+    progress.updatedBy = activeTeacher();
+    task.assignmentProgress ||= {};
+    task.assignmentProgress[card.dataset.contributionKey] = progress;
+    task.progress = aggregateProgress(task);
+    if (["In progress", "Blocked", "Ready for handoff"].includes(task.progress.status)) event.stage = "In production";
     save();
     renderLive(); renderAttention(); renderCloseout(); renderSummary();
   }));
+}
+function plannedIngredientCost(event) {
+  return (event.menu || []).reduce((sum, item) => sum + (item.ingredients || []).reduce((itemSum, ingredient) => {
+    const scaled = scaledIngredient(ingredient, item);
+    const packs = ingredient.supplierName && Number(ingredient.packSize || 0) > 0 ? Math.ceil(scaled.need / Number(ingredient.packSize)) : 0;
+    return itemSum + packs * Number(ingredient.packPrice || 0);
+  }, 0), 0);
+}
+
+function currencyNumber(value) {
+  if (/not applicable|^n\/?a$/i.test(String(value || "").trim())) return null;
+  const number = Number(String(value || "").replace(/[^0-9.-]/g, ""));
+  return Number.isFinite(number) ? number : null;
+}
+
+function closeoutReadiness(event) {
+  const counts = productionCounts(event, sections);
+  const finalRequired = event.menu.reduce((sum, item) => sum + Number(item.required || 0), 0);
+  const finalUsable = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
+  const closeout = event.closeout || {};
+  const exception = closeout.closeoutException;
+  const blockers = [];
+  if (!exception && (counts.notStarted || counts.inProgress || counts.blocked || counts.invalid)) blockers.push("Required production records are unfinished, blocked, or invalid.");
+  if (!exception && finalRequired > 0 && finalUsable <= 0) blockers.push("Final usable event output has not been reconciled.");
+  if (exception && !String(closeout.closeoutExceptionReason || "").trim()) blockers.push("A cancellation or zero-output exception requires an explicit reason.");
+  return { counts, finalRequired, finalUsable, blockers };
 }
 
 function renderCloseout() {
   const event = current();
   event.closeout ||= clone(seed.events[0].closeout);
-  const fields = ["actualGuests", "actualRevenue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes"];
-  fields.forEach(field => { q(`#${field}`).value = event.closeout[field] ?? ""; });
+  event.closeout.estimatedProgramValue ||= "";
+  event.closeout.closeoutException ||= "";
+  event.closeout.closeoutExceptionReason ||= "";
+  const fields = ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason"];
+  fields.forEach(field => { const element = q(`#${field}`); if (element) element.value = event.closeout[field] ?? ""; });
   q("#closeoutRows").innerHTML = event.menu.map((item, menuIndex) => {
     const menuTasks = event.tasks.filter(task => task.menuIndex === menuIndex);
     const usable = menuTasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
@@ -676,19 +866,33 @@ function renderCloseout() {
   const plannedOutput = event.menu.reduce((sum, item) => sum + Number(item.required || 0), 0);
   const actualOutput = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
   const totalWaste = event.tasks.reduce((sum, task) => sum + Number(taskProgress(task).waste || 0), 0);
-  const blocked = event.tasks.filter(task => taskProgress(task).status === "Blocked").length;
+  const plannedCost = plannedIngredientCost(event);
+  const actualCost = currencyNumber(event.closeout.actualCost);
+  const variance = actualCost == null ? null : actualCost - plannedCost;
+  const readiness = closeoutReadiness(event);
   q("#managementBriefing").innerHTML = `<div class="briefing-list">
-    <div class="briefing-item"><span>Planned vs. usable output</span><strong>${plannedOutput} planned · ${actualOutput} reported</strong></div>
-    <div class="briefing-item"><span>Recorded waste</span><strong>${totalWaste} portions / units</strong></div>
-    <div class="briefing-item"><span>Production interruptions</span><strong>${blocked} currently blocked task${blocked === 1 ? "" : "s"}</strong></div>
-    <div class="briefing-item"><span>Analysis boundary</span><strong>Evaluate the plan, schedule, cost, yield, and workflow—not individual cooks.</strong></div>
+    <div class="briefing-item"><span>Planned vs. actual schedule</span><strong>${productionDates(event, sections).map(dateLabel).join("; ") || "No scheduled production dates"}</strong></div>
+    <div class="briefing-item"><span>Planned vs. usable yield</span><strong>${plannedOutput} planned - ${actualOutput} usable reported</strong></div>
+    <div class="briefing-item"><span>Cost and variance</span><strong>${plannedCost.toLocaleString(undefined, { style: "currency", currency: "USD" })} planned${variance == null ? " - actual cost not recorded" : ` - ${actualCost.toLocaleString(undefined, { style: "currency", currency: "USD" })} actual - ${variance.toLocaleString(undefined, { style: "currency", currency: "USD" })} variance`}</strong></div>
+    <div class="briefing-item"><span>Waste</span><strong>${totalWaste} recorded units</strong></div>
+    <div class="briefing-item"><span>Interruptions and recovery</span><strong>${readiness.counts.blocked} blocked contribution(s); recovery notes in the production record.</strong></div>
+    <div class="briefing-item"><span>Customer/service results</span><strong>${esc(event.closeout.feedbackReceived || "No")} feedback; ${esc(event.closeout.actualRevenue || "revenue not recorded")}</strong></div>
+    <div class="briefing-item"><span>Recommendations for next event</span><strong>${esc(event.closeout.operationalNotes || "Add recommendations before final completion.")}</strong></div>
   </div>`;
+  q("#productionRecord").innerHTML = event.tasks.map(task => {
+    const contributions = assignmentContributions(task, sections);
+    return `<details class="stage-record"><summary>${esc(task.name)} - ${esc(taskProgress(task).status)}</summary>${contributions.map(item => `<div class="record-contribution"><strong>${esc(sectionDisplayLabel(item.section))} - ${esc(item.team.name)}</strong><span>${esc(item.record.workDate || "date missing")} - ${esc(item.meeting ? `Period ${item.meeting.period}` : "invalid meeting")}</span><span>${Number(item.progress.quantity || 0)} ${esc(item.progress.unit || "units")} complete; ${Number(item.progress.waste || 0)} waste${item.progress.wasteCategory ? ` (${esc(item.progress.wasteCategory)})` : ""}</span><span>Handoff/storage: ${esc(item.progress.handoffDisposition || item.progress.storage || "not recorded")}${item.progress.handoffNote ? ` - ${esc(item.progress.handoffNote)}` : ""}</span><span>Problem: ${esc(item.progress.issue || "none recorded")}</span><span>Recovery: ${esc(item.progress.recoveryAction || "none recorded")}</span><span>Students: ${esc(item.team.students?.length ? item.team.students.join(", ") : "Roster warning: no students saved")}</span><span>Saved by ${esc(item.progress.updatedBy || "staff pending")} ${item.progress.updatedAt ? `at ${new Date(item.progress.updatedAt).toLocaleString()}` : ""}</span></div>`).join("")}</details>`;
+  }).join("");
+  const status = readiness.blockers.length ? readiness.blockers.join(" ") : "Closeout requirements are satisfied for ordinary completion.";
+  q("#closeoutStatus").innerHTML = `<strong>${readiness.blockers.length ? "Completion blocked" : "Ready for completion"}</strong><p>${esc(status)}</p><small>Not started: ${readiness.counts.notStarted}; In progress: ${readiness.counts.inProgress}; Completed: ${readiness.counts.completed}; Blocked: ${readiness.counts.blocked}; Invalid or missing: ${readiness.counts.invalid}.</small>`;
+  q("#completeEvent").disabled = !canEdit() || readiness.blockers.length > 0;
 }
-
 function collectCloseout() {
   if (!canEdit()) return false;
   const closeout = current().closeout ||= {};
-  ["actualGuests", "actualRevenue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes"].forEach(field => { closeout[field] = q(`#${field}`).value; });
+  ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason"].forEach(field => { const element = q(`#${field}`); if (element) closeout[field] = element.value; });
+  closeout.updatedAt = new Date().toISOString();
+  closeout.updatedBy = activeTeacher();
   return true;
 }
 
@@ -699,7 +903,7 @@ function applyPermissions() {
   });
   q("#saveDraft").disabled = !editable;
   qa("#teamSetupList input, #teamSetupList textarea, #teamSetupList button, #teamForm input, #teamForm select, #teamForm textarea, #teamForm button").forEach(control => { control.disabled = session?.user?.role !== "admin"; });
-  ["actualGuests", "actualRevenue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "saveCloseout", "completeEvent"].forEach(id => { q(`#${id}`).disabled = !editable; });
+  ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason", "saveCloseout", "completeEvent"].forEach(id => { const element = q(`#${id}`); if (element) element.disabled = !editable; });
 }
 
 function renderAll() {
@@ -707,6 +911,7 @@ function renderAll() {
 }
 
 function showPanel(name) {
+  activePanel = name;
   qa('[data-panel-view]').forEach(panel => panel.classList.toggle("active", panel.dataset.panelView === name));
   qa('[data-panel]').forEach(button => button.classList.toggle("active", button.dataset.panel === name));
   if (name === "publish") renderPublish();
@@ -715,6 +920,7 @@ function showPanel(name) {
   if (name === "live") renderLive();
   if (name === "closeout") renderCloseout();
   if (name === "access") renderUsers();
+  renderAttention();
   window.scrollTo({ top: 260, behavior: "smooth" });
 }
 
@@ -757,7 +963,7 @@ q("#publishOrder").addEventListener("click", () => {
   if (!isOwner()) return;
   collectBrief();
   const event = current();
-  event.version = (event.version || 0) + 1; event.publishedAt = new Date().toISOString(); event.stage = "Published";
+  event.version = (event.version || 0) + 1; event.publishedAt = new Date().toISOString(); event.publishedBy = activeTeacher(); event.stage = "Published"; event.publishedSignature = publicationSignature(event);
   save(); renderAll(); toast(`Event Order v${event.version} published to student views.`);
 });
 q("#newEvent").addEventListener("click", () => {
@@ -766,17 +972,27 @@ q("#newEvent").addEventListener("click", () => {
   currentId = id; save(); renderAll(); showPanel("brief"); toast("New private event draft created.");
 });
 q("#liveSectionFilter").addEventListener("change", event => { liveSection = event.target.value; renderLive(); });
+q("#liveDateFilter")?.addEventListener("change", event => { liveDate = event.target.value; renderLive(); renderAttention(); });
 q("#liveStatusFilter").addEventListener("change", event => { liveStatus = event.target.value; renderLive(); });
 q("#saveCloseout").addEventListener("click", () => { if (collectCloseout()) { current().stage = "Closeout required"; save(); renderAll(); showPanel("closeout"); toast("Event closeout saved as a draft."); } });
 q("#completeEvent").addEventListener("click", () => {
   if (!collectCloseout()) return;
-  const unfinished = current().tasks.filter(task => taskProgress(task).status !== "Complete").length;
-  if (unfinished && !confirm(`${unfinished} production tasks are not marked complete. Complete the event anyway?`)) return;
-  current().stage = "Completed"; current().completedAt = new Date().toISOString(); save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
+  const readiness = closeoutReadiness(current());
+  if (readiness.blockers.length) { renderCloseout(); return toast("Closeout is blocked until required records are reconciled or an authorized exception is documented."); }
+  current().stage = "Completed"; current().completedAt = new Date().toISOString(); current().completedBy = activeTeacher(); save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
 });
 q("#refreshData").addEventListener("click", () => {
   initialize(true);
 });
+
+function updateAccountScopeControls() {
+  const role = q("#accountRoleSelect")?.value || "";
+  const sectionField = q("#userSection")?.closest("label");
+  if (!sectionField) return;
+  sectionField.hidden = role !== "student";
+  q("#userSection").disabled = role !== "student";
+  if (role !== "student") q("#userSection").value = "";
+}
 
 async function renderUsers() {
   renderTeamSetup();
@@ -792,14 +1008,22 @@ function renderTeamSetup() {
   state.sections = sections = normalizeSections(state.sections || sections);
   const list = q("#teamSetupList");
   if (!list) return;
-  list.innerHTML = sections.filter(isAdvancedSection).map(section => `<article class="team-period"><h4>${esc(sectionDisplayLabel(section))}</h4><label>Official section number<input data-section-field="officialSectionNumber" data-team-section="${esc(section.id)}" value="${esc(section.officialSectionNumber || "")}" placeholder="TBD"></label>${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Students<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label></div><button class="icon-button" data-remove-team type="button" aria-label="Remove ${esc(team.name)}">×</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this section cannot be published.</p>'}</article>`).join("");
+  list.innerHTML = sections.filter(section => section.course === "Advanced Culinary Arts").map(section => `<article class="team-period section-card" data-section-card="${esc(section.id)}"><header><div><h4>${esc(sectionDisplayLabel(section))}</h4><small>${esc(section.teacher)} - ${esc(section.site)} - ${esc(section.active === false ? "Inactive" : "Active")}</small></div><span class="stable-id">ID: ${esc(section.id)}</span></header>
+    <div class="section-admin-grid"><label>Official section number<input data-section-field="officialSectionNumber" data-team-section="${esc(section.id)}" value="${esc(section.officialSectionNumber || "")}" placeholder="Pending"></label><label>Active state<select data-section-field="active" data-team-section="${esc(section.id)}"><option value="true" ${section.active !== false ? "selected" : ""}>Active</option><option value="false" ${section.active === false ? "selected" : ""}>Inactive</option></select></label><div class="assignment-meta"><span>Rotation mapping</span><strong>Day 1-Day 4 rules in scheduling configuration</strong></div></div>
+    ${section.officialSectionNumber ? "" : `<div class="provisional-warning"><strong>Official district section number pending.</strong><p>This provisional label may be used for planning; adding the official number later will not change the durable section ID or connected records.</p></div>`}
+    <div class="team-list">${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Student roster<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label><small class="save-meta">${esc(team.updatedAt ? `Saved ${new Date(team.updatedAt).toLocaleString()} by ${team.updatedBy || "administrator"}` : "Roster not yet updated in this session.")}</small></div><button class="ghost-danger" data-remove-team type="button">Remove team</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this stable section cannot be published.</p>'}</div>
+    <form class="team-inline-form" data-add-team-section="${esc(section.id)}"><label>Team name<input name="teamName" placeholder="Team B" required></label><label>Student roster<textarea name="students" rows="2" placeholder="One name per line"></textarea></label><button class="primary-button" type="submit">Add team</button></form>
+  </article>`).join("");
   const sectionOptions = sections.filter(isAdvancedSection).map(section => `<option value="${esc(section.id)}">${esc(sectionDisplayLabel(section))}</option>`).join("");
-  q("#teamSection").innerHTML = sectionOptions;
+  if (q("#teamSection")) q("#teamSection").innerHTML = sectionOptions;
   q("#userSection").innerHTML = `<option value="">Not assigned</option>${sectionOptions}`;
   qa("[data-section-field]").forEach(field => field.addEventListener("change", () => {
     const section = sections.find(item => item.id === field.dataset.teamSection);
     if (!section) return;
-    section[field.dataset.sectionField] = field.value.trim();
+    if (field.dataset.sectionField === "active") {
+      if (field.value === "false" && section.teams?.length && !confirm("Deactivate this section? Connected teams, rosters, assignments, publications, and production history will be preserved.")) { field.value = "true"; return; }
+      section.active = field.value !== "false";
+    } else section[field.dataset.sectionField] = field.value.trim();
     state.sections = sections;
     save(); renderAll();
   }));
@@ -810,17 +1034,33 @@ function renderTeamSetup() {
       if (!team) return;
       if (field.dataset.teamField === "name") team.name = field.value.trim() || team.name;
       if (field.dataset.teamField === "students") team.students = field.value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
+      team.updatedAt = new Date().toISOString(); team.updatedBy = activeTeacher();
       save(); renderAll();
     }));
     row.querySelector("[data-remove-team]")?.addEventListener("click", () => {
       const section = sections.find(item => item.id === row.dataset.teamSection);
       if (!section) return;
+      const team = section.teams.find(item => item.id === row.dataset.teamId);
+      const connected = current().tasks.some(task => normalizeTaskAssignments(task, sections).some(record => record.teamIds.includes(row.dataset.teamId)));
+      if (connected && !confirm("Remove or deactivate this team? Connected assignment and production records will be preserved for review.")) return;
       section.teams = section.teams.filter(item => item.id !== row.dataset.teamId);
-      save(); renderAll(); toast("Team removed; affected tasks were reassigned or marked incomplete.");
+      section.teamAudit ||= [];
+      section.teamAudit.push({ action: "removed", teamId: row.dataset.teamId, teamName: team?.name || "Team", at: new Date().toISOString(), by: activeTeacher() });
+      save(); renderAll(); toast("Team removed; connected records remain for review.");
     });
   });
+  qa("[data-add-team-section]").forEach(form => form.addEventListener("submit", event => {
+    event.preventDefault();
+    const section = sections.find(item => item.id === form.dataset.addTeamSection);
+    const data = new FormData(form);
+    const name = String(data.get("teamName") || "").trim();
+    if (!section || !name) return;
+    section.teams.push({ id: `${section.id}-team-${Date.now()}`, name, students: String(data.get("students") || "").split(/[\n,]+/).map(value => value.trim()).filter(Boolean), updatedAt: new Date().toISOString(), updatedBy: activeTeacher() });
+    state.sections = sections;
+    save(); renderAll(); toast(`${name} added to ${sectionDisplayLabel(section)}.`);
+  }));
+  updateAccountScopeControls();
 }
-
 q("#teamForm").addEventListener("submit", event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
@@ -833,13 +1073,20 @@ q("#teamForm").addEventListener("submit", event => {
   event.currentTarget.reset(); save(); renderAll(); toast(`${name} added to ${section.name}.`);
 });
 
+q("#accountRoleSelect")?.addEventListener("change", updateAccountScopeControls);
+
 q("#userForm").addEventListener("submit", async event => {
   event.preventDefault();
   const form = new FormData(event.currentTarget);
-  const response = await fetch("/api/users", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(Object.fromEntries(form)) });
+  const payload = Object.fromEntries(form);
+  if (!payload.role) return toast("Choose an explicit account role.");
+  if (payload.role !== "student") payload.sectionId = "";
+  if (payload.role === "student" && !payload.sectionId) return toast("Assign the student to a stable section.");
+  if (["teacher", "admin"].includes(payload.role) && !confirm(`Create or update this ${payload.role} account with ${payload.role === "admin" ? "districtwide administrative" : "teacher"} scope?`)) return;
+  const response = await fetch("/api/users", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
   const result = await response.json().catch(() => ({}));
   if (!response.ok) return toast(result.error || "Account could not be saved.");
-  event.currentTarget.reset(); await renderUsers(); toast("District account assignment saved.");
+  event.currentTarget.reset(); updateAccountScopeControls(); await renderUsers(); toast("Authorized account assignment saved.");
 });
 
 async function initialize(force = false) {

@@ -1,6 +1,6 @@
 import { PATHWAY_RECIPES } from "./pathway-recipes.js";
 import { SUPPLIER_CATALOG } from "./supplier-catalog.js";
-import { DEFAULT_SECTIONS, aggregateProgress, assignmentsForSection, normalizeSections, normalizeTaskAssignments, taskPublicationIssues } from "../site/shared/scheduling.js";
+import { DEFAULT_SECTIONS, aggregateProgress, assignmentContributionKey, assignmentsForSection, normalizeProgress, normalizeSections, normalizeTaskAssignments, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
@@ -336,18 +336,28 @@ async function handleApi(request, env, url) {
     const allowedStatuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
     const progress = body?.progress || {};
     if (!allowedStatuses.includes(progress.status)) return json({ error: "Invalid task status." }, 400);
-    const progressRecord = {
+    const progressRecord = normalizeProgress({
       status: progress.status,
       quantity: Math.max(0, Number(progress.quantity || 0)), usableYield: Math.max(0, Number(progress.usableYield || 0)),
-      waste: Math.max(0, Number(progress.waste || 0)), storage: String(progress.storage || "").slice(0, 300),
-      issue: String(progress.issue || "").slice(0, 500), updatedAt: new Date().toISOString(), updatedBy: user.display_name
-    };
+      unit: String(progress.unit || "").slice(0, 60), waste: Math.max(0, Number(progress.waste || 0)), storage: String(progress.storage || "").slice(0, 300),
+      wasteCategory: String(progress.wasteCategory || ""), handoffDisposition: String(progress.handoffDisposition || ""), handoffNote: String(progress.handoffNote || "").slice(0, 500),
+      issue: String(progress.issue || "").slice(0, 500), recoveryAction: String(progress.recoveryAction || "").slice(0, 500), updatedAt: new Date().toISOString(), updatedBy: user.display_name
+    });
     if (user.role === "student" && user.section_id) {
       task.assignmentProgress ||= {};
-      task.assignmentProgress[user.section_id] = progressRecord;
+      const record = assignmentsForSection(task, user.section_id, state.sections)[0];
+      const teamId = record?.teamIds?.find(teamId => teamsForSection(state.sections, user.section_id).some(team => team.id === teamId)) || "";
+      task.assignmentProgress[assignmentContributionKey(task.id, record, teamId)] = progressRecord;
       task.progress = aggregateProgress(task);
     } else {
-      task.progress = progressRecord;
+      const contributionKey = String(body?.contributionKey || "");
+      if (contributionKey) {
+        task.assignmentProgress ||= {};
+        task.assignmentProgress[contributionKey] = progressRecord;
+        task.progress = aggregateProgress(task);
+      } else {
+        task.progress = { ...progressRecord, legacyReviewRequired: true };
+      }
     }
     if (["In progress", "Blocked", "Ready for handoff"].includes(task.progress.status)) targetEvent.stage = "In production";
     const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
@@ -367,11 +377,15 @@ async function handleApi(request, env, url) {
     if (user.role !== "admin") return json({ error: "Administrator access required." }, 403);
     const body = await request.json().catch(() => null);
     const email = String(body?.email || "").trim().toLowerCase();
-    const role = String(body?.role || "student");
-    if (!email.endsWith("@greececsd.org") || !["admin", "teacher", "student"].includes(role) || !body?.displayName) return json({ error: "Enter a district email, name, and valid role." }, 400);
+    const role = String(body?.role || "");
+    const bootstrapEmail = String(env.BOOTSTRAP_ADMIN_EMAIL || "").trim().toLowerCase();
+    const existing = await env.DB.prepare("SELECT email, display_name, role, school, section_id FROM users WHERE email = ?").bind(email).first();
+    const authorizedExistingExternal = existing || (bootstrapEmail && email === bootstrapEmail);
+    if (!email || (!email.endsWith("@greececsd.org") && !authorizedExistingExternal) || !["admin", "teacher", "student"].includes(role) || !body?.displayName) return json({ error: "Enter an authorized email, name, and explicit valid role." }, 400);
+    const sectionId = role === "student" ? (body.sectionId || null) : null;
     await env.DB.prepare("INSERT INTO users (email, display_name, role, school, section_id, active, updated_at) VALUES (?, ?, ?, ?, ?, 1, CURRENT_TIMESTAMP) ON CONFLICT(email) DO UPDATE SET display_name = excluded.display_name, role = excluded.role, school = excluded.school, section_id = excluded.section_id, active = 1, updated_at = CURRENT_TIMESTAMP")
-      .bind(email, String(body.displayName).trim(), role, body.school || null, body.sectionId || null).run();
-    await audit(env, user, "upsert", "user", email, { role, school: body.school, sectionId: body.sectionId });
+      .bind(email, String(body.displayName).trim(), role, body.school || null, sectionId).run();
+    await audit(env, user, "upsert", "user", email, { role, school: body.school, sectionId });
     return json({ ok: true }, 201);
   }
 

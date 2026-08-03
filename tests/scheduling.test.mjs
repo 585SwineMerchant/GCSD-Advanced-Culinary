@@ -4,14 +4,20 @@ import { readFileSync } from "node:fs";
 import {
   BELL_SCHEDULE,
   DEFAULT_SECTIONS,
+  assignmentContributionKey,
+  assignmentContributions,
   aggregateProgress,
   applyTeamToTask,
   assignmentIssues,
   availableMeetingsForDate,
+  contributionsForDate,
   makeAssignment,
   normalizeSections,
   normalizeTaskAssignments,
   offsetDate,
+  preferredProductionDate,
+  productionCounts,
+  productionDates,
   rotationDayForDate,
   sectionDisplayLabel,
   sectionMeetsOnDate,
@@ -124,6 +130,26 @@ test("one task can hold multiple sections and multiple teams without multiplying
   assert.equal(aggregateProgress(task).usableYield, 5);
 });
 
+test("assignment-level production contributions are keyed by task, assignment, and team", () => {
+  const task = { id: "task", detail: "1 batch", assignmentRecords: [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"])] };
+  const contributions = assignmentContributions(task, sections);
+  assert.equal(contributions.length, 2);
+  assert.ok(contributions.every(item => item.key === assignmentContributionKey("task", item.record, item.team.id)));
+  assert.deepEqual(contributions.map(item => item.team.students.join(", ")), ["Ada, Luis", "Mina"]);
+});
+
+test("live production date filtering and counts keep one operational date at a time", () => {
+  const event = { tasks: [
+    { id: "mix", assignmentRecords: [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a"])], assignmentProgress: {} },
+    { id: "bake", assignmentRecords: [makeAssignment(sections, "adv-p5", "2026-09-24", ["adv-p5-team-a"])], assignmentProgress: {} }
+  ] };
+  event.tasks[0].assignmentProgress[assignmentContributionKey("mix", event.tasks[0].assignmentRecords[0], "adv-p2-team-a")] = { status: "Complete", quantity: 1 };
+  assert.deepEqual(productionDates(event, sections), ["2026-09-23", "2026-09-24"]);
+  assert.equal(preferredProductionDate(event, "2026-09-22", sections), "2026-09-24");
+  assert.equal(contributionsForDate(event, "2026-09-23", sections).length, 1);
+  assert.deepEqual(productionCounts(event, sections, "2026-09-23"), { notStarted: 0, inProgress: 0, completed: 1, blocked: 0, invalid: 0, contributionTotal: 1, taskTotal: 1, taskCompleted: 1 });
+});
+
 test("removing one participating team does not delete the task or section assignment", () => {
   const task = { id: "task", assignmentRecords: [makeAssignment(sections, "adv-p2", "2026-09-23", ["adv-p2-team-a", "adv-p2-team-b"])] };
   task.assignmentRecords[0].teamIds = task.assignmentRecords[0].teamIds.filter(teamId => teamId !== "adv-p2-team-b");
@@ -155,6 +181,31 @@ test("sections 4 and 5 are replaced by one data-backed production workspace", ()
   assert.match(teacherHtml, /Production plan &amp; assignments/i);
   assert.doesNotMatch(teacherHtml, /<button data-panel="assignments"/);
   assert.doesNotMatch(teacherHtml, /<h2>Work assignments<\/h2>/);
-  assert.match(teacherCss, /\.assignment-record\{display:grid;grid-template-columns:minmax\(150px,/);
+  assert.match(teacherCss, /\.assignment-record\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
   assert.doesNotMatch(teacherCss, /\.assignment-record\{[^}]*minmax\(260px,1\.2fr\)[^}]*minmax\(170px,\.85fr\)[^}]*minmax\(260px,1\.25fr\)[^}]*auto/);
+});
+
+test("teacher UI uses stage-aware workflow, stable-section terminology, and labeled removal controls", () => {
+  const teacherHtml = readFileSync(new URL("../site/teacher/index.html", import.meta.url), "utf8");
+  const teacherOperations = readFileSync(new URL("../site/teacher/teacher-operations.js", import.meta.url), "utf8");
+  assert.match(teacherHtml, /1<\/span> Request inbox/);
+  assert.match(teacherHtml, /8<\/span> Access &amp; rosters/);
+  assert.match(teacherHtml, /Sections, teams &amp; rosters/);
+  assert.doesNotMatch(teacherHtml, /Teams by period/);
+  assert.match(teacherOperations, /stageContext/);
+  assert.match(teacherOperations, /Remove assignment/);
+  assert.match(teacherOperations, /Remove team/);
+  assert.doesNotMatch(teacherOperations, /You control publication[^]*function renderLive/);
+});
+
+test("publish, live production, and closeout controls expose requested second-pass states", () => {
+  const teacherHtml = readFileSync(new URL("../site/teacher/index.html", import.meta.url), "utf8");
+  const teacherOperations = readFileSync(new URL("../site/teacher/teacher-operations.js", import.meta.url), "utf8");
+  assert.match(teacherHtml, /publicationSummary/);
+  assert.match(teacherHtml, /liveDateFilter/);
+  assert.match(teacherHtml, /productionRecord/);
+  assert.match(teacherOperations, /publishedSignature/);
+  assert.match(teacherOperations, /assignmentProgress\[card\.dataset\.contributionKey\]/);
+  assert.match(teacherOperations, /closeoutReadiness/);
+  assert.match(teacherOperations, /Completion blocked/);
 });

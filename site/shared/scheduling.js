@@ -165,6 +165,10 @@ export function formatMeetingWindow(meeting) {
   return `${date} - Day ${meeting.rotationDay} - ${sectionDisplayLabel(meeting.section)} - Period ${meeting.period} - ${meeting.start}-${meeting.end}`;
 }
 
+export const PRODUCTION_STATUSES = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
+export const WASTE_CATEGORIES = ["", "Trim", "Spoilage", "Production error", "Damaged finished product", "Unused but recoverable", "Other"];
+export const HANDOFF_DISPOSITIONS = ["", "Held at station", "Cooling rack", "Refrigerated", "Frozen", "Expo handoff", "Delivered", "Discarded", "Other"];
+
 export function makeAssignment(sections, sectionId, workDate, teamIds = []) {
   const section = normalizeSections(sections).find(item => item.id === sectionId);
   const teams = teamsForSection(sections, sectionId);
@@ -174,7 +178,11 @@ export function makeAssignment(sections, sectionId, workDate, teamIds = []) {
     id: `assign-${sectionId || "section"}-${Date.now()}-${Math.random().toString(36).slice(2, 7)}`,
     sectionId: section?.id || "",
     workDate: isoDate(workDate),
-    teamIds: selected.length ? selected : teams.slice(0, 1).map(team => team.id)
+    teamIds: selected.length ? selected : teams.slice(0, 1).map(team => team.id),
+    station: "",
+    studentDetails: "",
+    handoffConfirmed: false,
+    status: "Not started"
   };
 }
 
@@ -192,7 +200,11 @@ export function normalizeTaskAssignments(task, sections) {
       id: String(record.id || `assign-${task.id || "task"}-${index + 1}`),
       sectionId: section?.id || "",
       workDate: isoDate(record.workDate || task.workDate || ""),
-      teamIds: teamIds.length ? teamIds : teams.slice(0, 1).map(team => team.id)
+      teamIds: teamIds.length ? teamIds : teams.slice(0, 1).map(team => team.id),
+      station: String(record.station || ""),
+      studentDetails: String(record.studentDetails || ""),
+      handoffConfirmed: Boolean(record.handoffConfirmed),
+      status: PRODUCTION_STATUSES.includes(record.status) ? record.status : "Not started"
     };
   });
   const primary = task.assignmentRecords[0] || {};
@@ -244,11 +256,60 @@ export function assignmentsForSection(task, sectionId, sections) {
   return normalizeTaskAssignments(task, sections).filter(record => record.sectionId === sectionId);
 }
 
+export function assignmentContributionKey(taskId, record, teamId) {
+  return [taskId || "task", record?.id || record?.sectionId || "section", teamId || "team"].map(value => String(value).replace(/\s+/g, "-")).join("::");
+}
+
+export function assignmentContributions(task, sections) {
+  const records = normalizeTaskAssignments(task, sections);
+  const progress = task.assignmentProgress || {};
+  return records.flatMap(record => {
+    const section = normalizeSections(sections).find(item => item.id === record.sectionId);
+    const teams = teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id));
+    const usableTeams = teams.length ? teams : [{ id: "", name: "Team not selected", students: [] }];
+    const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
+    return usableTeams.map(team => {
+      const key = assignmentContributionKey(task.id, record, team.id);
+      const legacy = progress[key] || progress[record.id] || progress[record.sectionId] || {};
+      return {
+        key,
+        record,
+        section,
+        team,
+        meeting,
+        progress: normalizeProgress(legacy)
+      };
+    });
+  });
+}
+
+export function normalizeProgress(value = {}) {
+  const status = PRODUCTION_STATUSES.includes(value.status) ? value.status : "Not started";
+  const wasteCategory = WASTE_CATEGORIES.includes(value.wasteCategory) ? value.wasteCategory : "";
+  const handoffDisposition = HANDOFF_DISPOSITIONS.includes(value.handoffDisposition) ? value.handoffDisposition : "";
+  return {
+    status,
+    quantity: Math.max(0, Number(value.quantity || 0)),
+    unit: String(value.unit || ""),
+    usableYield: Math.max(0, Number(value.usableYield || 0)),
+    waste: Math.max(0, Number(value.waste || 0)),
+    wasteCategory,
+    storage: String(value.storage || value.handoffDisposition || ""),
+    handoffDisposition,
+    handoffNote: String(value.handoffNote || ""),
+    issue: String(value.issue || ""),
+    recoveryAction: String(value.recoveryAction || ""),
+    legacyReviewRequired: Boolean(value.legacyReviewRequired),
+    updatedAt: value.updatedAt || null,
+    updatedBy: value.updatedBy || null
+  };
+}
+
 export function aggregateProgress(task) {
-  const progress = task.progress || {};
-  const assignmentProgress = Object.values(task.assignmentProgress || {});
+  const progress = normalizeProgress(task.progress || {});
+  const assignmentProgress = Object.values(task.assignmentProgress || {}).map(normalizeProgress);
   if (!assignmentProgress.length) return progress;
-  const latest = assignmentProgress.sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || {};
+  const latest = [...assignmentProgress].sort((a, b) => String(b.updatedAt || "").localeCompare(String(a.updatedAt || "")))[0] || {};
   const statuses = assignmentProgress.map(item => item.status);
   const status = statuses.includes("Blocked") ? "Blocked" : statuses.every(item => item === "Complete") ? "Complete" : statuses.includes("In progress") ? "In progress" : latest.status || progress.status || "Not started";
   return {
@@ -262,6 +323,48 @@ export function aggregateProgress(task) {
     updatedAt: latest.updatedAt || progress.updatedAt || null,
     updatedBy: latest.updatedBy || progress.updatedBy || null
   };
+}
+
+export function productionDates(event, sections = DEFAULT_SECTIONS) {
+  const dates = new Set();
+  for (const task of event?.tasks || []) {
+    for (const record of normalizeTaskAssignments(task, sections)) {
+      if (record.workDate) dates.add(record.workDate);
+    }
+  }
+  return [...dates].sort();
+}
+
+export function preferredProductionDate(event, todayIso, sections = DEFAULT_SECTIONS) {
+  const dates = productionDates(event, sections);
+  if (!dates.length) return "";
+  const today = isoDate(todayIso || new Date().toISOString());
+  if (dates.includes(today)) return today;
+  const unfinished = dates.find(date => (event.tasks || []).some(task => normalizeTaskAssignments(task, sections).some(record => record.workDate === date) && aggregateProgress(task).status !== "Complete"));
+  return unfinished || dates.find(date => date >= today) || dates[0];
+}
+
+export function contributionsForDate(event, iso, sections = DEFAULT_SECTIONS) {
+  return (event?.tasks || []).flatMap(task => assignmentContributions(task, sections)
+    .filter(contribution => !iso || contribution.record.workDate === iso)
+    .map(contribution => ({ task, ...contribution })));
+}
+
+export function productionCounts(event, sections = DEFAULT_SECTIONS, iso = "") {
+  const contributions = contributionsForDate(event, iso, sections);
+  const counts = { notStarted: 0, inProgress: 0, completed: 0, blocked: 0, invalid: 0, contributionTotal: contributions.length, taskTotal: 0, taskCompleted: 0 };
+  for (const contribution of contributions) {
+    if (!contribution.section || !contribution.team?.id || !contribution.meeting) counts.invalid += 1;
+    const status = contribution.progress.status;
+    if (status === "Complete") counts.completed += 1;
+    else if (status === "Blocked") counts.blocked += 1;
+    else if (status === "In progress" || status === "Ready for handoff") counts.inProgress += 1;
+    else counts.notStarted += 1;
+  }
+  const visibleTasks = (event?.tasks || []).filter(task => normalizeTaskAssignments(task, sections).some(record => !iso || record.workDate === iso));
+  counts.taskTotal = visibleTasks.length;
+  counts.taskCompleted = visibleTasks.filter(task => aggregateProgress(task).status === "Complete").length;
+  return counts;
 }
 
 export function offsetDate(isoDateValue, offset) {
