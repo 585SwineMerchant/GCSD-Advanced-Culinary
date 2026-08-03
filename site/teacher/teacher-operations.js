@@ -205,9 +205,9 @@ function assignmentRows(task, index, mode = "production") {
     return `<div class="assignment-record" data-task="${index}" data-record="${recordIndex}">
       <label>Production date<input data-assignment-record-field="workDate" type="date" value="${esc(record.workDate)}"></label>
       <label>Advanced Culinary meeting<select data-assignment-record-field="sectionId">${meetingOptions(record.workDate, record.sectionId)}</select></label>
-      <div class="team-chip-list"><span>Teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small>Set up a team in section 9.</small>"}</div>
+      <div class="team-chip-list"><span>Teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small>Set up a team in section 8.</small>"}</div>
       <div class="meeting-window ${meeting ? "" : "invalid-window"}">${esc(formatMeetingWindow(meeting))}</div>
-      ${records.length > 1 ? `<button class="icon-button" data-remove-assignment type="button" aria-label="Remove assignment">×</button>` : ""}
+      ${records.length > 1 ? `<button class="ghost-danger remove-assignment-button" data-remove-assignment type="button">Remove assignment</button>` : ""}
     </div>`;
   }).join("")}<button class="secondary-button add-assignment-row" data-add-assignment="${index}" data-mode="${esc(mode)}" type="button">Add class section</button></div>`;
 }
