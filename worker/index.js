@@ -1,6 +1,6 @@
 import { PATHWAY_RECIPES } from "./pathway-recipes.js";
 import { SUPPLIER_CATALOG } from "./supplier-catalog.js";
-import { DEFAULT_SECTIONS, applyTeamToTask, normalizeSections, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
+import { DEFAULT_SECTIONS, aggregateProgress, assignmentsForSection, normalizeSections, normalizeTaskAssignments, taskPublicationIssues } from "../site/shared/scheduling.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
@@ -42,9 +42,8 @@ function normalizeState(state = {}) {
   state.approvedRecipes ||= [];
   state.sections = normalizeSections(state.sections || DEFAULT_SECTIONS);
   state.events.forEach(event => (event.tasks || []).forEach(task => {
-    const teams = teamsForSection(state.sections, task.section);
-    const configured = teams.find(team => team.id === task.teamId) || teams.find(team => team.name === task.team) || teams[0];
-    if (configured) applyTeamToTask(task, state.sections, task.section, configured.id);
+    normalizeTaskAssignments(task, state.sections);
+    task.progress = aggregateProgress(task);
   }));
   return state;
 }
@@ -315,7 +314,7 @@ async function handleApi(request, env, url) {
       serviceTime: event.serviceTime, guestCount: event.guestCount, serviceFormat: event.serviceFormat,
       requirements: event.requirements, allergens: event.allergens, stage: event.stage, version: event.version,
       publishedAt: event.publishedAt, menu: event.menu,
-      tasks: (event.tasks || []).filter(task => user.role !== "student" || (user.section_id && task.section === user.section_id))
+      tasks: (event.tasks || []).filter(task => user.role !== "student" || (user.section_id && assignmentsForSection(task, user.section_id, state.sections).length))
     }));
     return json({ events, revision: row.revision, user });
   }
@@ -332,17 +331,24 @@ async function handleApi(request, env, url) {
       if (found) { targetEvent = event; task = found; break; }
     }
     if (!task || !targetEvent?.publishedAt) return json({ error: "Published task not found." }, 404);
-    if (user.role === "student" && user.section_id && task.section !== user.section_id) return json({ error: "That task belongs to another section." }, 403);
+    if (user.role === "student" && user.section_id && !assignmentsForSection(task, user.section_id, state.sections).length) return json({ error: "That task belongs to another section." }, 403);
     if (user.role !== "student" && !canEditEvent(user, targetEvent)) return json({ error: "You do not have access to update this event." }, 403);
     const allowedStatuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
     const progress = body?.progress || {};
     if (!allowedStatuses.includes(progress.status)) return json({ error: "Invalid task status." }, 400);
-    task.progress = {
+    const progressRecord = {
       status: progress.status,
       quantity: Math.max(0, Number(progress.quantity || 0)), usableYield: Math.max(0, Number(progress.usableYield || 0)),
       waste: Math.max(0, Number(progress.waste || 0)), storage: String(progress.storage || "").slice(0, 300),
       issue: String(progress.issue || "").slice(0, 500), updatedAt: new Date().toISOString(), updatedBy: user.display_name
     };
+    if (user.role === "student" && user.section_id) {
+      task.assignmentProgress ||= {};
+      task.assignmentProgress[user.section_id] = progressRecord;
+      task.progress = aggregateProgress(task);
+    } else {
+      task.progress = progressRecord;
+    }
     if (["In progress", "Blocked", "Ready for handoff"].includes(task.progress.status)) targetEvent.stage = "In production";
     const result = await env.DB.prepare("UPDATE app_state SET revision = revision + 1, state_json = ?, updated_at = CURRENT_TIMESTAMP, updated_by = ? WHERE id = 1 AND revision = ?")
       .bind(JSON.stringify(state), user.email, row.revision).run();

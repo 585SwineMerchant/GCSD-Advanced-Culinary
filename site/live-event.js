@@ -15,12 +15,14 @@
   function taskCard(task, event) {
     const progress = task.progress || { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "" };
     const outputRecord = task.outputRecord === true || (task.outputRecord == null && task.type === "production");
+    const sectionRecords = Array.isArray(task.assignmentRecords) ? task.assignmentRecords.filter(record => !task.section || record.sectionId === task.section) : [];
+    const scheduleText = sectionRecords.length ? sectionRecords.map(record => `${dateLabel(record.workDate)} · ${(record.teamIds || []).join(", ")}`).join(" | ") : (task.workDate ? `${dateLabel(task.workDate)} · ${esc(task.deadline || "time pending")}` : "Teacher will confirm");
     return `<article class="student-live-task" data-task-id="${esc(task.id)}" data-event-id="${esc(event.id)}">
-      <header><div><span>${esc(task.station || "Production")} · ${esc(task.team || "Team pending")}</span><h4>${esc(task.name)}</h4></div><strong>${esc(task.deadline || "Deadline pending")}</strong></header>
+      <header><div><span>${esc(task.station || "Production")} · ${esc(task.team || "Team pending")}</span><h4>${esc(task.name)}</h4></div><strong>${esc(task.deadline || "Event deadline")}</strong></header>
       <p>${esc(task.detail)}</p>
       ${task.equipment?.length ? `<p><strong>Equipment:</strong> ${esc(task.equipment.join(", "))}</p>` : ""}
       ${task.qualityControls?.length ? `<p><strong>Quality controls:</strong> ${esc(task.qualityControls.join(" · "))}</p>` : ""}
-      <dl><div><dt>Students</dt><dd>${esc(task.students || "Roster assignment pending")}</dd></div><div><dt>Production date</dt><dd>${task.workDate ? `${dateLabel(task.workDate)} · ${esc(task.deadline || "time pending")}` : "Teacher will confirm"}</dd></div><div><dt>Handoff</dt><dd>${esc(task.dependency || "No dependency recorded")}</dd></div></dl>
+      <dl><div><dt>Students</dt><dd>${esc(task.students || "Roster assignment pending")}</dd></div><div><dt>Production schedule</dt><dd>${esc(scheduleText)}</dd></div><div><dt>Handoff</dt><dd>${esc(task.dependency || "No dependency recorded")}</dd></div></dl>
       <div class="student-progress-grid">
         <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
         <label>${outputRecord ? "Finished quantity" : "Batch / quantity completed"}<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
