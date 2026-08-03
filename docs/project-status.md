@@ -30,6 +30,9 @@
 - Shared recipe library seeded from all 37 current Culinary Arts 1 & 2 recipe-book records
 - Recipe-first Event Order entry with versioned snapshots and explicit standardization flags where the source does not yet provide a verified yield or portion
 - Student recipe research submission, teacher return/approval, and automatic addition of approved versions to the shared library
+- Searchable Advanced Culinary source bank containing all 171 recipes/formulas identified across the 177 source images, routed by category, course alignment, and likely event use
+- Forty-five new technique, culinary-math, yield, costing, stock, sauce, soup, grain, potato, bread, pastry, and dessert references integrated into Connected Learning and Quick Reference
+- Supplier-pricing readiness shown in the teacher recipe approval queue so unmatched purchased ingredients are visible before production approval
 
 ## Department Review Required
 
@@ -45,7 +48,7 @@
 
 - Validate the six-phase operating rhythm with Jason and Linda
 - Replace prototype form fields with approved existing documents where appropriate
-- Add approved recipes and event-specific preparation resources
+- Complete structured transcription and teacher testing of source-bank recipes as they are selected for production
 - Confirm the official submission, teacher-verification, Culinary Passport, and portfolio workflow
 - Conduct accessibility and device testing
 - Connect the prototype data model to secure authentication, shared persistence, and server-side role enforcement

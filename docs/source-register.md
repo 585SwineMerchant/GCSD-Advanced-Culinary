@@ -9,6 +9,7 @@
 - GCSD Employability Profile — Culinary Pathway
 - Culinary Pathway Canon and Operating Principles
 - Culinary Arts 1 & 2 field-manual site visual and interaction lessons
+- Advanced Culinary Recipe Source Catalog — 177-image intake; 171 complete source recipes/formulas and 45 methods/quick-reference topics
 
 ## Current Editable Working Files
 
@@ -30,6 +31,8 @@ Materials are instructional-development drafts unless explicitly identified as a
 - Once an event is accepted, client fulfillment takes priority; Jason retains final authority over acceptance, pricing, and client-approved changes this year.
 - Advanced Culinary encounters operational and entrepreneurial concepts through authentic production; Kitchen Management conducts the detailed analysis and returns an objective briefing as the next event begins.
 - The Recipe Studio translates customer requirements, course learning, and student research into a tested and approved production recipe.
+- The Advanced source bank is a research and transcription layer. A captured source title or yield does not become an approved production recipe until ingredients, procedure, equipment, allergens, supplier matches, testing, and teacher approval are complete.
+- Wegmans remains the dated quick-shop baseline. Ingredient lines without a current supplier match must be resolved or explicitly identified as non-purchased/in-house before the purchasing forecast is treated as complete.
 - Production tools are reusable internal components called by the active experience, not a standalone destination students must interpret.
 - The portfolio is the curated evidence record created through authentic course work.
 - Unresolved department design questions remain in staff development records, not student navigation.

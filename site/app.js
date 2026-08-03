@@ -311,6 +311,14 @@ const quickReferences = [
   }
 ];
 
+let sourceCatalog = { recipes: [], references: [], statusNote: "" };
+const recipeCategoriesByTopic = {
+  baking: ["Breads and yeast doughs", "Pastry, cakes, and desserts"],
+  produce: ["Grains, pasta, and legumes", "Potatoes"],
+  soups: ["Stocks and sauces", "Soups", "Dressings and flavored oils", "Dips, relishes, and condiments"],
+  business: [], service: [], nutrition: [], proteins: []
+};
+
 const techniques = ["Safety and sanitation", "Mise en place and time management", "Knife work or fabrication", "Garde manger", "Baking or pastry", "Stocks, soups, or sauces", "Vegetables, grains, or pasta", "Protein or egg cookery", "Menu balance and allergens", "Scaling and yield", "Holding, packaging, or labeling", "Hospitality and service"];
 const candidateFields = ["Product or concept", "Source URL / book / chef", "Why it fits the event", "Feasibility concerns"];
 const $ = (selector, root = document) => root.querySelector(selector);
@@ -531,6 +539,12 @@ function renderLearning(search = "") {
     return;
   }
   const topic = learningTopics[activeTopic];
+  const relatedReferences = sourceCatalog.references.filter(reference => {
+    const text = `${reference.topic} ${reference.type} ${reference.coreIdea} ${reference.advancedFunction}`.toLowerCase();
+    return topic.triggers.some(trigger => text.includes(trigger)) || (topic.id === "business" && /cost|yield|portion|recipe conversion|apq|epq|waste/.test(text));
+  }).slice(0, 8);
+  const categoryMatches = recipeCategoriesByTopic[topic.id] || [];
+  const relatedRecipes = sourceCatalog.recipes.filter(recipe => !categoryMatches.length || categoryMatches.includes(recipe.category));
   $("#topicReader").innerHTML = `
     <p class="eyebrow">Connected learning area</p>
     <h2>${topic.title}</h2>
@@ -540,22 +554,94 @@ function renderLearning(search = "") {
     <ul>${topic.questions.map(item => `<li>${item}</li>`).join("")}</ul>
     <h3>Where the learning may come from</h3>
     <ul>${topic.sources.map(item => `<li>${item}</li>`).join("")}</ul>
+    ${relatedReferences.length ? `<h3>Course quick references</h3><div class="related-reference-list">${relatedReferences.map(reference => `<button class="reference-jump" data-reference-jump="${escapeHtml(reference.topic)}"><strong>${escapeHtml(reference.topic)}</strong><span>${escapeHtml(reference.coreIdea)}</span></button>`).join("")}</div>` : ""}
+    ${relatedRecipes.length ? `<p class="source-note"><strong>${relatedRecipes.length} source recipes and formulas are indexed for this learning area.</strong> Examples include ${relatedRecipes.slice(0, 5).map(recipe => escapeHtml(recipe.name)).join(", ")}. Open Recipe Studio to search the full source bank.</p>` : ""}
     <p class="source-note"><strong>Source rule:</strong> ProStart Second Edition and instructor-approved course materials provide the specific information. The event supplies the reason and the place to apply it.</p>
     <button class="button primary" data-view-target="workspace" data-open-phase="learn">Return to the Learn phase →</button>`;
   $$("[data-topic]").forEach(button => button.addEventListener("click", () => {
     activeTopic = Number(button.dataset.topic);
     renderLearning($("#learningSearch").value);
   }));
+  $$('[data-reference-jump]', $("#topicReader")).forEach(button => button.addEventListener("click", () => {
+    showView("reference");
+    $("#referenceSearch").value = button.dataset.referenceJump;
+    renderReferences(button.dataset.referenceJump, $("#referenceType").value);
+  }));
   bindDynamicButtons($("#topicReader"));
 }
 
-function renderReferences() {
-  $("#referenceGrid").innerHTML = quickReferences.map((reference, index) => `
+function renderReferences(search = "", type = "") {
+  const term = search.trim().toLowerCase();
+  const operating = quickReferences.map((reference, index) => ({ ...reference, id: `O${index + 1}`, type: "Operating standards", coreIdea: reference.steps.join(" "), operating: true }));
+  const entries = [...operating, ...sourceCatalog.references].filter(reference => {
+    const text = JSON.stringify(reference).toLowerCase();
+    return (!term || text.includes(term)) && (!type || reference.type === type);
+  });
+  $("#referenceSummary").textContent = `${entries.length} of ${operating.length + sourceCatalog.references.length} references shown`;
+  $("#referenceGrid").innerHTML = entries.length ? entries.map(reference => `
     <article class="reference-card">
-      <span class="ref-number">${index + 1}</span>
-      <h2>${reference.title}</h2>
-      <ol>${reference.steps.map(step => `<li>${step}</li>`).join("")}</ol>
-    </article>`).join("");
+      <div class="reference-card-top"><span class="ref-number">${escapeHtml(reference.id)}</span><span class="reference-type">${escapeHtml(reference.type)}</span></div>
+      <h2>${escapeHtml(reference.topic || reference.title)}</h2>
+      ${reference.operating ? `<ol>${reference.steps.map(step => `<li>${escapeHtml(step)}</li>`).join("")}</ol>` : `<p>${escapeHtml(reference.coreIdea)}</p><dl class="reference-meta"><div><dt>Use in Advanced</dt><dd>${escapeHtml(reference.advancedFunction)}</dd></div><div><dt>Course route</dt><dd>${escapeHtml(reference.primaryCourse)} · ${escapeHtml(reference.placement)}</dd></div></dl>`}
+    </article>`).join("") : '<div class="empty-state"><strong>No matching reference.</strong><p>Try a broader method, ingredient, or calculation.</p></div>';
+}
+
+async function loadSourceCatalog() {
+  const response = await fetch("./data/advanced-recipe-source-catalog.json");
+  if (!response.ok) throw new Error("Source catalog unavailable");
+  sourceCatalog = await response.json();
+}
+
+function sourceRecipeUseOptions() {
+  const uses = new Set();
+  sourceCatalog.recipes.forEach(recipe => String(recipe.eventUses || "").split(";").map(value => value.trim()).filter(Boolean).forEach(value => uses.add(value)));
+  return [...uses].sort();
+}
+
+function renderSourceBank(search = "", category = "", eventUse = "") {
+  const term = search.trim().toLowerCase();
+  const matches = sourceCatalog.recipes.filter(recipe => {
+    const text = JSON.stringify(recipe).toLowerCase();
+    return (!term || text.includes(term)) && (!category || recipe.category === category) && (!eventUse || String(recipe.eventUses).split(";").map(value => value.trim()).includes(eventUse));
+  });
+  const displayed = matches.slice(0, 48);
+  const productionReady = matches.filter(recipe => recipe.databaseStatus === "Approved for production").length;
+  $("#sourceBankSummary").innerHTML = `<strong>${matches.length} of ${sourceCatalog.recipes.length} source recipes match${matches.length > displayed.length ? ` · showing the first ${displayed.length}` : ""}</strong><span>${productionReady} production-approved · ${matches.length - productionReady} require transcription and teacher approval</span>`;
+  $("#sourceRecipeGrid").innerHTML = matches.length ? displayed.map(recipe => `
+    <article class="source-recipe-card">
+      <div class="source-recipe-card-top"><span>${escapeHtml(recipe.id)}</span><strong>Priority ${Number(recipe.priority || 2)}</strong></div>
+      <h3>${escapeHtml(recipe.name)}</h3>
+      <p>${escapeHtml(recipe.category)} · ${escapeHtml(recipe.subcategory)}</p>
+      <dl><div><dt>Captured yield</dt><dd>${escapeHtml(recipe.capturedYield || "Verify from source")}</dd></div><div><dt>Likely event use</dt><dd>${escapeHtml(recipe.eventUses)}</dd></div><div><dt>Course route</dt><dd>${escapeHtml(recipe.courseRoute)}</dd></div></dl>
+      <div class="source-status">Source captured · production approval still required</div>
+      <button class="text-link" type="button" data-use-source-recipe="${escapeHtml(recipe.id)}">Use as a research starting point →</button>
+    </article>`).join("") : '<div class="empty-state"><strong>No matching source recipe.</strong><p>Try a broader product, category, or event use.</p></div>';
+  $$('[data-use-source-recipe]', $("#sourceRecipeGrid")).forEach(button => button.addEventListener("click", () => useSourceRecipe(button.dataset.useSourceRecipe)));
+}
+
+function useSourceRecipe(recipeId) {
+  const recipe = sourceCatalog.recipes.find(item => item.id === recipeId);
+  if (!recipe) return;
+  const openCandidate = [1, 2, 3].find(number => !document.querySelector(`[data-candidate="${number}-0"]`)?.value) || 1;
+  $(`[data-candidate="${openCandidate}-0"]`).value = recipe.name;
+  $(`[data-candidate="${openCandidate}-1"]`).value = `Course source ${recipe.sourceImages}`;
+  $(`[data-candidate="${openCandidate}-2"]`).value = `${recipe.eventUses}; ${recipe.courseRoute}`;
+  $(`[data-candidate="${openCandidate}-3"]`).value = `Captured yield: ${recipe.capturedYield || "verify from source"}. Ingredients, procedure, equipment, allergens, and current supplier pricing must be checked before production approval.`;
+  $("#recipeName").value ||= recipe.name;
+  $("#recipeSearchTerms").value ||= recipe.name;
+  $("#recipeCourseConnection").value ||= recipe.courseAlignment || recipe.courseRoute;
+  $("#recipeMessage").textContent = `${recipe.name} was added as Possibility ${openCandidate}. It is a source candidate, not an approved production recipe.`;
+  updateRecipeSummary();
+  $(".recipe-workspace").scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function initializeSourceControls() {
+  const categories = [...new Set(sourceCatalog.recipes.map(recipe => recipe.category))].sort();
+  $("#sourceRecipeCategory").innerHTML += categories.map(category => `<option>${escapeHtml(category)}</option>`).join("");
+  $("#sourceRecipeUse").innerHTML += sourceRecipeUseOptions().map(use => `<option>${escapeHtml(use)}</option>`).join("");
+  const referenceTypes = ["Operating standards", ...new Set(sourceCatalog.references.map(reference => reference.type))].sort();
+  $("#referenceType").innerHTML += referenceTypes.map(type => `<option>${escapeHtml(type)}</option>`).join("");
+  renderSourceBank();
 }
 
 let liveRecipeEvents = [];
@@ -744,13 +830,17 @@ function bindDynamicButtons(root = document) {
   });
 }
 
-function init() {
+async function init() {
+  await loadSourceCatalog().catch(() => {
+    sourceCatalog = { recipes: [], references: [], statusNote: "The source bank is temporarily unavailable." };
+  });
   renderEventSelector();
   renderHome();
   renderWorkspace();
   renderLearning();
   renderReferences();
   renderRecipeWorkspace();
+  initializeSourceControls();
   bindRecipeEvents();
   bindDynamicButtons();
   loadRecipeReviewData().catch(() => { $("#recipeReviewStatus").innerHTML = "<strong>Status unavailable</strong><p>Saved work is still available on this device. Refresh to reconnect to the review queue.</p>"; });
@@ -764,6 +854,13 @@ function init() {
   $("#continueWork").addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
   $("#openCurrentPhase").addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
   $("#learningSearch").addEventListener("input", event => renderLearning(event.target.value));
+  const updateSourceBank = () => renderSourceBank($("#sourceRecipeSearch").value, $("#sourceRecipeCategory").value, $("#sourceRecipeUse").value);
+  $("#sourceRecipeSearch").addEventListener("input", updateSourceBank);
+  $("#sourceRecipeCategory").addEventListener("change", updateSourceBank);
+  $("#sourceRecipeUse").addEventListener("change", updateSourceBank);
+  const updateReferences = () => renderReferences($("#referenceSearch").value, $("#referenceType").value);
+  $("#referenceSearch").addEventListener("input", updateReferences);
+  $("#referenceType").addEventListener("change", updateReferences);
   $$("[data-close-modal]").forEach(button => button.addEventListener("click", () => $("#" + button.dataset.closeModal).close()));
   $("#toolDialog").addEventListener("click", event => { if (event.target === $("#toolDialog")) $("#toolDialog").close(); });
   document.addEventListener("keydown", event => { if (event.key === "Escape" && $("#toolDialog").open) $("#toolDialog").close(); });

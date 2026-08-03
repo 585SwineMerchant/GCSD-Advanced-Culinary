@@ -13,4 +13,6 @@ test("teacher purchasing tables use shelf-package language instead of internal p
   assert.doesNotMatch(teacherOperations, /data-ingredient-field="packSize"/);
   assert.match(teacherOperations, /View Wegmans item/);
   assert.match(teacherOperations, /packageDisplay/);
+  assert.match(teacherOperations, /Wegmans pricing: \$\{matched\} of \$\{ingredients\.length\} ingredient lines matched/);
+  assert.match(teacherOperations, /Return for revision or add a supplier record before production/);
 });

@@ -26,7 +26,8 @@
       <button class="nav-link" data-view-target="workspace">Event Workspace</button>
       <button class="nav-link" data-view-target="learning">Learning</button>
       <button class="nav-link" data-view-target="recipes">Recipes</button>
-      <button class="nav-link" data-view-target="reference">Quick Reference</button>\n      <a class="nav-link teacher-entry" href="./teacher/">Teacher Command Center</a>
+      <button class="nav-link" data-view-target="reference">Quick Reference</button>
+      <a class="nav-link teacher-entry" href="./teacher/">Teacher Command Center</a>
     </nav>
   </header>
 
@@ -226,6 +227,19 @@
         <div><span>3</span><strong>Compare possibilities</strong></div>
         <div><span>4</span><strong>Test and approve</strong></div>
       </section>
+      <section class="source-bank" aria-labelledby="sourceBankTitle">
+        <div class="workspace-heading">
+          <div><p class="eyebrow">171 course-selected starting points</p><h2 id="sourceBankTitle">Advanced Culinary source bank</h2></div>
+          <p>Use this bank before searching broadly. Each entry points to a complete source recipe or production formula captured from the course materials. It becomes a production recipe only after transcription, testing, supplier matching, and teacher approval.</p>
+        </div>
+        <div class="source-bank-controls">
+          <label>Find a recipe or formula<input id="sourceRecipeSearch" type="search" placeholder="Try: soup, hollandaise, muffin, risotto..." /></label>
+          <label>Category<select id="sourceRecipeCategory"><option value="">All categories</option></select></label>
+          <label>Event use<select id="sourceRecipeUse"><option value="">All event uses</option></select></label>
+        </div>
+        <div class="source-bank-summary" id="sourceBankSummary" aria-live="polite"></div>
+        <div class="source-recipe-grid" id="sourceRecipeGrid"></div>
+      </section>
       <section class="recipe-workspace">
         <div class="workspace-heading">
           <div><p class="eyebrow">Research → test → teacher approval → shared library</p><h2>Build a production-recipe draft</h2></div>
@@ -301,6 +315,11 @@
         <div><p class="eyebrow">Fast, reusable operating standards</p><h1>Kitchen Quick Reference</h1></div>
         <p>Use these protocols during planning and production. Use Connected Learning when you need a deeper culinary lesson.</p>
       </div>
+      <div class="reference-controls">
+        <label>Find a method, calculation, or production standard<input id="referenceSearch" type="search" placeholder="Try: roux, APQ, meringue, potato, temperature..." /></label>
+        <label>Reference family<select id="referenceType"><option value="">All reference families</option></select></label>
+      </div>
+      <div class="reference-summary" id="referenceSummary" aria-live="polite"></div>
       <div class="reference-grid" id="referenceGrid"></div>
       <section class="assessment-card">
         <div><p class="eyebrow">How performance is treated</p><h2>Failure has consequences. Honest recovery remains learning.</h2></div>
