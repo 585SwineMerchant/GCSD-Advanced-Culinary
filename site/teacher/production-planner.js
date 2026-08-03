@@ -1,3 +1,5 @@
+import { offsetDate } from "../shared/scheduling.js";
+
 const DEFAULT_PROGRESS = { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null };
 
 const pad = value => String(value).padStart(2, "0");
@@ -163,6 +165,7 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
       type: "process", outputRecord: false,
       name: `${item.name} — ${stage.title}`,
       detail: `${batchCount} batch${batchCount === 1 ? "" : "es"} · ${stage.detail}`,
+      workDate: prior.workDate || offsetDate(event.serviceDate, schedule[index].dayOffset),
       day: prior.day || datedPoint(event, schedule[index].dayOffset, pointLabel),
       deadline: prior.deadline || schedule[index].deadline,
       section: prior.section || sections[menuIndex % Math.max(1, sections.length - 1)]?.id || sections[0]?.id || "",
@@ -179,6 +182,7 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
     id: priorHandoff.id || `task-${recipeKey}-handoff`, planKey: handoffKey, menuIndex, type: "handoff", outputRecord: true,
     name: `${item.name} — Final yield and handoff`,
     detail: `Confirm the planned ${plannedOutput} ${unit}, reserve at least ${Number(item.required || 0)} for service, label allergens, document storage, and hand off the finished product.`,
+    workDate: priorHandoff.workDate || offsetDate(event.serviceDate, 0),
     day: priorHandoff.day || datedPoint(event, 0, "service handoff"), deadline: priorHandoff.deadline || minutesToTime(readyMinutes),
     section: priorHandoff.section || last.section, station: priorHandoff.station || "Expo / handoff", team: priorHandoff.team || "Team A", students: priorHandoff.students || "",
     dependency: priorHandoff.dependency || `Begin after ${last.name} passes its quality check.`, equipment: [],

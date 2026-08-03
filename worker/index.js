@@ -1,5 +1,6 @@
 import { PATHWAY_RECIPES } from "./pathway-recipes.js";
 import { SUPPLIER_CATALOG } from "./supplier-catalog.js";
+import { DEFAULT_SECTIONS, applyTeamToTask, normalizeSections, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
@@ -39,6 +40,12 @@ function normalizeState(state = {}) {
   state.events ||= [];
   state.recipeSubmissions ||= [];
   state.approvedRecipes ||= [];
+  state.sections = normalizeSections(state.sections || DEFAULT_SECTIONS);
+  state.events.forEach(event => (event.tasks || []).forEach(task => {
+    const teams = teamsForSection(state.sections, task.section);
+    const configured = teams.find(team => team.id === task.teamId) || teams.find(team => team.name === task.team) || teams[0];
+    if (configured) applyTeamToTask(task, state.sections, task.section, configured.id);
+  }));
   return state;
 }
 
@@ -118,6 +125,7 @@ function canEditEvent(user, event) {
 }
 
 function validateTeacherChange(user, previous, next) {
+  if (JSON.stringify(previous.sections || []) !== JSON.stringify(next.sections || []) && user.role !== "admin") return "Only an administrator can change period teams and rosters.";
   const before = eventMap(previous);
   const after = eventMap(next);
   for (const old of before.values()) {
@@ -134,6 +142,10 @@ function validateTeacherChange(user, previous, next) {
     if (old.owner !== event.owner && user.role !== "admin" && old.owner !== user.display_name) return "Only the Event Order owner can transfer ownership.";
     const publicationChanged = old.version !== event.version || old.publishedAt !== event.publishedAt || (old.stage !== event.stage && event.stage === "Published");
     if (publicationChanged && user.role !== "admin" && old.owner !== user.display_name) return "Only the Event Order owner can publish a revision.";
+    if (publicationChanged) {
+      const issues = taskPublicationIssues(event, next.sections);
+      if (issues.length) return issues[0];
+    }
   }
   return null;
 }

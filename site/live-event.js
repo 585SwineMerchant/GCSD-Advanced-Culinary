@@ -20,7 +20,7 @@
       <p>${esc(task.detail)}</p>
       ${task.equipment?.length ? `<p><strong>Equipment:</strong> ${esc(task.equipment.join(", "))}</p>` : ""}
       ${task.qualityControls?.length ? `<p><strong>Quality controls:</strong> ${esc(task.qualityControls.join(" · "))}</p>` : ""}
-      <dl><div><dt>Students</dt><dd>${esc(task.students || "Roster assignment pending")}</dd></div><div><dt>Day / stopping point</dt><dd>${esc(task.day || "Teacher will confirm")}</dd></div><div><dt>Handoff</dt><dd>${esc(task.dependency || "No dependency recorded")}</dd></div></dl>
+      <dl><div><dt>Students</dt><dd>${esc(task.students || "Roster assignment pending")}</dd></div><div><dt>Production date</dt><dd>${task.workDate ? `${dateLabel(task.workDate)} · ${esc(task.deadline || "time pending")}` : "Teacher will confirm"}</dd></div><div><dt>Handoff</dt><dd>${esc(task.dependency || "No dependency recorded")}</dd></div></dl>
       <div class="student-progress-grid">
         <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
         <label>${outputRecord ? "Finished quantity" : "Batch / quantity completed"}<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>

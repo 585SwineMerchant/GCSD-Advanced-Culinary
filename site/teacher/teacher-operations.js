@@ -1,12 +1,10 @@
 import { buildEventProductionTasks } from "./production-planner.js";
+import { DEFAULT_SECTIONS, applyTeamToTask, normalizeSections, offsetDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
 const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
-const sections = [
-  { id: "adv-p2", name: "Advanced Culinary · Period 2", focus: "Pasta and pastry production" },
-  { id: "adv-p5", name: "Advanced Culinary · Period 5", focus: "Sauce, salad, assembly, and packing" },
-  { id: "km", name: "Kitchen Management", focus: "Schedule, costing, controls, and objective event briefing" }
-];
+let sections = normalizeSections(DEFAULT_SECTIONS);
 const seed = {
+  sections: cloneForSeed(DEFAULT_SECTIONS),
   requests: [
     { id: "req-001", submittedAt: "2026-09-08T09:15:00", requester: "Greece CSD New Teacher Orientation", contact: "District Professional Learning Office", eventName: "New Teacher Welcome Breakfast", type: "Catering", school: "Districtwide", serviceDate: "2026-09-24", serviceTime: "07:30", guestCount: 80, serviceFormat: "Delivery", budget: "$600", requestedMenu: "Breakfast pastries, fruit, and coffee service", requirements: "Delivery and setup must be complete before 7:15 a.m.", allergens: "Include nut-free choices and clear ingredient labels.", status: "New", notes: "" },
     { id: "req-002", submittedAt: "2026-09-09T14:40:00", requester: "Town of Greece Board Meeting", contact: "Town liaison — details withheld from student views", eventName: "October Board Reception", type: "Catering", school: "Arcadia", serviceDate: "2026-10-13", serviceTime: "17:00", guestCount: 60, serviceFormat: "Delivery", budget: "Pending", requestedMenu: "Passed appetizers and one vegetarian option", requirements: "Request does not yet identify service duration or delivery access.", allergens: "Not supplied", status: "Needs clarification", notes: "Confirm budget, access, and final guest count before acceptance." },
@@ -28,6 +26,8 @@ const seed = {
     closeout: { actualGuests: "", actualRevenue: "", actualCost: "", feedbackReceived: "No", customerFeedback: "", operationalNotes: "" }
   }]
 };
+
+function cloneForSeed(value) { return JSON.parse(JSON.stringify(value)); }
 
 const q = selector => document.querySelector(selector);
 const qa = selector => [...document.querySelectorAll(selector)];
@@ -173,6 +173,20 @@ function hydrateEventOrderItem(item) {
 }
 function dateLabel(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not scheduled"; }
 function sectionName(id) { return sections.find(section => section.id === id)?.name || "Unassigned"; }
+function ensureTaskAssignment(task, event = current()) {
+  if (!task.workDate && event?.serviceDate) {
+    if (/advance|day before/i.test(task.day || "")) task.workDate = offsetDate(event.serviceDate, -1);
+    else if (/service/i.test(task.day || "")) task.workDate = offsetDate(event.serviceDate, 0);
+  }
+  const available = teamsForSection(sections, task.section);
+  const selected = available.find(team => team.id === task.teamId) || available.find(team => team.name === task.team) || available[0];
+  applyTeamToTask(task, sections, task.section, selected?.id || "");
+  return task;
+}
+function teamOptions(task) {
+  const teams = teamsForSection(sections, task.section);
+  return teams.length ? teams.map(team => `<option value="${esc(team.id)}" ${task.teamId === team.id ? "selected" : ""}>${esc(team.name)}</option>`).join("") : '<option value="">Set up a team in section 9</option>';
+}
 function taskProgress(task) {
   task.progress ||= { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null };
   return task.progress;
@@ -430,6 +444,7 @@ function generateTasks() {
   if (!canEdit()) return toast("This event is view-only for the selected teacher.");
   const event = current();
   event.tasks = buildEventProductionTasks(event, sections);
+  event.tasks.forEach(task => ensureTaskAssignment(task, event));
   save();
   renderAll();
   toast("Production plan regenerated from the current menu.");
@@ -437,40 +452,63 @@ function generateTasks() {
 
 function renderProduction() {
   const event = current();
+  event.tasks.forEach(task => ensureTaskAssignment(task, event));
   const totalBatches = event.menu.reduce((sum, item) => sum + batches(item), 0);
   q("#productionSummary").innerHTML = `<div class="metric"><span>Menu outputs</span><strong>${event.menu.length}</strong></div><div class="metric"><span>Production batches</span><strong>${totalBatches}</strong></div><div class="metric"><span>Generated tasks</span><strong>${event.tasks.length}</strong></div>`;
   q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => `<article class="task-card" data-task="${index}">
     <span class="task-number">${index + 1}</span><div class="task-main"><strong>${esc(task.name)}</strong><p>${esc(task.detail)}</p>${task.equipment?.length ? `<small class="task-equipment"><b>Equipment:</b> ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}${task.dependency ? `<small class="task-dependency"><b>Handoff:</b> ${esc(task.dependency)}</small>` : ""}</div>
-    <div class="task-controls"><label>Production point<input data-task-field="day" value="${esc(task.day)}"></label>
+    <div class="task-controls"><label>Production date<input data-task-field="workDate" type="date" value="${esc(task.workDate)}"></label>
     <label>Complete by<input data-task-field="deadline" type="time" value="${esc(task.deadline)}"></label>
-    <label>Assigned section<select data-task-field="section">${sections.map(section => `<option value="${section.id}" ${task.section === section.id ? "selected" : ""}>${esc(section.name)}</option>`).join("")}</select></label></div>
+    <label>Period / section<select data-task-field="section">${sections.map(section => `<option value="${section.id}" ${task.section === section.id ? "selected" : ""}>${esc(section.name)}</option>`).join("")}</select></label>
+    <label>Team<select data-task-field="teamId">${teamOptions(task)}</select></label></div>
   </article>`).join("") : "<p>No tasks yet. Generate the production plan from the approved menu.</p>";
-  qa('[data-task]').forEach(card => card.addEventListener("input", () => {
-    if (!canEdit()) return;
-    const task = event.tasks[Number(card.dataset.task)];
-    card.querySelectorAll("[data-task-field]").forEach(field => { task[field.dataset.taskField] = field.value; });
-  }));
+  qa('[data-task]').forEach(card => {
+    card.addEventListener("input", input => {
+      if (!canEdit()) return;
+      const task = event.tasks[Number(card.dataset.task)];
+      if (["workDate", "deadline"].includes(input.target.dataset.taskField)) task[input.target.dataset.taskField] = input.target.value;
+    });
+    card.addEventListener("change", change => {
+      if (!canEdit()) return;
+      const task = event.tasks[Number(card.dataset.task)];
+      if (change.target.dataset.taskField === "section") applyTeamToTask(task, sections, change.target.value, teamsForSection(sections, change.target.value)[0]?.id || "");
+      if (change.target.dataset.taskField === "teamId") applyTeamToTask(task, sections, task.section, change.target.value);
+      if (["section", "teamId"].includes(change.target.dataset.taskField)) { renderProduction(); renderAssignments(); renderPublish(); }
+    });
+  });
 }
 
 function renderAssignments() {
   const event = current();
+  event.tasks.forEach(task => ensureTaskAssignment(task, event));
   q("#assignmentBoard").innerHTML = sections.map(section => {
     const assigned = event.tasks.filter(task => task.section === section.id);
     return `<article class="assignment-column"><h3>${esc(section.name)}</h3><p>${esc(section.focus)}</p>${assigned.length ? assigned.map(task => {
       const index = event.tasks.indexOf(task);
       return `<div class="assignment-task" data-assignment="${index}"><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}
+        <div class="assignment-schedule"><label>Production date<input data-assignment-field="workDate" type="date" value="${esc(task.workDate)}"></label><label>Complete by<input data-assignment-field="deadline" type="time" value="${esc(task.deadline)}"></label></div>
+        <label>Period / section<select data-assignment-field="section">${sections.map(option => `<option value="${option.id}" ${task.section === option.id ? "selected" : ""}>${esc(option.name)}</option>`).join("")}</select></label>
+        <label>Team<select data-assignment-field="teamId">${teamOptions(task)}</select></label>
         <label>Station<input data-assignment-field="station" value="${esc(task.station)}"></label>
-        <label>Team<input data-assignment-field="team" value="${esc(task.team)}"></label>
-        <label>Students<input data-assignment-field="students" value="${esc(task.students)}" placeholder="Names or roster group"></label>
+        <label>Students<input value="${esc(task.students)}" readonly aria-label="Students assigned through the selected team"></label>
         <label>Dependency / handoff<input data-assignment-field="dependency" value="${esc(task.dependency)}" placeholder="What must arrive first or where this goes next"></label>
       </div>`;
     }).join("") : "<p>No tasks assigned.</p>"}</article>`;
   }).join("");
-  qa('[data-assignment]').forEach(card => card.addEventListener("input", () => {
-    if (!canEdit()) return;
-    const task = event.tasks[Number(card.dataset.assignment)];
-    card.querySelectorAll("[data-assignment-field]").forEach(field => { task[field.dataset.assignmentField] = field.value; });
-  }));
+  qa('[data-assignment]').forEach(card => {
+    card.addEventListener("input", input => {
+      if (!canEdit() || !input.target.dataset.assignmentField) return;
+      const task = event.tasks[Number(card.dataset.assignment)];
+      if (!["section", "teamId"].includes(input.target.dataset.assignmentField)) task[input.target.dataset.assignmentField] = input.target.value;
+    });
+    card.addEventListener("change", change => {
+      if (!canEdit()) return;
+      const task = event.tasks[Number(card.dataset.assignment)];
+      if (change.target.dataset.assignmentField === "section") applyTeamToTask(task, sections, change.target.value, teamsForSection(sections, change.target.value)[0]?.id || "");
+      if (change.target.dataset.assignmentField === "teamId") applyTeamToTask(task, sections, task.section, change.target.value);
+      if (["section", "teamId"].includes(change.target.dataset.assignmentField)) { renderAssignments(); renderProduction(); renderPublish(); }
+    });
+  });
   event.assignments = Object.fromEntries(sections.map(section => [section.id, event.tasks.filter(task => task.section === section.id).map(task => task.id)]));
 }
 
@@ -506,7 +544,7 @@ function packetPreview() {
   const tasks = event.tasks.filter(task => task.section === sectionId);
   q("#studentPacketPreview").innerHTML = `<div class="preview-block"><span>Shared purpose</span><strong>${esc(event.name)}</strong><small>${esc(event.customer)} · ${event.guestCount} guests · ${dateLabel(event.serviceDate)}</small></div>
     <div class="preview-block"><span>Your section</span><strong>${esc(section.name)}</strong><small>${esc(section.focus)}</small></div>
-    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}<small>${esc(task.station)} · ${esc(task.team)} · ${esc(task.day)} · complete by ${esc(task.deadline)}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
+    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}<small>${esc(task.station)} · ${esc(task.team)} · ${dateLabel(task.workDate)} · complete by ${esc(task.deadline)}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
 }
 
 function renderPublish() {
@@ -519,6 +557,8 @@ function renderPublish() {
   const issues = [];
   if (event.menu.some(item => item.status !== "Approved")) issues.push("Every recipe must be approved before publication.");
   if (!event.tasks.length) issues.push("Generate and review the production plan.");
+  const schedulingIssues = taskPublicationIssues(event, sections);
+  if (schedulingIssues.length) issues.push(`${schedulingIssues.length} task assignment${schedulingIssues.length === 1 ? "" : "s"} need a date, period, or configured team.`);
   if (!isOwner(event)) issues.push(`${event.owner} is the event owner and must publish the controlling order.`);
   q("#publishWarning").innerHTML = issues.length ? `<strong>Publication controls:</strong> ${esc(issues.join(" "))}` : "<strong>Ready:</strong> the Event Order has the required menu, production, and assignment information.";
   q("#publishOrder").disabled = issues.length > 0;
@@ -543,7 +583,7 @@ function renderLive() {
     const index = event.tasks.indexOf(task);
     const progress = task.progress;
     return `<article class="live-task" data-live-task="${index}" data-status="${esc(progress.status)}">
-      <div class="live-task-title"><strong>${esc(task.name)}</strong><span>${esc(sectionName(task.section))} · ${esc(task.station)} · ${esc(task.team)}</span><span>${esc(task.students || "Students not assigned")}</span></div>
+      <div class="live-task-title"><strong>${esc(task.name)}</strong><span>${esc(sectionName(task.section))} · ${esc(task.station)} · ${esc(task.team)} · ${dateLabel(task.workDate)} ${esc(task.deadline || "")}</span><span>${esc(task.students || "Students not assigned")}</span></div>
       <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
       <label>${isOutputRecord(task) ? "Finished quantity" : "Batch / quantity completed"}<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
       ${isOutputRecord(task) ? `<label>Service-ready yield<input data-progress="usableYield" type="number" min="0" value="${Number(progress.usableYield || 0)}"></label>` : ""}
@@ -600,11 +640,12 @@ function applyPermissions() {
     qa(`[data-panel-view="${panel}"] input, [data-panel-view="${panel}"] select, [data-panel-view="${panel}"] textarea, [data-panel-view="${panel}"] button`).forEach(control => { control.disabled = !editable; });
   });
   q("#saveDraft").disabled = !editable;
+  qa("#teamSetupList input, #teamSetupList textarea, #teamSetupList button, #teamForm input, #teamForm select, #teamForm textarea, #teamForm button").forEach(control => { control.disabled = session?.user?.role !== "admin"; });
   ["actualGuests", "actualRevenue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "saveCloseout", "completeEvent"].forEach(id => { q(`#${id}`).disabled = !editable; });
 }
 
 function renderAll() {
-  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); applyPermissions();
+  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); renderTeamSetup(); applyPermissions();
 }
 
 function showPanel(name) {
@@ -680,6 +721,7 @@ q("#refreshData").addEventListener("click", () => {
 });
 
 async function renderUsers() {
+  renderTeamSetup();
   const rows = q("#userRows");
   if (session?.user?.role !== "admin") { rows.innerHTML = '<tr><td colspan="5">Only an administrator can manage accounts.</td></tr>'; return; }
   const response = await fetch("/api/users");
@@ -687,6 +729,44 @@ async function renderUsers() {
   if (!response.ok) { rows.innerHTML = `<tr><td colspan="5">${esc(result.error || "Accounts could not be loaded.")}</td></tr>`; return; }
   rows.innerHTML = result.users.map(user => `<tr><td><strong>${esc(user.display_name)}</strong></td><td>${esc(user.email)}</td><td>${esc(user.role)}</td><td>${esc(user.school || "—")}</td><td>${esc(user.section_id ? sectionName(user.section_id) : "—")}</td></tr>`).join("");
 }
+
+function renderTeamSetup() {
+  state.sections = sections = normalizeSections(state.sections || sections);
+  const list = q("#teamSetupList");
+  if (!list) return;
+  list.innerHTML = sections.map(section => `<article class="team-period"><h4>${esc(section.name)}</h4>${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Students<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label></div><button class="icon-button" data-remove-team type="button" aria-label="Remove ${esc(team.name)}">×</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this period cannot be published.</p>'}</article>`).join("");
+  const sectionOptions = sections.map(section => `<option value="${esc(section.id)}">${esc(section.name)}</option>`).join("");
+  q("#teamSection").innerHTML = sectionOptions;
+  q("#userSection").innerHTML = `<option value="">Not assigned</option>${sectionOptions}`;
+  qa("[data-team-section]").forEach(row => {
+    row.querySelectorAll("[data-team-field]").forEach(field => field.addEventListener("change", () => {
+      const section = sections.find(item => item.id === row.dataset.teamSection);
+      const team = section?.teams.find(item => item.id === row.dataset.teamId);
+      if (!team) return;
+      if (field.dataset.teamField === "name") team.name = field.value.trim() || team.name;
+      if (field.dataset.teamField === "students") team.students = field.value.split(/[\n,]+/).map(value => value.trim()).filter(Boolean);
+      save(); renderAll();
+    }));
+    row.querySelector("[data-remove-team]")?.addEventListener("click", () => {
+      const section = sections.find(item => item.id === row.dataset.teamSection);
+      if (!section) return;
+      section.teams = section.teams.filter(item => item.id !== row.dataset.teamId);
+      save(); renderAll(); toast("Team removed; affected tasks were reassigned or marked incomplete.");
+    });
+  });
+}
+
+q("#teamForm").addEventListener("submit", event => {
+  event.preventDefault();
+  const form = new FormData(event.currentTarget);
+  const section = sections.find(item => item.id === form.get("sectionId"));
+  const name = String(form.get("teamName") || "").trim();
+  if (!section || !name) return;
+  const id = `${section.id}-team-${Date.now()}`;
+  section.teams.push({ id, name, students: String(form.get("students") || "").split(/[\n,]+/).map(value => value.trim()).filter(Boolean) });
+  state.sections = sections;
+  event.currentTarget.reset(); save(); renderAll(); toast(`${name} added to ${section.name}.`);
+});
 
 q("#userForm").addEventListener("submit", async event => {
   event.preventDefault();
@@ -710,7 +790,9 @@ async function initialize(force = false) {
     state.requests ||= [];
     state.recipeSubmissions ||= [];
     state.approvedRecipes ||= [];
+    state.sections = sections = normalizeSections(state.sections || DEFAULT_SECTIONS);
     state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
+    state.events.forEach(event => event.tasks?.forEach(task => ensureTaskAssignment(task, event)));
     currentId = state.events[0].id;
     if (!current().tasks.length) generateTasks();
     if (!hasEvent) await save();
