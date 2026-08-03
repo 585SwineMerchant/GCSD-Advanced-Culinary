@@ -1,13 +1,13 @@
-export const BELL_SCHEDULE_NOTE = "Bell times are isolated here because the screenshots confirm period order and meeting patterns, not exact minute boundaries.";
+export const BELL_SCHEDULE_NOTE = "Bell times are isolated here so schedule corrections can be made without changing assignment logic.";
 
 export const BELL_SCHEDULE = {
-  homeroom: { start: "07:15", end: "07:25" },
-  1: { start: "07:30", end: "08:20" },
-  2: { start: "08:25", end: "09:15" },
-  3: { start: "09:20", end: "10:10" },
-  4: { start: "10:15", end: "11:55" },
-  5: { start: "12:05", end: "12:55" },
-  6: { start: "13:00", end: "13:50" }
+  homeroom: { start: "07:20", end: "07:33" },
+  1: { start: "07:38", end: "08:33" },
+  2: { start: "08:38", end: "09:33" },
+  3: { start: "09:38", end: "10:33" },
+  4: { start: "10:38", end: "12:08" },
+  5: { start: "12:11", end: "13:05" },
+  6: { start: "13:10", end: "14:05" }
 };
 
 export const DEFAULT_SECTIONS = [
