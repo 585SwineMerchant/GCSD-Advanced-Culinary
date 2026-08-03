@@ -1,6 +1,6 @@
 import { PATHWAY_RECIPES } from "./pathway-recipes.js";
 import { SUPPLIER_CATALOG } from "./supplier-catalog.js";
-import { DEFAULT_SECTIONS, aggregateProgress, assignmentContributionKey, assignmentsForSection, normalizeProgress, normalizeSections, normalizeTaskAssignments, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
+import { DEFAULT_SECTIONS, aggregateProgress, assignmentContributionKey, assignmentsForSection, normalizeProgress, reconcileActiveTeamLabels, normalizeTaskAssignments, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
@@ -40,7 +40,7 @@ function normalizeState(state = {}) {
   state.events ||= [];
   state.recipeSubmissions ||= [];
   state.approvedRecipes ||= [];
-  state.sections = normalizeSections(state.sections || DEFAULT_SECTIONS);
+  state.sections = reconcileActiveTeamLabels(state.sections || DEFAULT_SECTIONS);
   state.events.forEach(event => (event.tasks || []).forEach(task => {
     normalizeTaskAssignments(task, state.sections);
     task.progress = aggregateProgress(task);

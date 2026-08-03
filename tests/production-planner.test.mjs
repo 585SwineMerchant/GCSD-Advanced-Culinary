@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { PATHWAY_RECIPES } from "../worker/pathway-recipes.js";
-import { buildEventProductionTasks, buildProductionTasks, productionUnit } from "../site/teacher/production-planner.js";
+import { buildEventProductionTasks, buildProductionTasks, productionUnit, scalingPlan } from "../site/teacher/production-planner.js";
 
 const sections = [
   { id: "kevin-advanced-p3", course: "Advanced Culinary Arts", active: true },
@@ -33,12 +33,31 @@ test("Cinnamon Rolls creates an actionable multi-stage plan", () => {
     "Cinnamon Rolls — Cool and glaze", "Cinnamon Rolls — Final yield and handoff"
   ]);
   assert.match(tasks[0].detail, /^3 batches/);
-  assert.match(tasks.at(-1).detail, /48 cinnamon rolls/);
-  assert.match(tasks.at(-1).detail, /at least 40/);
+  assert.match(tasks.at(-1).detail, /48 gross cinnamon rolls/);
+  assert.match(tasks.at(-1).detail, /40 reserved for service/);
   assert.equal(tasks.at(-1).deadline, "07:15");
   assert.equal(tasks.at(-1).outputRecord, true);
   assert.equal(tasks.slice(0, -1).every(task => task.outputRecord === false), true);
   assert.equal(new Set(tasks.map(task => task.deadline)).size > 2, true);
+});
+
+test("100 required rolls at 16 per batch produces seven whole batches and planned surplus", () => {
+  const scale = scalingPlan({ ...cinnamonRolls, required: 100 });
+  assert.deepEqual(scale, {
+    requestedServiceQuantity: 100,
+    recipeYieldPerBatch: 16,
+    requiredBatches: 7,
+    grossPlannedOutput: 112,
+    reservedForService: 100,
+    plannedSurplus: 12
+  });
+  const tasks = buildProductionTasks({ ...cinnamonRolls, required: 100 }, 0, event, sections);
+  assert.equal(tasks[0].plannedQuantity, 7);
+  assert.equal(tasks[0].plannedUnit, "batches");
+  assert.equal(tasks.at(-1).plannedQuantity, 112);
+  assert.match(tasks.at(-1).detail, /112 gross cinnamon rolls/);
+  assert.match(tasks.at(-1).detail, /100 reserved for service/);
+  assert.match(tasks.at(-1).detail, /12 planned surplus/);
 });
 
 test("temperature, equipment, quality controls, and dependencies carry into tasks", () => {

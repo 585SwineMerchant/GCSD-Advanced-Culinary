@@ -4,8 +4,10 @@ import { readFileSync } from "node:fs";
 import {
   BELL_SCHEDULE,
   DEFAULT_SECTIONS,
+  allocationStatus,
   assignmentContributionKey,
   assignmentContributions,
+  derivedTaskStatus,
   aggregateProgress,
   applyTeamToTask,
   assignmentIssues,
@@ -173,11 +175,13 @@ test("live production date filtering and counts keep one operational date at a t
     { id: "mix", assignmentRecords: [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])], assignmentProgress: {} },
     { id: "bake", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p4", "2026-09-24", ["carlson-p4-team-a"])], assignmentProgress: {} }
   ] };
+  event.tasks[0].assignmentRecords[0].kitchen = "Kitchen 1";
   event.tasks[0].assignmentProgress[assignmentContributionKey("mix", event.tasks[0].assignmentRecords[0], "adv-p2-team-a")] = { status: "Complete", quantity: 1 };
+  event.tasks[0].plannedQuantity = 1; event.tasks[0].plannedUnit = "batches"; event.tasks[0].assignmentRecords[0].allocatedQuantity = 1; event.tasks[0].assignmentRecords[0].allocatedUnit = "batches";
   assert.deepEqual(productionDates(event, sections), ["2026-09-23", "2026-09-24"]);
   assert.equal(preferredProductionDate(event, "2026-09-22", sections), "2026-09-24");
   assert.equal(contributionsForDate(event, "2026-09-23", sections).length, 1);
-  assert.deepEqual(productionCounts(event, sections, "2026-09-23"), { notStarted: 0, inProgress: 0, completed: 1, blocked: 0, invalid: 0, contributionTotal: 1, taskTotal: 1, taskCompleted: 1 });
+  assert.deepEqual(productionCounts(event, sections, "2026-09-23"), { notStarted: 1, inProgress: 0, completed: 0, blocked: 0, invalid: 0, contributionTotal: 1, taskTotal: 1, taskCompleted: 0, taskInProgress: 0, taskBlocked: 0, taskInvalid: 0, taskNotStarted: 1 });
 });
 
 test("removing one participating team does not delete the task or section assignment", () => {
@@ -188,6 +192,38 @@ test("removing one participating team does not delete the task or section assign
   assert.deepEqual(task.assignmentRecords[0].teamIds, ["adv-p2-team-a"]);
 });
 
+test("allocation reconciliation detects balanced, under, and over allocation", () => {
+  const task = { id: "task", plannedQuantity: 7, plannedUnit: "batches", assignmentRecords: [
+    { ...makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"]), kitchen: "Kitchen 1", allocatedQuantity: 3, allocatedUnit: "batches" },
+    { ...makeAssignment(sections, "carlson-advanced-p4", "2026-09-23", ["carlson-p4-team-a"]), kitchen: "Kitchen 2", allocatedQuantity: 4, allocatedUnit: "batches" }
+  ] };
+  assert.equal(allocationStatus(task, sections).state, "balanced");
+  task.assignmentRecords[1].allocatedQuantity = 3;
+  assert.equal(allocationStatus(task, sections).state, "under");
+  task.assignmentRecords[1].allocatedQuantity = 5;
+  assert.equal(allocationStatus(task, sections).state, "over");
+});
+
+test("one completed saved contribution cannot complete a multi-assignment task", () => {
+  const task = { id: "task", plannedQuantity: 2, plannedUnit: "batches", assignmentRecords: [
+    { ...makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"]), kitchen: "Kitchen 1", allocatedQuantity: 1, allocatedUnit: "batches" },
+    { ...makeAssignment(sections, "carlson-advanced-p4", "2026-09-23", ["carlson-p4-team-a"]), kitchen: "Kitchen 2", allocatedQuantity: 1, allocatedUnit: "batches" }
+  ], assignmentProgress: {} };
+  task.assignmentProgress[assignmentContributionKey(task.id, task.assignmentRecords[0], "adv-p2-team-a")] = { status: "Complete", quantity: 1, updatedAt: "2026-09-23T10:00:00Z", updatedBy: "Kevin McCann" };
+  assert.equal(derivedTaskStatus(task, sections), "In progress");
+  task.assignmentProgress[assignmentContributionKey(task.id, task.assignmentRecords[1], "carlson-p4-team-a")] = { status: "Complete", quantity: 1, updatedAt: "2026-09-23T11:00:00Z", updatedBy: "Jason Carlson" };
+  assert.equal(derivedTaskStatus(task, sections), "Completed");
+});
+
+test("kitchen choices are required and limited to Kitchen 1-4", () => {
+  const task = { id: "task", plannedQuantity: 1, plannedUnit: "batches", assignmentRecords: [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])] };
+  task.assignmentRecords[0].allocatedQuantity = 1;
+  task.assignmentRecords[0].allocatedUnit = "batches";
+  assert.match(assignmentIssues(task, sections).join(" "), /Kitchen 1-4/);
+  task.assignmentRecords[0].kitchen = "Kitchen 4";
+  assert.equal(assignmentIssues(task, sections).length, 0);
+});
+
 test("publication is blocked until every task has a valid date, meeting section, and team", () => {
   const previous = { sections, events: [{ id: "evt", name: "Breakfast", owner: "Kevin McCann", collaborators: [], version: 0, stage: "Draft", tasks: [] }] };
   const next = structuredClone(previous);
@@ -195,6 +231,7 @@ test("publication is blocked until every task has a valid date, meeting section,
   assert.match(taskPublicationIssues(next.events[0], sections).join(" "), /production date/);
   assert.match(validateTeacherChange({ role: "admin", display_name: "Kevin McCann" }, previous, next), /production date/);
   next.events[0].tasks[0].assignmentRecords = [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])];
+  next.events[0].tasks[0].assignmentRecords[0].kitchen = "Kitchen 1";
   assert.equal(taskPublicationIssues(next.events[0], sections).length, 0);
   assert.equal(validateTeacherChange({ role: "admin", display_name: "Kevin McCann" }, previous, next), null);
 });

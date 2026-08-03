@@ -1,5 +1,5 @@
 import { buildEventProductionTasks } from "./production-planner.js";
-import { DEFAULT_SECTIONS, HANDOFF_DISPOSITIONS, PRODUCTION_STATUSES, WASTE_CATEGORIES, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionsForDate, formatMeetingWindow, isAdvancedSection, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, sectionDisplayLabel, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
+import { DEFAULT_SECTIONS, KITCHENS, PRODUCTION_STATUSES, WASTE_CATEGORIES, allocationLabel, allocationStatus, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionsForDate, derivedTaskStatus, formatMeetingWindow, isAdvancedSection, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, progressDisplayState, reconcileActiveTeamLabels, sectionColor, sectionDisplayLabel, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
 const statuses = PRODUCTION_STATUSES;
 let sections = normalizeSections(DEFAULT_SECTIONS);
@@ -194,7 +194,22 @@ function ensureTaskAssignment(task, event = current()) {
     else if (/service/i.test(task.day || "")) task.workDate = offsetDate(event.serviceDate, 0);
   }
   normalizeTaskAssignments(task, sections);
+  allocateTaskRecords(task);
   return task;
+}
+function allocateTaskRecords(task) {
+  const records = normalizeTaskAssignments(task, sections);
+  const required = Math.max(0, Number(task.plannedQuantity || 0));
+  const unit = task.plannedUnit || "units";
+  const needsAllocation = required > 0 && records.some(record => !Number(record.allocatedQuantity || 0) || !record.allocatedUnit);
+  if (!needsAllocation) return records;
+  const base = Math.floor(required / records.length);
+  const remainder = required - base * records.length;
+  records.forEach((record, index) => {
+    if (!Number(record.allocatedQuantity || 0)) record.allocatedQuantity = base + (index === 0 ? remainder : 0);
+    if (!record.allocatedUnit) record.allocatedUnit = unit;
+  });
+  return records;
 }
 function assignmentSummary(task) {
   return normalizeTaskAssignments(task, sections).map(record => {
@@ -224,24 +239,25 @@ function assignmentRowsV2(task, index, mode = "production") {
     const teams = teamsForSection(sections, record.sectionId);
     const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
     const section = sections.find(item => item.id === record.sectionId);
-    return `<div class="assignment-record" data-task="${index}" data-record="${recordIndex}">
+    const color = sectionColor(record.sectionId);
+    return `<div class="assignment-record section-tinted" style="--section-tint:${color.tint};--section-border:${color.border};--section-text:${color.text}" data-task="${index}" data-record="${recordIndex}">
       <label>Production date<input data-assignment-record-field="workDate" type="date" value="${esc(record.workDate)}"></label>
       <label>Valid Advanced Culinary meeting<select data-assignment-record-field="sectionId">${meetingOptions(record.workDate, record.sectionId)}</select></label>
-      <div class="meeting-window ${meeting ? "" : "invalid-window"}"><strong>${esc(meeting ? `Day ${meeting.rotationDay} - Period ${meeting.period}` : "Schedule review required")}</strong><span>${esc(formatMeetingWindow(meeting))}</span></div>
-      <div class="assignment-meta"><span>Teacher</span><strong>${esc(section?.teacher || "Teacher pending")}</strong></div>
-      <div class="assignment-meta"><span>Stable section</span><strong>${esc(sectionDisplayLabel(section))}</strong><small>${esc(section?.officialSectionNumber ? "Official section number recorded." : "Official district section number pending.")}</small></div>
-      <div class="assignment-meta"><span>Actual bell window</span><strong>${esc(meeting ? `${meeting.start}-${meeting.end}` : "Not assignable")}</strong></div>
-      <div class="team-chip-list"><span>Participating teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small class=\"roster-warning\">No teams are saved for this stable section.</small>"}</div>
-      <label>Optional station<input data-assignment-record-field="station" value="${esc(record.station)}" placeholder="${esc(task.station || "Station")}"></label>
-      <label>Optional student details<input data-assignment-record-field="studentDetails" value="${esc(record.studentDetails)}" placeholder="Use the team roster unless noting a change"></label>
+      <label>Kitchen<select data-assignment-record-field="kitchen">${KITCHENS.map(value => `<option value="${esc(value)}" ${record.kitchen === value ? "selected" : ""}>${esc(value || "Choose Kitchen 1-4")}</option>`).join("")}</select></label>
+      <label>Allocated contribution<input data-assignment-record-field="allocatedQuantity" type="number" min="0" step="0.25" value="${Number(record.allocatedQuantity || 0)}"><small>${esc(record.allocatedUnit || task.plannedUnit || "units")}</small></label>
+      <label>Additional instructions for students<textarea data-assignment-record-field="studentDetails" rows="2" placeholder="Optional last-minute teacher directions">${esc(record.studentDetails)}</textarea></label>
       <label>Assignment status<select data-assignment-record-field="status">${statuses.map(status => `<option ${record.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
-      <label class="check-row"><input data-assignment-record-field="handoffConfirmed" type="checkbox" ${record.handoffConfirmed ? "checked" : ""}>Dependency or handoff confirmed</label>
+      <div class="meeting-window ${meeting ? "" : "invalid-window"}"><strong>${esc(meeting ? `Day ${meeting.rotationDay} - Period ${meeting.period}` : "Schedule review required")}</strong><span>${esc(formatMeetingWindow(meeting))}</span></div>
+      <div class="assignment-meta assignment-identity"><span>Assignment identity</span><strong>${esc(sectionDisplayLabel(section))} - ${esc(record.kitchen || "Kitchen needed")}</strong><small>${esc(allocationLabel(record, task))}</small></div>
+      <div class="team-chip-list"><span>Participating teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small class=\"roster-warning\">No teams are saved for this stable section.</small>"}</div>
       ${records.length > 1 ? `<button class="ghost-danger remove-assignment-button" data-remove-assignment type="button">Remove assignment</button>` : ""}
     </div>`;
   }).join("")}<button class="secondary-button add-assignment-row" data-add-assignment="${index}" data-mode="${esc(mode)}" type="button">Add class section</button></div>`;
 }
 function taskProgress(task) {
   task.progress = aggregateProgress(task);
+  const derived = derivedTaskStatus(task, sections);
+  task.progress.status = derived === "Completed" ? "Complete" : derived;
   return task.progress;
 }
 function isOutputRecord(task) { return task.outputRecord === true || (task.outputRecord == null && task.type === "production"); }
@@ -506,10 +522,11 @@ function generateTasks() {
 function taskCollapsedSummary(task) {
   const records = normalizeTaskAssignments(task, sections);
   const dates = [...new Set(records.map(record => record.workDate).filter(Boolean))].map(shortDate).join(", ") || "Date needed";
-  const sectionLabels = [...new Set(records.map(record => sectionDisplayLabel(sections.find(section => section.id === record.sectionId))))].join("; ") || "Section needed";
-  const teamLabels = [...new Set(records.flatMap(record => teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => team.name)))].join(", ") || "Teams needed";
+  const identities = records.flatMap(record => teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => `${sectionColor(record.sectionId).name} ${team.name} ${record.kitchen || "Kitchen needed"}`));
+  const allocation = allocationStatus(task, sections);
   const issues = assignmentIssues(task, sections);
   const progress = taskProgress(task);
+  return `<div class="task-collapsed-summary"><span>${esc(task.plannedQuantity ? `${task.plannedQuantity} ${task.plannedUnit}` : "Planned quantity")}</span><span>${esc(dates)}</span><span>${esc(identities.join("; ") || "Section/team/kitchen needed")}</span><span>${esc(`Allocated ${allocation.assigned}/${allocation.required} ${allocation.unit}`)}</span><strong>${esc(progress.status || "Not started")}</strong>${issues.length ? `<b class="warning-chip">${issues.length} warning${issues.length === 1 ? "" : "s"}</b>` : ""}</div>`;
   return `<div class="task-collapsed-summary"><span>${esc(task.detail.match(/^([^·]+)/)?.[1]?.trim() || "Planned quantity in procedure")}</span><span>${esc(dates)}</span><span>${esc(sectionLabels)}</span><span>${esc(teamLabels)}</span><strong>${esc(progress.status || "Not started")}</strong>${issues.length ? `<b class="warning-chip">${issues.length} warning${issues.length === 1 ? "" : "s"}</b>` : ""}</div>`;
 }
 
@@ -532,18 +549,12 @@ function taskCardHtml(task, index, defaultOpenIndex) {
           <div><dt>Procedure</dt><dd>${esc(task.detail)}</dd></div>
           <div><dt>Equipment</dt><dd>${esc(task.equipment?.length ? task.equipment.join(", ") : "No special equipment listed")}</dd></div>
           <div><dt>Quality controls</dt><dd>${esc(task.qualityControls?.length ? task.qualityControls.join(" | ") : "Teacher quality check required")}</dd></div>
-          <div><dt>Dependencies</dt><dd>${esc(task.dependency || "Ingredients, equipment, and station setup verified.")}</dd></div>
-          <div><dt>Required handoff</dt><dd>${esc(task.outputRecord ? "Final usable output, labeling, storage, and handoff must be recorded." : task.dependency || "Next production stage receives verified work.")}</dd></div>
+          <div><dt>Sequence guidance</dt><dd>${esc(task.dependency || "Follow the production sequence and teacher quality checks.")}</dd></div>
         </dl>
       </section>
       <section class="task-layer delegation-layer" aria-label="Teacher scheduling and delegation">
         <h3>Teacher scheduling and delegation</h3>
         ${assignmentRowsV2(task, index, "production")}
-        <div class="task-detail-controls">
-          <label>Default station<input data-assignment-field="station" value="${esc(task.station)}"></label>
-          <label>Roster-derived students<input value="${esc(task.students || "Students appear from selected team rosters")}" readonly aria-label="Students assigned through the selected teams"></label>
-          <label>Dependency / handoff<input data-assignment-field="dependency" value="${esc(task.dependency)}" placeholder="What must arrive first or where this goes next"></label>
-        </div>
       </section>
     </div>
   </details>`;
@@ -579,10 +590,7 @@ function renderAssignments() {
     return `<article class="assignment-column"><h3>${esc(section.name)}</h3><p>${esc(section.focus)}</p>${assigned.length ? assigned.map(task => {
       const index = event.tasks.indexOf(task);
       return `<div class="assignment-task" data-assignment="${index}"><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}
-        ${assignmentRows(task, index, "assignments")}
-        <label>Station<input data-assignment-field="station" value="${esc(task.station)}"></label>
-        <label>Students<input value="${esc(task.students)}" readonly aria-label="Students assigned through the selected teams"></label>
-        <label>Dependency / handoff<input data-assignment-field="dependency" value="${esc(task.dependency)}" placeholder="What must arrive first or where this goes next"></label>
+        ${assignmentRowsV2(task, index, "assignments")}
       </div>`;
     }).join("") : "<p>No tasks assigned.</p>"}</article>`;
   }).join("");
@@ -607,9 +615,10 @@ function bindAssignmentRecords(mode) {
     const record = normalizeTaskAssignments(task, sections)[Number(row.dataset.record)];
     if (change.target.dataset.assignmentRecordField === "workDate") record.workDate = change.target.value;
     if (change.target.dataset.assignmentRecordField === "station") record.station = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "kitchen") record.kitchen = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "allocatedQuantity") record.allocatedQuantity = Number(change.target.value || 0);
     if (change.target.dataset.assignmentRecordField === "studentDetails") record.studentDetails = change.target.value;
     if (change.target.dataset.assignmentRecordField === "status") record.status = change.target.value;
-    if (change.target.dataset.assignmentRecordField === "handoffConfirmed") record.handoffConfirmed = change.target.checked;
     if (change.target.dataset.assignmentRecordField === "sectionId") {
       record.sectionId = change.target.value;
       record.teamIds = teamsForSection(sections, record.sectionId).slice(0, 1).map(team => team.id);
@@ -676,6 +685,17 @@ function renderAttention() {
   if (!event.tasks.length) items.push(["Production plan missing", "Generate tasks from the menu."]);
   const blocked = event.tasks.filter(task => taskProgress(task).status === "Blocked").length;
   if (blocked) items.push([`${blocked} blocked task${blocked === 1 ? "" : "s"}`, "Open Live production and respond."]);
+  const contributionAlerts = event.tasks.flatMap(task => assignmentContributions(task, sections).flatMap(item => {
+    const alerts = [];
+    if (!item.progress.updatedAt) alerts.push("assignment not yet saved");
+    if (!item.record.kitchen) alerts.push("kitchen selection missing");
+    if (!item.team?.students?.length) alerts.push("missing saved roster");
+    if (!item.meeting) alerts.push("schedule mapping needs review");
+    return alerts.map(alert => [`${task.name}: ${alert}`, `${sectionColor(item.record.sectionId).name} ${item.team?.name || "team"} - ${item.record.kitchen || "Kitchen needed"}`]);
+  }));
+  const allocationAlerts = event.tasks.map(task => ({ task, allocation: allocationStatus(task, sections) })).filter(item => ["under", "over"].includes(item.allocation.state));
+  allocationAlerts.forEach(({ task, allocation }) => items.push([`${task.name}: allocation ${allocation.state}`, `Allocated ${allocation.assigned}/${allocation.required} ${allocation.unit}.`]));
+  items.push(...contributionAlerts.slice(0, 8));
   const [contextTitle, contextDetail] = stageContext(event);
   if (!items.length) items.push([activePanel === "publish" ? "Ready to publish" : "No critical alerts", contextDetail]);
   q("#attentionList").innerHTML = items.map(([title, detail]) => `<div class="attention-item"><strong>${esc(title)}</strong><span>${esc(detail)}</span></div>`).join("");
@@ -792,24 +812,23 @@ function renderLive() {
   const usable = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
   const title = q("#liveProductionTitle");
   if (title) title.textContent = `Live production - ${liveDate ? dateLabel(liveDate) : "No scheduled date"}`;
-  q("#liveSummary").innerHTML = `<div class="metric"><span>Assignment contributions complete</span><strong>${counts.completed}/${counts.contributionTotal}</strong></div><div class="metric"><span>Task status</span><strong>${counts.taskCompleted}/${counts.taskTotal} tasks complete</strong></div><div class="metric"><span>In progress / blocked / not started</span><strong>${counts.inProgress} / ${counts.blocked} / ${counts.notStarted}</strong></div><div class="metric"><span>Final usable output reported</span><strong>${usable}</strong></div>`;
+  q("#liveSummary").innerHTML = `<div class="metric"><span>Tasks completed</span><strong>${counts.taskCompleted} of ${counts.taskTotal}</strong></div><div class="metric"><span>Assignments completed</span><strong>${counts.completed} of ${counts.contributionTotal}</strong></div><div class="metric"><span>Assignments in progress / blocked</span><strong>${counts.inProgress} / ${counts.blocked}</strong></div><div class="metric"><span>Assignments needing correction</span><strong>${counts.invalid}</strong></div><div class="metric"><span>Final usable output reported</span><strong>${usable}</strong></div>`;
   const contributions = contributionsForDate(event, liveDate, sections).filter(item => (liveSection === "all" || item.record.sectionId === liveSection) && (liveStatus === "all" || item.progress.status === liveStatus));
   q("#liveBoard").innerHTML = contributions.length ? contributions.map(item => {
     const taskIndex = event.tasks.indexOf(item.task);
-    const unit = item.progress.unit || item.task.detail.match(/batch(?:es)?|rolls?|portions?|pieces?|units?/i)?.[0] || "units";
-    return `<article class="live-task assignment-contribution" data-live-task="${taskIndex}" data-contribution-key="${esc(item.key)}" data-record-id="${esc(item.record.id)}" data-team-id="${esc(item.team.id)}" data-status="${esc(item.progress.status)}">
-      <div class="live-task-title"><strong>${esc(item.task.name)}</strong><span>${esc(shortDate(item.record.workDate))} - ${esc(sectionDisplayLabel(item.section))} - ${esc(item.team.name)}</span><small>${esc(item.meeting ? `Day ${item.meeting.rotationDay}, Period ${item.meeting.period}, ${item.meeting.start}-${item.meeting.end}` : "Invalid or missing class meeting")}</small><small class="${item.team?.students?.length ? "" : "roster-warning"}">${esc(contributionStudents(item))}</small></div>
+    const unit = item.progress.unit || item.record.allocatedUnit || item.task.plannedUnit || "units";
+    const color = sectionColor(item.record.sectionId);
+    return `<article class="live-task assignment-contribution section-tinted" style="--section-tint:${color.tint};--section-border:${color.border};--section-text:${color.text}" data-live-task="${taskIndex}" data-contribution-key="${esc(item.key)}" data-record-id="${esc(item.record.id)}" data-team-id="${esc(item.team.id)}" data-status="${esc(progressDisplayState(item.progress))}">
+      <div class="live-task-title"><strong>${esc(item.task.name)}</strong><span>${esc(color.name)} - ${esc(item.team.name)} - ${esc(item.record.kitchen || "Kitchen needed")} - ${esc(allocationLabel(item.record, item.task))}</span><small>${esc(shortDate(item.record.workDate))} - ${esc(item.meeting ? `Day ${item.meeting.rotationDay}, Period ${item.meeting.period}, ${item.meeting.start}-${item.meeting.end}` : "Invalid or missing class meeting")}</small><small class="${item.team?.students?.length ? "" : "roster-warning"}">${esc(contributionStudents(item))}</small></div>
       <label>Status<select data-progress="status">${statuses.map(status => `<option ${item.progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
       <label>Quantity completed<input data-progress="quantity" type="number" min="0" value="${Number(item.progress.quantity || 0)}"><small>${Number(item.progress.quantity || 0)} of ${esc(item.task.detail.match(/^(.*?)\s*-|^(.*?)\s*·/)?.[1] || "planned work")} ${esc(unit)}</small></label>
-      <label>Unit<input data-progress="unit" value="${esc(unit)}"></label>
+      <input data-progress="unit" type="hidden" value="${esc(unit)}">
       ${isOutputRecord(item.task) ? `<label>Final usable yield<input data-progress="usableYield" type="number" min="0" value="${Number(item.progress.usableYield || 0)}"></label>` : ""}
       <label>Waste<input data-progress="waste" type="number" min="0" value="${Number(item.progress.waste || 0)}"></label>
       <label>Waste category<select data-progress="wasteCategory">${WASTE_CATEGORIES.map(value => `<option value="${esc(value)}" ${item.progress.wasteCategory === value ? "selected" : ""}>${esc(value || "None")}</option>`).join("")}</select></label>
-      <label>Storage or handoff<select data-progress="handoffDisposition">${HANDOFF_DISPOSITIONS.map(value => `<option value="${esc(value)}" ${item.progress.handoffDisposition === value ? "selected" : ""}>${esc(value || "Choose disposition")}</option>`).join("")}</select></label>
-      <label>Storage/handoff note<input data-progress="handoffNote" value="${esc(item.progress.handoffNote)}"></label>
       <label>Problem or interruption<input data-progress="issue" value="${esc(item.progress.issue)}" placeholder="Leave blank when work is proceeding"></label>
       <label>Recovery action<input data-progress="recoveryAction" value="${esc(item.progress.recoveryAction)}" placeholder="Correction, support, or next move"></label>
-      <div class="save-meta"><span>${item.progress.updatedAt ? `Saved ${new Date(item.progress.updatedAt).toLocaleString()}` : "Not saved yet"}</span><strong>${esc(item.progress.updatedBy || "Staff member pending")}</strong></div>
+      <div class="save-meta"><span>${item.progress.updatedAt ? `Saved ${new Date(item.progress.updatedAt).toLocaleString()}` : "Not yet saved"}</span><strong>${esc(item.progress.updatedBy || "")}</strong></div>
     </article>`;
   }).join("") : "<p>No assignment contributions match the selected production date, section, and status.</p>";
   qa('[data-live-task][data-contribution-key]').forEach(card => card.addEventListener("change", () => {
@@ -870,6 +889,7 @@ function renderCloseout() {
     return `<tr><td><strong>${esc(item.name)}</strong></td><td>${item.required}</td><td>${usable}</td><td>${waste}</td><td class="${variance < 0 ? "variance-negative" : "variance-positive"}">${variance > 0 ? "+" : ""}${variance}</td></tr>`;
   }).join("");
   const plannedOutput = event.menu.reduce((sum, item) => sum + Number(item.required || 0), 0);
+  const grossPlannedOutput = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(task.plannedQuantity || 0), 0);
   const actualOutput = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
   const totalWaste = event.tasks.reduce((sum, task) => sum + Number(taskProgress(task).waste || 0), 0);
   const plannedCost = plannedIngredientCost(event);
@@ -878,7 +898,7 @@ function renderCloseout() {
   const readiness = closeoutReadiness(event);
   q("#managementBriefing").innerHTML = `<div class="briefing-list">
     <div class="briefing-item"><span>Planned vs. actual schedule</span><strong>${productionDates(event, sections).map(dateLabel).join("; ") || "No scheduled production dates"}</strong></div>
-    <div class="briefing-item"><span>Planned vs. usable yield</span><strong>${plannedOutput} planned - ${actualOutput} usable reported</strong></div>
+    <div class="briefing-item"><span>Required / gross / usable yield</span><strong>${plannedOutput} reserved - ${grossPlannedOutput || plannedOutput} gross planned - ${actualOutput} usable reported</strong></div>
     <div class="briefing-item"><span>Cost and variance</span><strong>${plannedCost.toLocaleString(undefined, { style: "currency", currency: "USD" })} planned${variance == null ? " - actual cost not recorded" : ` - ${actualCost.toLocaleString(undefined, { style: "currency", currency: "USD" })} actual - ${variance.toLocaleString(undefined, { style: "currency", currency: "USD" })} variance`}</strong></div>
     <div class="briefing-item"><span>Waste</span><strong>${totalWaste} recorded units</strong></div>
     <div class="briefing-item"><span>Interruptions and recovery</span><strong>${readiness.counts.blocked} blocked contribution(s); recovery notes in the production record.</strong></div>
@@ -887,10 +907,10 @@ function renderCloseout() {
   </div>`;
   q("#productionRecord").innerHTML = event.tasks.map(task => {
     const contributions = assignmentContributions(task, sections);
-    return `<details class="stage-record"><summary>${esc(task.name)} - ${esc(taskProgress(task).status)}</summary>${contributions.map(item => `<div class="record-contribution"><strong>${esc(sectionDisplayLabel(item.section))} - ${esc(item.team.name)}</strong><span>${esc(item.record.workDate || "date missing")} - ${esc(item.meeting ? `Period ${item.meeting.period}` : "invalid meeting")}</span><span>${Number(item.progress.quantity || 0)} ${esc(item.progress.unit || "units")} complete; ${Number(item.progress.waste || 0)} waste${item.progress.wasteCategory ? ` (${esc(item.progress.wasteCategory)})` : ""}</span><span>Handoff/storage: ${esc(item.progress.handoffDisposition || item.progress.storage || "not recorded")}${item.progress.handoffNote ? ` - ${esc(item.progress.handoffNote)}` : ""}</span><span>Problem: ${esc(item.progress.issue || "none recorded")}</span><span>Recovery: ${esc(item.progress.recoveryAction || "none recorded")}</span><span>Students: ${esc(item.team.students?.length ? item.team.students.join(", ") : "Roster warning: no students saved")}</span><span>Saved by ${esc(item.progress.updatedBy || "staff pending")} ${item.progress.updatedAt ? `at ${new Date(item.progress.updatedAt).toLocaleString()}` : ""}</span></div>`).join("")}</details>`;
+    return `<details class="stage-record"><summary>${esc(task.name)} - ${esc(taskProgress(task).status)}</summary>${contributions.map(item => `<div class="record-contribution section-tinted" style="--section-tint:${sectionColor(item.record.sectionId).tint};--section-border:${sectionColor(item.record.sectionId).border};--section-text:${sectionColor(item.record.sectionId).text}"><strong>${esc(sectionColor(item.record.sectionId).name)} - ${esc(item.team.name)} - ${esc(item.record.kitchen || "Kitchen needed")}</strong><span>${esc(item.record.workDate || "date missing")} - ${esc(item.meeting ? `Period ${item.meeting.period}` : "invalid meeting")} - ${esc(allocationLabel(item.record, task))}</span><span>${Number(item.progress.quantity || 0)} ${esc(item.progress.unit || item.record.allocatedUnit || task.plannedUnit || "units")} complete; ${Number(item.progress.waste || 0)} waste${item.progress.wasteCategory ? ` (${esc(item.progress.wasteCategory)})` : ""}</span><span>Problem: ${esc(item.progress.issue || "none recorded")}</span><span>Recovery: ${esc(item.progress.recoveryAction || "none recorded")}</span><span>Students: ${esc(item.team.students?.length ? item.team.students.join(", ") : "Roster warning: no students saved")}</span><span>${item.progress.updatedAt ? `Saved by ${esc(item.progress.updatedBy || "staff")} at ${new Date(item.progress.updatedAt).toLocaleString()}` : "Not yet saved"}</span></div>`).join("")}</details>`;
   }).join("");
   const status = readiness.blockers.length ? readiness.blockers.join(" ") : "Closeout requirements are satisfied for ordinary completion.";
-  q("#closeoutStatus").innerHTML = `<strong>${readiness.blockers.length ? "Completion blocked" : "Ready for completion"}</strong><p>${esc(status)}</p><small>Not started: ${readiness.counts.notStarted}; In progress: ${readiness.counts.inProgress}; Completed: ${readiness.counts.completed}; Blocked: ${readiness.counts.blocked}; Invalid or missing: ${readiness.counts.invalid}.</small>`;
+  q("#closeoutStatus").innerHTML = `<strong>${readiness.blockers.length ? "Completion blocked" : "Ready for completion"}</strong><p>${esc(status)}</p><small>Tasks completed: ${readiness.counts.taskCompleted} of ${readiness.counts.taskTotal}; task corrections: ${readiness.counts.taskInvalid}. Assignments completed: ${readiness.counts.completed} of ${readiness.counts.contributionTotal}; assignment corrections: ${readiness.counts.invalid}; blocked: ${readiness.counts.blocked}.</small>`;
   q("#completeEvent").disabled = !canEdit() || readiness.blockers.length > 0;
 }
 function collectCloseout() {
@@ -1013,7 +1033,7 @@ async function renderUsers() {
 }
 
 function renderTeamSetup() {
-  state.sections = sections = normalizeSections(state.sections || sections);
+  state.sections = sections = reconcileActiveTeamLabels(state.sections || sections);
   const list = q("#teamSetupList");
   if (!list) return;
   const scheduleSummary = section => section.requiresRotationConfirmation
@@ -1120,7 +1140,7 @@ async function initialize(force = false) {
     state.requests ||= [];
     state.recipeSubmissions ||= [];
     state.approvedRecipes ||= [];
-    state.sections = sections = normalizeSections(state.sections || DEFAULT_SECTIONS);
+    state.sections = sections = reconcileActiveTeamLabels(state.sections || DEFAULT_SECTIONS);
     state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
     state.events.forEach(event => event.tasks?.forEach(task => ensureTaskAssignment(task, event)));
     currentId = state.events[0].id;

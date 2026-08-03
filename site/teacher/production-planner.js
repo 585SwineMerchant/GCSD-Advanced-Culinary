@@ -51,6 +51,21 @@ export function productionUnit(item) {
   return pluralize(name, required);
 }
 
+export function scalingPlan(item) {
+  const requestedServiceQuantity = Math.max(0, Number(item.required || 0));
+  const recipeYieldPerBatch = Math.max(0, Number(item.yield || 0));
+  const requiredBatches = recipeYieldPerBatch > 0 ? Math.ceil(requestedServiceQuantity / recipeYieldPerBatch) : 0;
+  const grossPlannedOutput = requiredBatches * recipeYieldPerBatch;
+  return {
+    requestedServiceQuantity,
+    recipeYieldPerBatch,
+    requiredBatches,
+    grossPlannedOutput,
+    reservedForService: requestedServiceQuantity,
+    plannedSurplus: Math.max(0, grossPlannedOutput - requestedServiceQuantity)
+  };
+}
+
 function stageTitle(text, index) {
   const value = text.toLowerCase();
   if (/filling/.test(value) && /cream|mix|combine|prepare/.test(value)) return "Prepare filling";
@@ -147,8 +162,9 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
   const assignmentSections = sections.filter(isAdvancedSection);
   const stages = procedureStages(item);
   const readyMinutes = requiredReadyTime(event);
-  const batchCount = item.yield > 0 ? Math.ceil(Number(item.required || 0) / Number(item.yield)) : 0;
-  const plannedOutput = batchCount * Number(item.yield || 0);
+  const scale = scalingPlan(item);
+  const batchCount = scale.requiredBatches;
+  const plannedOutput = scale.grossPlannedOutput;
   const unit = productionUnit(item);
   const equipment = [...new Set(item.equipment || [])];
   const recipeKey = item.id || `${item.recipeId || item.name}-${menuIndex}`;
@@ -164,6 +180,7 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
     return {
       id: prior.id || `task-${recipeKey}-${index}`, planKey, menuIndex,
       type: "process", outputRecord: false,
+      plannedQuantity: batchCount, plannedUnit: "batches", scaling: scale,
       name: `${item.name} — ${stage.title}`,
       detail: `${batchCount} batch${batchCount === 1 ? "" : "es"} · ${stage.detail}`,
       workDate: prior.workDate || offsetDate(event.serviceDate, schedule[index].dayOffset),
@@ -181,13 +198,14 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
   const priorHandoff = previousByKey.get(handoffKey) || {};
   taskStages.push({
     id: priorHandoff.id || `task-${recipeKey}-handoff`, planKey: handoffKey, menuIndex, type: "handoff", outputRecord: true,
+    plannedQuantity: plannedOutput, plannedUnit: unit, scaling: scale,
     name: `${item.name} — Final yield and handoff`,
-    detail: `Confirm the planned ${plannedOutput} ${unit}, reserve at least ${Number(item.required || 0)} for service, label allergens, document storage, and hand off the finished product.`,
+    detail: `Record actual finished ${unit} after quality review. Plan: ${plannedOutput} gross ${unit}, ${scale.reservedForService} reserved for service, ${scale.plannedSurplus} planned surplus. Label allergens, package for service, document storage or transport, and hand off the finished product.`,
     workDate: priorHandoff.workDate || offsetDate(event.serviceDate, 0),
     day: priorHandoff.day || datedPoint(event, 0, "service handoff"), deadline: priorHandoff.deadline || minutesToTime(readyMinutes),
     section: priorHandoff.section || last.section, station: priorHandoff.station || "Expo / handoff", team: priorHandoff.team || "Team A", students: priorHandoff.students || "",
-    dependency: priorHandoff.dependency || `Begin after ${last.name} passes its quality check.`, equipment: [],
-    qualityControls: [`At least ${Number(item.required || 0)} ${unit} are service-ready.`, "Usable yield, any final sorting waste, allergen label, storage location, and handoff are recorded."],
+    dependency: priorHandoff.dependency || `Begin after ${last.name} passes its quality check.`, equipment: ["Allergen labels", "Service packaging", "Transport or holding containers", "Service count sheet"],
+    qualityControls: [`At least ${scale.reservedForService} ${unit} are service-ready.`, "Actual count, condition, final sorting waste, labeling, storage, transport, and handoff are recorded."],
     progress: priorHandoff.progress || { ...DEFAULT_PROGRESS }
   });
   return taskStages;
