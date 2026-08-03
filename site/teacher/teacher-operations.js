@@ -518,7 +518,7 @@ function taskCardHtml(task, index, defaultOpenIndex) {
   const progress = taskProgress(task);
   const open = task.uiExpanded ?? (index === defaultOpenIndex || (progress.status !== "Complete" && issues.length > 0));
   const quantity = task.detail.match(/^([^·]+)/)?.[1]?.trim() || "Planned quantity in procedure";
-  return `<details class="task-card production-task-card" data-task="${index}" ${open ? "open" : ""}>
+  return `<details class="production-task-card" data-task="${index}" ${open ? "open" : ""}>
     <summary>
       <span class="task-number">${index + 1}</span>
       <div class="task-summary-main"><strong>${esc(task.name)}</strong>${taskCollapsedSummary(task)}</div>
