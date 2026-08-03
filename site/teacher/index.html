@@ -53,12 +53,11 @@
       <button class="active" data-panel="requests" type="button"><span>1</span> Request inbox <i id="requestCount" class="tab-count">0</i></button>
       <button data-panel="brief" type="button"><span>2</span> Event brief</button>
       <button data-panel="menu" type="button"><span>3</span> Menu &amp; purchasing</button>
-      <button data-panel="production" type="button"><span>4</span> Production plan</button>
-      <button data-panel="assignments" type="button"><span>5</span> Assignments</button>
-      <button data-panel="publish" type="button"><span>6</span> Review &amp; publish</button>
-      <button data-panel="live" type="button"><span>7</span> Live production</button>
-      <button data-panel="closeout" type="button"><span>8</span> Closeout</button>
-      <button data-panel="access" type="button"><span>9</span> Access &amp; rosters</button>
+      <button data-panel="production" type="button"><span>4</span> Production plan &amp; assignments</button>
+      <button data-panel="publish" type="button"><span>5</span> Review &amp; publish</button>
+      <button data-panel="live" type="button"><span>6</span> Live production</button>
+      <button data-panel="closeout" type="button"><span>7</span> Closeout</button>
+      <button data-panel="access" type="button"><span>8</span> Access &amp; rosters</button>
     </nav>
 
     <section class="workspace-shell">
@@ -156,17 +155,17 @@
 
         <section class="workspace-panel" data-panel-view="production">
           <header class="panel-heading">
-            <div><p class="eyebrow">System-generated first draft</p><h2>Production plan</h2></div>
-            <p>Review every generated task. The chef remains responsible for the stopping points, timing, storage, handoffs, and quality controls.</p>
+            <div><p class="eyebrow">Procedures, schedule, and teams</p><h2>Production Plan &amp; Assignments</h2></div>
+            <p>Review each generated task, then assign the date, Advanced Culinary meeting, teams, station, students, and handoff controls in one workspace.</p>
           </header>
           <div class="production-summary" id="productionSummary"></div>
           <div class="task-list" id="taskList"></div>
-          <div class="panel-actions"><button class="secondary-button" id="regenerateTasks" type="button">Regenerate from menu</button><button class="primary-button" data-save="production" type="button">Approve production plan</button><button class="next-button" data-next="assignments" type="button">Assign the work →</button></div>
+          <div class="panel-actions"><button class="secondary-button" id="regenerateTasks" type="button">Regenerate from menu</button><button class="primary-button" data-save="production" type="button">Approve production plan</button><button class="next-button" data-next="publish" type="button">Assign the work →</button></div>
         </section>
 
-        <section class="workspace-panel" data-panel-view="assignments">
+        <section class="workspace-panel" data-panel-view="assignments" hidden>
           <header class="panel-heading">
-            <div><p class="eyebrow">Sections, stations, and handoffs</p><h2>Work assignments</h2></div>
+            <div><p class="eyebrow">Legacy combined into section 4</p><h2>Assignments moved into Production Plan</h2></div>
             <p>Each team receives a focused work packet generated from the same master Event Order.</p>
           </header>
           <div id="assignmentBoard" class="assignment-board"></div>

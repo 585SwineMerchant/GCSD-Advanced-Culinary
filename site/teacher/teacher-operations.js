@@ -1,5 +1,5 @@
 import { buildEventProductionTasks } from "./production-planner.js";
-import { DEFAULT_SECTIONS, assignmentIssues, assignmentsForSection, aggregateProgress, formatMeetingWindow, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
+import { DEFAULT_SECTIONS, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, formatMeetingWindow, isAdvancedSection, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, sectionDisplayLabel, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
 const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
 let sections = normalizeSections(DEFAULT_SECTIONS);
@@ -172,8 +172,13 @@ function hydrateEventOrderItem(item) {
   return item;
 }
 function dateLabel(value) { return value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Not scheduled"; }
-function sectionName(id) { return sections.find(section => section.id === id)?.name || "Unassigned"; }
-function sectionOptions(selected = "") { return sections.map(section => `<option value="${esc(section.id)}" ${selected === section.id ? "selected" : ""}>${esc(section.name)}</option>`).join(""); }
+function sectionName(id) { const section = sections.find(section => section.id === id); return sectionDisplayLabel(section); }
+function meetingOptions(workDate, selected = "") {
+  if (!workDate) return '<option value="">Select a production date first</option>';
+  const meetings = availableMeetingsForDate(workDate, sections);
+  const current = selected && !meetings.some(meeting => meeting.section.id === selected) ? sections.find(section => section.id === selected) : null;
+  return `${current ? `<option value="${esc(current.id)}" selected>Review needed - ${esc(sectionDisplayLabel(current))}</option>` : '<option value="">Choose an Advanced Culinary meeting</option>'}${meetings.map(meeting => `<option value="${esc(meeting.section.id)}" ${selected === meeting.section.id ? "selected" : ""}>${esc(sectionDisplayLabel(meeting.section))} - Period ${meeting.period} - ${meeting.start}-${meeting.end}</option>`).join("")}`;
+}
 function ensureTaskAssignment(task, event = current()) {
   if (!task.workDate && event?.serviceDate) {
     if (/advance|day before/i.test(task.day || "")) task.workDate = offsetDate(event.serviceDate, -1);
@@ -186,7 +191,7 @@ function assignmentSummary(task) {
   return normalizeTaskAssignments(task, sections).map(record => {
     const section = sections.find(item => item.id === record.sectionId);
     const teamNames = teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => team.name).join(", ") || "No team selected";
-    return `<div class="assignment-window ${sectionMeetsOnDate(record.sectionId, record.workDate, sections) ? "" : "invalid-window"}"><strong>${esc(section?.name || "Unassigned section")}</strong><span>${esc(teamNames)}</span><small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small></div>`;
+    return `<div class="assignment-window ${sectionMeetsOnDate(record.sectionId, record.workDate, sections) ? "" : "invalid-window"}"><strong>${esc(sectionDisplayLabel(section))}</strong><span>${esc(teamNames)}</span><small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small></div>`;
   }).join("");
 }
 function assignmentRows(task, index, mode = "production") {
@@ -196,7 +201,7 @@ function assignmentRows(task, index, mode = "production") {
     const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
     return `<div class="assignment-record" data-task="${index}" data-record="${recordIndex}">
       <label>Production date<input data-assignment-record-field="workDate" type="date" value="${esc(record.workDate)}"></label>
-      <label>Class section<select data-assignment-record-field="sectionId">${sectionOptions(record.sectionId)}</select></label>
+      <label>Advanced Culinary meeting<select data-assignment-record-field="sectionId">${meetingOptions(record.workDate, record.sectionId)}</select></label>
       <div class="team-chip-list"><span>Teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small>Set up a team in section 9.</small>"}</div>
       <div class="meeting-window ${meeting ? "" : "invalid-window"}">${esc(formatMeetingWindow(meeting))}</div>
       ${records.length > 1 ? `<button class="icon-button" data-remove-assignment type="button" aria-label="Remove assignment">×</button>` : ""}
@@ -471,17 +476,33 @@ function renderProduction() {
   event.tasks.forEach(task => ensureTaskAssignment(task, event));
   const totalBatches = event.menu.reduce((sum, item) => sum + batches(item), 0);
   q("#productionSummary").innerHTML = `<div class="metric"><span>Menu outputs</span><strong>${event.menu.length}</strong></div><div class="metric"><span>Production batches</span><strong>${totalBatches}</strong></div><div class="metric"><span>Generated tasks</span><strong>${event.tasks.length}</strong></div>`;
-  q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => `<article class="task-card" data-task="${index}">
-    <span class="task-number">${index + 1}</span><div class="task-main"><strong>${esc(task.name)}</strong><p>${esc(task.detail)}</p>${task.equipment?.length ? `<small class="task-equipment"><b>Equipment:</b> ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}${task.dependency ? `<small class="task-dependency"><b>Handoff:</b> ${esc(task.dependency)}</small>` : ""}</div>
-    <div class="task-controls wide-task-controls">${assignmentRows(task, index, "production")}</div>
+  q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => `<article class="task-card production-task-card" data-task="${index}">
+    <span class="task-number">${index + 1}</span><div class="task-main"><div class="task-title-row"><strong>${esc(task.name)}</strong><span>${esc(taskProgress(task).status || "Not started")}</span></div><p>${esc(task.detail)}</p>${task.equipment?.length ? `<small class="task-equipment"><b>Equipment:</b> ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}${task.dependency ? `<small class="task-dependency"><b>Handoff:</b> ${esc(task.dependency)}</small>` : ""}</div>
+    <div class="task-controls wide-task-controls">
+      ${assignmentRows(task, index, "production")}
+      <div class="task-detail-controls">
+        <label>Station<input data-assignment-field="station" value="${esc(task.station)}"></label>
+        <label>Students<input value="${esc(task.students)}" readonly aria-label="Students assigned through the selected teams"></label>
+        <label>Dependency / handoff<input data-assignment-field="dependency" value="${esc(task.dependency)}" placeholder="What must arrive first or where this goes next"></label>
+      </div>
+    </div>
   </article>`).join("") : "<p>No tasks yet. Generate the production plan from the approved menu.</p>";
+  qa('[data-panel-view="production"] [data-task]').forEach(card => {
+    card.addEventListener("input", input => {
+      if (!canEdit() || !input.target.dataset.assignmentField) return;
+      const task = event.tasks[Number(card.dataset.task)];
+      task[input.target.dataset.assignmentField] = input.target.value;
+    });
+  });
   bindAssignmentRecords("production");
 }
 
 function renderAssignments() {
   const event = current();
   event.tasks.forEach(task => ensureTaskAssignment(task, event));
-  q("#assignmentBoard").innerHTML = sections.map(section => {
+  const board = q("#assignmentBoard");
+  if (!board) return;
+  board.innerHTML = sections.filter(isAdvancedSection).map(section => {
     const assigned = event.tasks.filter(task => assignmentsForSection(task, section.id, sections).length);
     return `<article class="assignment-column"><h3>${esc(section.name)}</h3><p>${esc(section.focus)}</p>${assigned.length ? assigned.map(task => {
       const index = event.tasks.indexOf(task);
@@ -533,7 +554,7 @@ function bindAssignmentRecords(mode) {
   qa(`${scope} [data-add-assignment]`).forEach(button => button.addEventListener("click", () => {
     if (!canEdit()) return;
     const task = event.tasks[Number(button.dataset.addAssignment)];
-    const firstSection = sections[0]?.id || "";
+    const firstSection = availableMeetingsForDate(task.workDate || event.serviceDate, sections)[0]?.section.id || sections.find(isAdvancedSection)?.id || "";
     task.assignmentRecords = normalizeTaskAssignments(task, sections).concat(makeAssignment(sections, firstSection, task.workDate || event.serviceDate, teamsForSection(sections, firstSection).slice(0, 1).map(team => team.id)));
     normalizeTaskAssignments(task, sections);
     renderProduction(); renderAssignments(); renderPublish();
@@ -603,7 +624,7 @@ function renderPublish() {
 
 function renderLiveFilters() {
   const select = q("#liveSectionFilter");
-  select.innerHTML = `<option value="all">All sections</option>${sections.map(section => `<option value="${section.id}">${esc(section.name)}</option>`).join("")}`;
+  select.innerHTML = `<option value="all">All sections</option>${sections.filter(isAdvancedSection).map(section => `<option value="${section.id}">${esc(sectionDisplayLabel(section))}</option>`).join("")}`;
   select.value = liveSection;
   q("#liveStatusFilter").value = liveStatus;
 }
@@ -673,7 +694,7 @@ function collectCloseout() {
 
 function applyPermissions() {
   const editable = canEdit();
-  ["brief", "menu", "production", "assignments"].forEach(panel => {
+  ["brief", "menu", "production"].forEach(panel => {
     qa(`[data-panel-view="${panel}"] input, [data-panel-view="${panel}"] select, [data-panel-view="${panel}"] textarea, [data-panel-view="${panel}"] button`).forEach(control => { control.disabled = !editable; });
   });
   q("#saveDraft").disabled = !editable;
@@ -771,10 +792,17 @@ function renderTeamSetup() {
   state.sections = sections = normalizeSections(state.sections || sections);
   const list = q("#teamSetupList");
   if (!list) return;
-  list.innerHTML = sections.map(section => `<article class="team-period"><h4>${esc(section.name)}</h4>${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Students<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label></div><button class="icon-button" data-remove-team type="button" aria-label="Remove ${esc(team.name)}">×</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this period cannot be published.</p>'}</article>`).join("");
-  const sectionOptions = sections.map(section => `<option value="${esc(section.id)}">${esc(section.name)}</option>`).join("");
+  list.innerHTML = sections.filter(isAdvancedSection).map(section => `<article class="team-period"><h4>${esc(sectionDisplayLabel(section))}</h4><label>Official section number<input data-section-field="officialSectionNumber" data-team-section="${esc(section.id)}" value="${esc(section.officialSectionNumber || "")}" placeholder="TBD"></label>${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Students<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label></div><button class="icon-button" data-remove-team type="button" aria-label="Remove ${esc(team.name)}">×</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this section cannot be published.</p>'}</article>`).join("");
+  const sectionOptions = sections.filter(isAdvancedSection).map(section => `<option value="${esc(section.id)}">${esc(sectionDisplayLabel(section))}</option>`).join("");
   q("#teamSection").innerHTML = sectionOptions;
   q("#userSection").innerHTML = `<option value="">Not assigned</option>${sectionOptions}`;
+  qa("[data-section-field]").forEach(field => field.addEventListener("change", () => {
+    const section = sections.find(item => item.id === field.dataset.teamSection);
+    if (!section) return;
+    section[field.dataset.sectionField] = field.value.trim();
+    state.sections = sections;
+    save(); renderAll();
+  }));
   qa("[data-team-section]").forEach(row => {
     row.querySelectorAll("[data-team-field]").forEach(field => field.addEventListener("change", () => {
       const section = sections.find(item => item.id === row.dataset.teamSection);

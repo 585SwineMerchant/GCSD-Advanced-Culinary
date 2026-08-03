@@ -12,16 +12,16 @@ export const BELL_SCHEDULE = {
 
 export const DEFAULT_SECTIONS = [
   { id: "kevin-culinary-p1", name: "Culinary Arts & Nutrition I - Kevin Period 1", teacher: "Kevin McCann", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 1, focus: "Intro culinary production", teams: [{ id: "kevin-p1-team-a", name: "Team A", students: [] }] },
-  { id: "adv-p2", name: "Culinary Arts & Nutrition I - Kevin Period 2", teacher: "Kevin McCann", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 2, focus: "Intro culinary production", teams: [{ id: "adv-p2-team-a", name: "Team A", students: [] }] },
-  { id: "kevin-advanced-p3", name: "Advanced Culinary Arts - Kevin Period 3", teacher: "Kevin McCann", site: "Arcadia", course: "Advanced Culinary Arts", period: 3, focus: "Advanced culinary production", teams: [{ id: "kevin-p3-team-a", name: "Team A", students: [] }] },
+  { id: "adv-p2", name: "McCann - Section TBD A", provisionalLabel: "Section TBD A", officialSectionNumber: "", teacher: "Kevin McCann", site: "Arcadia", course: "Advanced Culinary Arts", period: null, focus: "Advanced culinary production", active: true, teams: [{ id: "adv-p2-team-a", name: "Team A", students: [] }] },
+  { id: "kevin-advanced-p3", name: "McCann - Section TBD B", provisionalLabel: "Section TBD B", officialSectionNumber: "", teacher: "Kevin McCann", site: "Arcadia", course: "Advanced Culinary Arts", period: null, focus: "Advanced culinary production", active: true, teams: [{ id: "kevin-p3-team-a", name: "Team A", students: [] }] },
   { id: "kevin-culinary-p4", name: "Culinary Arts & Nutrition I - Kevin Period 4", teacher: "Kevin McCann", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 4, focus: "Intro culinary production", teams: [{ id: "kevin-p4-team-a", name: "Team A", students: [] }] },
-  { id: "adv-p5", name: "Culinary Arts & Nutrition I - Kevin Period 5", teacher: "Kevin McCann", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 5, focus: "Intro culinary production", teams: [{ id: "adv-p5-team-a", name: "Team A", students: [] }] },
+  { id: "adv-p5", name: "McCann - Section TBD C", provisionalLabel: "Section TBD C", officialSectionNumber: "", teacher: "Kevin McCann", site: "Arcadia", course: "Advanced Culinary Arts", period: null, focus: "Advanced culinary production", active: true, teams: [{ id: "adv-p5-team-a", name: "Team A", students: [] }] },
   { id: "kevin-culinary-p6", name: "Culinary Arts & Nutrition I - Kevin Period 6", teacher: "Kevin McCann", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 6, focus: "Intro culinary production", teams: [{ id: "kevin-p6-team-a", name: "Team A", students: [] }] },
   { id: "carlson-culinary-p1", name: "Culinary Arts & Nutrition I - Carlson Period 1", teacher: "Jason Carlson", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 1, focus: "Intro culinary production", teams: [{ id: "carlson-p1-team-a", name: "Team A", students: [] }] },
   { id: "carlson-culinary-p2", name: "Culinary Arts & Nutrition I - Carlson Period 2", teacher: "Jason Carlson", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 2, focus: "Intro culinary production", teams: [{ id: "carlson-p2-team-a", name: "Team A", students: [] }] },
-  { id: "carlson-advanced-p4", name: "Advanced Culinary Arts - Carlson Period 4", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: 4, focus: "Advanced culinary production", teams: [{ id: "carlson-p4-team-a", name: "Team A", students: [] }] },
-  { id: "carlson-advanced-p5", name: "Advanced Culinary Arts - Carlson Period 5", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: 5, focus: "Advanced culinary production", teams: [{ id: "carlson-p5-team-a", name: "Team A", students: [] }] },
-  { id: "carlson-advanced-p6", name: "Advanced Culinary Arts - Carlson Period 6", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: 6, focus: "Advanced culinary production", teams: [{ id: "carlson-p6-adv-team-a", name: "Team A", students: [] }] },
+  { id: "carlson-advanced-p4", name: "Carlson - Section TBD A", provisionalLabel: "Section TBD A", officialSectionNumber: "", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: null, focus: "Advanced culinary production", active: true, teams: [{ id: "carlson-p4-team-a", name: "Team A", students: [] }] },
+  { id: "carlson-advanced-p5", name: "Carlson - Section TBD B", provisionalLabel: "Section TBD B", officialSectionNumber: "", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: null, focus: "Advanced culinary production", active: true, teams: [{ id: "carlson-p5-team-a", name: "Team A", students: [] }] },
+  { id: "carlson-advanced-p6", name: "Carlson - Section TBD C", provisionalLabel: "Section TBD C", officialSectionNumber: "", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: null, focus: "Advanced culinary production", active: true, teams: [{ id: "carlson-p6-adv-team-a", name: "Team A", students: [] }] },
   { id: "km", name: "Kitchen & Restaurant Management - Carlson Period 6", teacher: "Jason Carlson", site: "Arcadia", course: "Kitchen & Restaurant Management", period: 6, focus: "Schedule, costing, controls, and objective event briefing", teams: [{ id: "km-team-a", name: "Management Team", students: [] }] }
 ];
 
@@ -37,11 +37,11 @@ export const ROTATION_OVERRIDES = {
   "2026-09-28": 3, "2026-09-29": 4, "2026-09-30": 1, "2026-10-01": 2, "2026-10-02": 3
 };
 
-const MEETING_TEMPLATES = {
-  1: ["kevin-culinary-p1", "kevin-advanced-p3", "adv-p5", "kevin-culinary-p6", "carlson-culinary-p2", "carlson-advanced-p4", "carlson-advanced-p6"],
-  2: ["kevin-culinary-p1", "adv-p2", "kevin-advanced-p3", "adv-p5", "carlson-culinary-p1", "carlson-culinary-p2", "carlson-advanced-p4", "km"],
-  3: ["kevin-culinary-p1", "adv-p2", "kevin-advanced-p3", "kevin-culinary-p4", "adv-p5", "carlson-culinary-p1", "carlson-advanced-p4", "carlson-advanced-p5", "km"],
-  4: ["adv-p2", "kevin-advanced-p3", "adv-p5", "kevin-culinary-p6", "carlson-culinary-p1", "carlson-culinary-p2", "carlson-advanced-p5", "km"]
+export const ADVANCED_MEETING_RULES = {
+  1: { "kevin-advanced-p3": 3, "adv-p5": 5, "carlson-advanced-p4": 4, "carlson-advanced-p6": 6 },
+  2: { "adv-p2": 2, "kevin-advanced-p3": 3, "adv-p5": 5, "carlson-advanced-p4": 4 },
+  3: { "adv-p2": 2, "kevin-advanced-p3": 3, "adv-p5": 5, "carlson-advanced-p4": 4, "carlson-advanced-p5": 5 },
+  4: { "adv-p2": 2, "kevin-advanced-p3": 3, "adv-p5": 5, "carlson-advanced-p5": 5 }
 };
 
 const cleanStudents = value => (Array.isArray(value) ? value : String(value || "").split(/[\n,]+/))
@@ -60,14 +60,19 @@ export function normalizeSections(value) {
   return DEFAULT_SECTIONS.map((fallback, index) => {
     const supplied = suppliedById.get(fallback.id) || {};
     const base = { ...fallback, ...supplied };
+    const canonicalAdvanced = fallback.course === "Advanced Culinary Arts";
     return {
       id: String(base.id || `section-${index + 1}`),
-      name: String(base.name || fallback.name),
-      focus: String(base.focus || fallback.focus || ""),
-      teacher: String(base.teacher || fallback.teacher || ""),
-      site: String(base.site || fallback.site || ""),
-      course: String(base.course || fallback.course || ""),
-      period: Number(base.period || fallback.period || 0),
+      name: String(canonicalAdvanced ? fallback.name : base.name || fallback.name),
+      focus: String(canonicalAdvanced ? fallback.focus : base.focus || fallback.focus || ""),
+      teacher: String(canonicalAdvanced ? fallback.teacher : base.teacher || fallback.teacher || ""),
+      site: String(canonicalAdvanced ? fallback.site : base.site || fallback.site || ""),
+      course: String(canonicalAdvanced ? fallback.course : base.course || fallback.course || ""),
+      provisionalLabel: String(base.provisionalLabel || fallback.provisionalLabel || ""),
+      officialSectionNumber: String(base.officialSectionNumber || fallback.officialSectionNumber || ""),
+      active: base.active !== false,
+      requiresReview: Boolean(base.requiresReview || false),
+      period: Number(base.period || fallback.period || 0) || null,
       teams: (Array.isArray(base.teams) && base.teams.length ? base.teams : fallback.teams).map((team, teamIndex) => ({
         id: String(team.id || `${base.id}-team-${teamIndex + 1}`),
         name: String(team.name || `Team ${teamIndex + 1}`),
@@ -81,7 +86,11 @@ export function normalizeSections(value) {
     teacher: String(section.teacher || ""),
     site: String(section.site || ""),
     course: String(section.course || ""),
-    period: Number(section.period || 0),
+    provisionalLabel: String(section.provisionalLabel || ""),
+    officialSectionNumber: String(section.officialSectionNumber || ""),
+    active: section.active !== false,
+    requiresReview: Boolean(section.requiresReview || false),
+    period: Number(section.period || 0) || null,
     teams: (Array.isArray(section.teams) ? section.teams : []).map((team, teamIndex) => ({
       id: String(team.id || `${section.id}-team-${teamIndex + 1}`),
       name: String(team.name || `Team ${teamIndex + 1}`),
@@ -92,6 +101,16 @@ export function normalizeSections(value) {
 
 export function teamsForSection(sections, sectionId) {
   return normalizeSections(sections).find(section => section.id === sectionId)?.teams || [];
+}
+
+export function isAdvancedSection(section) {
+  return section?.active !== false && section?.course === "Advanced Culinary Arts";
+}
+
+export function sectionDisplayLabel(section) {
+  if (!section) return "Unassigned section";
+  const family = String(section.teacher || "").split(" ").at(-1) || section.teacher || "Teacher";
+  return section.officialSectionNumber ? `${family} - Section ${section.officialSectionNumber}` : `${family} - ${section.provisionalLabel || section.name || "Section TBD"}`;
 }
 
 export function rotationDayForDate(iso, calendar = SCHOOL_CALENDAR) {
@@ -116,10 +135,15 @@ export function sectionMeetsOnDate(sectionId, iso, sections = DEFAULT_SECTIONS, 
   const section = normalizeSections(sections).find(item => item.id === sectionId);
   const rotationDay = rotationDayForDate(iso, calendar);
   if (!section || !rotationDay) return null;
-  if (!MEETING_TEMPLATES[rotationDay]?.includes(section.id)) return null;
-  const bell = BELL_SCHEDULE[section.period];
+  const period = ADVANCED_MEETING_RULES[rotationDay]?.[section.id];
+  if (!isAdvancedSection(section) || !period) return null;
+  const bell = BELL_SCHEDULE[period];
   if (!bell) return null;
-  return { date: isoDate(iso), rotationDay, start: bell.start, end: bell.end, section };
+  return { date: isoDate(iso), rotationDay, period, start: bell.start, end: bell.end, section };
+}
+
+export function availableMeetingsForDate(iso, sections = DEFAULT_SECTIONS, calendar = SCHOOL_CALENDAR) {
+  return normalizeSections(sections).map(section => sectionMeetsOnDate(section.id, iso, sections, calendar)).filter(Boolean);
 }
 
 export function nextMeetingDates(sectionId, fromIso, sections = DEFAULT_SECTIONS, count = 3) {
@@ -138,7 +162,7 @@ export function nextMeetingDates(sectionId, fromIso, sections = DEFAULT_SECTIONS
 export function formatMeetingWindow(meeting) {
   if (!meeting) return "This section does not meet on the selected date.";
   const date = parseDate(meeting.date).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-  return `${date} · Day ${meeting.rotationDay} · Period ${meeting.section.period} · ${meeting.start}-${meeting.end} · ${meeting.section.course} · ${meeting.section.teacher}`;
+  return `${date} - Day ${meeting.rotationDay} - ${sectionDisplayLabel(meeting.section)} - Period ${meeting.period} - ${meeting.start}-${meeting.end}`;
 }
 
 export function makeAssignment(sections, sectionId, workDate, teamIds = []) {
@@ -198,6 +222,8 @@ export function assignmentIssues(task, sections, calendar = SCHOOL_CALENDAR) {
     const section = configured.find(item => item.id === record.sectionId);
     if (!record.workDate) issues.push(`${label} needs a production date.`);
     if (!section) { issues.push(`${label} has an unknown class section.`); continue; }
+    if (!isAdvancedSection(section)) issues.push(`${label}: ${section.name} is not an Advanced Culinary section.`);
+    if (section.requiresReview) issues.push(`${label}: ${section.name} requires teacher review before publication.`);
     const meeting = sectionMeetsOnDate(section.id, record.workDate, configured, calendar);
     if (!meeting) {
       const next = nextMeetingDates(section.id, record.workDate, configured).join(", ");

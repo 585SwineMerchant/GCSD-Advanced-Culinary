@@ -7,11 +7,13 @@ import {
   aggregateProgress,
   applyTeamToTask,
   assignmentIssues,
+  availableMeetingsForDate,
   makeAssignment,
   normalizeSections,
   normalizeTaskAssignments,
   offsetDate,
   rotationDayForDate,
+  sectionDisplayLabel,
   sectionMeetsOnDate,
   taskPublicationIssues,
   teamsForSection
@@ -48,8 +50,35 @@ test("teacher course and period mapping derives a meeting window", () => {
   assert.equal(meeting.rotationDay, 3);
   assert.equal(meeting.section.teacher, "Jason Carlson");
   assert.equal(meeting.section.course, "Advanced Culinary Arts");
+  assert.equal(meeting.period, 4);
   assert.equal(meeting.start, BELL_SCHEDULE[4].start);
   assert.equal(meeting.end, BELL_SCHEDULE[4].end);
+});
+
+test("stable section identity is independent of provisional label and official section number", () => {
+  const configured = normalizeSections([{ id: "adv-p2", provisionalLabel: "Section TBD A", officialSectionNumber: "", teams: [{ id: "adv-p2-team-a", name: "Team A", students: ["Ada"] }] }]);
+  const before = configured.find(section => section.id === "adv-p2");
+  assert.equal(sectionDisplayLabel(before), "McCann - Section TBD A");
+  before.officialSectionNumber = "12345";
+  assert.equal(before.id, "adv-p2");
+  assert.equal(sectionDisplayLabel(before), "McCann - Section 12345");
+  assert.deepEqual(teamsForSection(configured, "adv-p2")[0].students, ["Ada"]);
+});
+
+test("legacy period labels are mapped to canonical Advanced Culinary identity without losing rosters", () => {
+  const configured = normalizeSections([{ id: "adv-p2", name: "Culinary Arts & Nutrition I - Kevin Period 2", course: "Culinary Arts & Nutrition I", teams: [{ id: "adv-p2-team-a", name: "Team A", students: ["Ada"] }] }]);
+  const section = configured.find(item => item.id === "adv-p2");
+  assert.equal(section.course, "Advanced Culinary Arts");
+  assert.equal(sectionDisplayLabel(section), "McCann - Section TBD A");
+  assert.deepEqual(teamsForSection(configured, "adv-p2")[0].students, ["Ada"]);
+});
+
+test("date-first filtering shows only Advanced Culinary meetings for the selected day", () => {
+  const meetings = availableMeetingsForDate("2026-09-23", sections);
+  assert.ok(meetings.length);
+  assert.ok(meetings.every(meeting => meeting.section.course === "Advanced Culinary Arts"));
+  assert.equal(meetings.some(meeting => meeting.section.id === "kevin-culinary-p1"), false);
+  assert.equal(meetings.some(meeting => meeting.section.id === "km"), false);
 });
 
 test("a section unavailable on a non-meeting date is blocked", () => {
@@ -118,4 +147,14 @@ test("section 4 production plan does not render an arbitrary Finish by time fiel
   const teacherOperations = readFileSync(new URL("../site/teacher/teacher-operations.js", import.meta.url), "utf8");
   assert.doesNotMatch(teacherOperations, /data-task-field="deadline"/);
   assert.doesNotMatch(teacherOperations, /Complete by<input data-task-field="deadline"/);
+});
+
+test("sections 4 and 5 are replaced by one data-backed production workspace", () => {
+  const teacherHtml = readFileSync(new URL("../site/teacher/index.html", import.meta.url), "utf8");
+  const teacherCss = readFileSync(new URL("../site/teacher/teacher.css", import.meta.url), "utf8");
+  assert.match(teacherHtml, /Production plan &amp; assignments/i);
+  assert.doesNotMatch(teacherHtml, /<button data-panel="assignments"/);
+  assert.doesNotMatch(teacherHtml, /<h2>Work assignments<\/h2>/);
+  assert.match(teacherCss, /\.assignment-record\{display:grid;grid-template-columns:minmax\(150px,/);
+  assert.doesNotMatch(teacherCss, /\.assignment-record\{[^}]*minmax\(260px,1\.2fr\)[^}]*minmax\(170px,\.85fr\)[^}]*minmax\(260px,1\.25fr\)[^}]*auto/);
 });
