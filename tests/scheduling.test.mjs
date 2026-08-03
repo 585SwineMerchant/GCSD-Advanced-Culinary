@@ -208,4 +208,5 @@ test("publish, live production, and closeout controls expose requested second-pa
   assert.match(teacherOperations, /assignmentProgress\[card\.dataset\.contributionKey\]/);
   assert.match(teacherOperations, /closeoutReadiness/);
   assert.match(teacherOperations, /Completion blocked/);
+  assert.match(teacherOperations, /completeEvent\.disabled = !editable \|\| closeoutReadiness\(current\(\)\)\.blockers\.length > 0/);
 });

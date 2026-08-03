@@ -903,7 +903,9 @@ function applyPermissions() {
   });
   q("#saveDraft").disabled = !editable;
   qa("#teamSetupList input, #teamSetupList textarea, #teamSetupList button, #teamForm input, #teamForm select, #teamForm textarea, #teamForm button").forEach(control => { control.disabled = session?.user?.role !== "admin"; });
-  ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason", "saveCloseout", "completeEvent"].forEach(id => { const element = q(`#${id}`); if (element) element.disabled = !editable; });
+  ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason", "saveCloseout"].forEach(id => { const element = q(`#${id}`); if (element) element.disabled = !editable; });
+  const completeEvent = q("#completeEvent");
+  if (completeEvent) completeEvent.disabled = !editable || closeoutReadiness(current()).blockers.length > 0;
 }
 
 function renderAll() {
