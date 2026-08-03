@@ -506,7 +506,8 @@ function renderAssignments() {
 
 function bindAssignmentRecords(mode) {
   const event = current();
-  qa("[data-assignment-record-field]").forEach(field => field.addEventListener("change", change => {
+  const scope = mode === "production" ? '[data-panel-view="production"]' : '[data-panel-view="assignments"]';
+  qa(`${scope} [data-assignment-record-field]`).forEach(field => field.addEventListener("change", change => {
     if (!canEdit()) return;
     const row = change.target.closest("[data-task][data-record]");
     const task = event.tasks[Number(row.dataset.task)];
@@ -519,7 +520,7 @@ function bindAssignmentRecords(mode) {
     normalizeTaskAssignments(task, sections);
     renderProduction(); renderAssignments(); renderPublish(); renderLiveFilters(); renderLive();
   }));
-  qa("[data-assignment-team]").forEach(field => field.addEventListener("change", change => {
+  qa(`${scope} [data-assignment-team]`).forEach(field => field.addEventListener("change", change => {
     if (!canEdit()) return;
     const row = change.target.closest("[data-task][data-record]");
     const task = event.tasks[Number(row.dataset.task)];
@@ -529,7 +530,7 @@ function bindAssignmentRecords(mode) {
     normalizeTaskAssignments(task, sections);
     renderProduction(); renderAssignments(); renderPublish(); renderLive();
   }));
-  qa("[data-add-assignment]").forEach(button => button.addEventListener("click", () => {
+  qa(`${scope} [data-add-assignment]`).forEach(button => button.addEventListener("click", () => {
     if (!canEdit()) return;
     const task = event.tasks[Number(button.dataset.addAssignment)];
     const firstSection = sections[0]?.id || "";
@@ -537,7 +538,7 @@ function bindAssignmentRecords(mode) {
     normalizeTaskAssignments(task, sections);
     renderProduction(); renderAssignments(); renderPublish();
   }));
-  qa("[data-remove-assignment]").forEach(button => button.addEventListener("click", () => {
+  qa(`${scope} [data-remove-assignment]`).forEach(button => button.addEventListener("click", () => {
     if (!canEdit()) return;
     const row = button.closest("[data-task][data-record]");
     const task = event.tasks[Number(row.dataset.task)];
