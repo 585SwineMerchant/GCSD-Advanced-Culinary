@@ -1,3 +1,5 @@
+import { buildEventProductionTasks } from "./production-planner.js";
+
 const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
 const sections = [
   { id: "adv-p2", name: "Advanced Culinary · Period 2", focus: "Pasta and pastry production" },
@@ -175,6 +177,7 @@ function taskProgress(task) {
   task.progress ||= { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null };
   return task.progress;
 }
+function isOutputRecord(task) { return task.outputRecord === true || (task.outputRecord == null && task.type === "production"); }
 function toast(message) {
   const element = q("#toast");
   element.textContent = message;
@@ -426,20 +429,7 @@ function renderPurchasing() {
 function generateTasks() {
   if (!canEdit()) return toast("This event is view-only for the selected teacher.");
   const event = current();
-  const old = Object.fromEntries((event.tasks || []).map(task => [task.name, task]));
-  event.tasks = event.menu.flatMap((item, menuIndex) => [
-    { type: "production", suffix: "production", detail: `Produce ${item.required} portions (${batches(item)} batch${batches(item) === 1 ? "" : "es"})`, day: menuIndex % 2 ? "Day 2" : "Day 1" },
-    { type: "handoff", suffix: "quality and handoff", detail: `Verify usable yield, label, store, and hand off ${item.name}`, day: "Final production" }
-  ].map((template, taskIndex) => {
-    const name = `${item.name} — ${template.suffix}`;
-    const prior = old[name] || {};
-    return {
-      id: prior.id || `task-${Date.now()}-${menuIndex}-${taskIndex}`, menuIndex, type: template.type, name, detail: template.detail,
-      day: prior.day || template.day, deadline: prior.deadline || event.serviceTime || "15:00", section: prior.section || sections[menuIndex % 2].id,
-      station: prior.station || (template.type === "production" ? `${item.name} station` : "Expo / handoff"), team: prior.team || "Team A",
-      students: prior.students || "", dependency: prior.dependency || "", equipment: template.type === "production" ? clone(item.equipment || []) : [], progress: prior.progress || { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "", updatedAt: null }
-    };
-  }));
+  event.tasks = buildEventProductionTasks(event, sections);
   save();
   renderAll();
   toast("Production plan regenerated from the current menu.");
@@ -450,10 +440,10 @@ function renderProduction() {
   const totalBatches = event.menu.reduce((sum, item) => sum + batches(item), 0);
   q("#productionSummary").innerHTML = `<div class="metric"><span>Menu outputs</span><strong>${event.menu.length}</strong></div><div class="metric"><span>Production batches</span><strong>${totalBatches}</strong></div><div class="metric"><span>Generated tasks</span><strong>${event.tasks.length}</strong></div>`;
   q("#taskList").innerHTML = event.tasks.length ? event.tasks.map((task, index) => `<article class="task-card" data-task="${index}">
-    <span class="task-number">${index + 1}</span><div><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}</div>
-    <label>Production point<input data-task-field="day" value="${esc(task.day)}"></label>
-    <label>Deadline<input data-task-field="deadline" type="time" value="${esc(task.deadline)}"></label>
-    <label>Assigned section<select data-task-field="section">${sections.map(section => `<option value="${section.id}" ${task.section === section.id ? "selected" : ""}>${esc(section.name)}</option>`).join("")}</select></label>
+    <span class="task-number">${index + 1}</span><div class="task-main"><strong>${esc(task.name)}</strong><p>${esc(task.detail)}</p>${task.equipment?.length ? `<small class="task-equipment"><b>Equipment:</b> ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}${task.dependency ? `<small class="task-dependency"><b>Handoff:</b> ${esc(task.dependency)}</small>` : ""}</div>
+    <div class="task-controls"><label>Production point<input data-task-field="day" value="${esc(task.day)}"></label>
+    <label>Complete by<input data-task-field="deadline" type="time" value="${esc(task.deadline)}"></label>
+    <label>Assigned section<select data-task-field="section">${sections.map(section => `<option value="${section.id}" ${task.section === section.id ? "selected" : ""}>${esc(section.name)}</option>`).join("")}</select></label></div>
   </article>`).join("") : "<p>No tasks yet. Generate the production plan from the approved menu.</p>";
   qa('[data-task]').forEach(card => card.addEventListener("input", () => {
     if (!canEdit()) return;
@@ -468,7 +458,7 @@ function renderAssignments() {
     const assigned = event.tasks.filter(task => task.section === section.id);
     return `<article class="assignment-column"><h3>${esc(section.name)}</h3><p>${esc(section.focus)}</p>${assigned.length ? assigned.map(task => {
       const index = event.tasks.indexOf(task);
-      return `<div class="assignment-task" data-assignment="${index}"><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}
+      return `<div class="assignment-task" data-assignment="${index}"><strong>${esc(task.name)}</strong><span>${esc(task.detail)}</span>${task.equipment?.length ? `<small class="task-equipment">Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small class="task-quality"><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}
         <label>Station<input data-assignment-field="station" value="${esc(task.station)}"></label>
         <label>Team<input data-assignment-field="team" value="${esc(task.team)}"></label>
         <label>Students<input data-assignment-field="students" value="${esc(task.students)}" placeholder="Names or roster group"></label>
@@ -516,7 +506,7 @@ function packetPreview() {
   const tasks = event.tasks.filter(task => task.section === sectionId);
   q("#studentPacketPreview").innerHTML = `<div class="preview-block"><span>Shared purpose</span><strong>${esc(event.name)}</strong><small>${esc(event.customer)} · ${event.guestCount} guests · ${dateLabel(event.serviceDate)}</small></div>
     <div class="preview-block"><span>Your section</span><strong>${esc(section.name)}</strong><small>${esc(section.focus)}</small></div>
-    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}<small>${esc(task.station)} · ${esc(task.team)} · ${esc(task.day)} · complete by ${esc(task.deadline)}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
+    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" · "))}</small>` : ""}<small>${esc(task.station)} · ${esc(task.team)} · ${esc(task.day)} · complete by ${esc(task.deadline)}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
 }
 
 function renderPublish() {
@@ -546,7 +536,7 @@ function renderLive() {
   event.tasks.forEach(taskProgress);
   const completed = event.tasks.filter(task => task.progress.status === "Complete").length;
   const blocked = event.tasks.filter(task => task.progress.status === "Blocked").length;
-  const usable = event.tasks.filter(task => task.type === "production").reduce((sum, task) => sum + Number(task.progress.usableYield || 0), 0);
+  const usable = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(task.progress.usableYield || 0), 0);
   q("#liveSummary").innerHTML = `<div class="metric"><span>Tasks complete</span><strong>${completed}/${event.tasks.length}</strong></div><div class="metric"><span>Blocked / needs help</span><strong>${blocked}</strong></div><div class="metric"><span>Usable output reported</span><strong>${usable}</strong></div>`;
   const visible = event.tasks.filter(task => (liveSection === "all" || task.section === liveSection) && (liveStatus === "all" || task.progress.status === liveStatus));
   q("#liveBoard").innerHTML = visible.length ? visible.map(task => {
@@ -555,8 +545,8 @@ function renderLive() {
     return `<article class="live-task" data-live-task="${index}" data-status="${esc(progress.status)}">
       <div class="live-task-title"><strong>${esc(task.name)}</strong><span>${esc(sectionName(task.section))} · ${esc(task.station)} · ${esc(task.team)}</span><span>${esc(task.students || "Students not assigned")}</span></div>
       <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
-      <label>Quantity made<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
-      <label>Usable yield<input data-progress="usableYield" type="number" min="0" value="${Number(progress.usableYield || 0)}"></label>
+      <label>${isOutputRecord(task) ? "Finished quantity" : "Batch / quantity completed"}<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
+      ${isOutputRecord(task) ? `<label>Service-ready yield<input data-progress="usableYield" type="number" min="0" value="${Number(progress.usableYield || 0)}"></label>` : ""}
       <label>Waste<input data-progress="waste" type="number" min="0" value="${Number(progress.waste || 0)}"></label>
       <label>Storage / handoff<input data-progress="storage" value="${esc(progress.storage)}" placeholder="Rack, cooler, station"></label>
       <label class="issue-note">Problem or assistance needed<input data-progress="issue" value="${esc(progress.issue)}" placeholder="Leave blank when work is proceeding as planned"></label>
@@ -579,15 +569,15 @@ function renderCloseout() {
   const fields = ["actualGuests", "actualRevenue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes"];
   fields.forEach(field => { q(`#${field}`).value = event.closeout[field] ?? ""; });
   q("#closeoutRows").innerHTML = event.menu.map((item, menuIndex) => {
-    const productionTasks = event.tasks.filter(task => task.menuIndex === menuIndex && task.type === "production");
-    const usable = productionTasks.reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
-    const waste = productionTasks.reduce((sum, task) => sum + Number(taskProgress(task).waste || 0), 0);
+    const menuTasks = event.tasks.filter(task => task.menuIndex === menuIndex);
+    const usable = menuTasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
+    const waste = menuTasks.reduce((sum, task) => sum + Number(taskProgress(task).waste || 0), 0);
     const variance = usable - Number(item.required || 0);
     return `<tr><td><strong>${esc(item.name)}</strong></td><td>${item.required}</td><td>${usable}</td><td>${waste}</td><td class="${variance < 0 ? "variance-negative" : "variance-positive"}">${variance > 0 ? "+" : ""}${variance}</td></tr>`;
   }).join("");
   const plannedOutput = event.menu.reduce((sum, item) => sum + Number(item.required || 0), 0);
-  const actualOutput = event.tasks.filter(task => task.type === "production").reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
-  const totalWaste = event.tasks.filter(task => task.type === "production").reduce((sum, task) => sum + Number(taskProgress(task).waste || 0), 0);
+  const actualOutput = event.tasks.filter(isOutputRecord).reduce((sum, task) => sum + Number(taskProgress(task).usableYield || 0), 0);
+  const totalWaste = event.tasks.reduce((sum, task) => sum + Number(taskProgress(task).waste || 0), 0);
   const blocked = event.tasks.filter(task => taskProgress(task).status === "Blocked").length;
   q("#managementBriefing").innerHTML = `<div class="briefing-list">
     <div class="briefing-item"><span>Planned vs. usable output</span><strong>${plannedOutput} planned · ${actualOutput} reported</strong></div>

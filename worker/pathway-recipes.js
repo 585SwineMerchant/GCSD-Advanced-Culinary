@@ -1086,7 +1086,7 @@ const EQUIPMENT_BY_RECIPE = {
   "Mayonnaise": ["Immersion blender or food processor", "Tall blending container", "Digital scale", "Rubber spatula", "Refrigerated storage container"],
   "Crumble Topping": ["Digital scale", "Mixing bowl", "Pastry cutter or food processor", "Sheet pan", "Parchment paper"],
   "Fresh Ricotta": ["Saucepan", "Instant-read thermometer", "Fine-mesh strainer", "Cheesecloth", "Mixing bowl", "Refrigerated storage container"],
-  "Cinnamon Rolls": ["Digital scale", "Stand mixer with dough hook", "Mixing bowls", "Bench scraper", "Rolling pin", "Chef's knife or unflavored dental floss", "Sheet pans", "Parchment paper", "Proofing space", "Oven", "Cooling racks"],
+  "Cinnamon Rolls": ["Digital scale", "Stand mixer with dough hook", "Stand mixer with paddle", "Mixing bowls", "Bench scraper", "Rolling pin", "Chef's knife or unflavored dental floss", "Sheet pans", "Parchment paper", "Pastry brush", "Proofing space", "Oven", "Instant-read thermometer", "Cooling racks", "Whisk"],
   "Gingerbread Cookies": ["Digital scale", "Stand mixer with paddle", "Mixing bowls", "Rubber spatula", "Rolling pin", "Cookie cutters", "Sheet pans", "Parchment paper", "Oven", "Cooling racks"],
   "Fresh Pasta": ["Digital scale", "Mixing bowl or stand mixer", "Bench scraper", "Pasta roller and cutter", "Sheet pans", "Stockpot", "Spider or colander"],
   "Coconut Curry Chicken": ["Chef's knife", "Cutting boards", "Digital scale", "Sheet pan", "Large sauté pan or rondeau", "Wooden spoon", "Instant-read thermometer", "Microplane or zester"],

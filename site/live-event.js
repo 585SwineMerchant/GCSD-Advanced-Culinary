@@ -14,15 +14,17 @@
 
   function taskCard(task, event) {
     const progress = task.progress || { status: "Not started", quantity: 0, usableYield: 0, waste: 0, storage: "", issue: "" };
+    const outputRecord = task.outputRecord === true || (task.outputRecord == null && task.type === "production");
     return `<article class="student-live-task" data-task-id="${esc(task.id)}" data-event-id="${esc(event.id)}">
       <header><div><span>${esc(task.station || "Production")} · ${esc(task.team || "Team pending")}</span><h4>${esc(task.name)}</h4></div><strong>${esc(task.deadline || "Deadline pending")}</strong></header>
       <p>${esc(task.detail)}</p>
       ${task.equipment?.length ? `<p><strong>Equipment:</strong> ${esc(task.equipment.join(", "))}</p>` : ""}
+      ${task.qualityControls?.length ? `<p><strong>Quality controls:</strong> ${esc(task.qualityControls.join(" · "))}</p>` : ""}
       <dl><div><dt>Students</dt><dd>${esc(task.students || "Roster assignment pending")}</dd></div><div><dt>Day / stopping point</dt><dd>${esc(task.day || "Teacher will confirm")}</dd></div><div><dt>Handoff</dt><dd>${esc(task.dependency || "No dependency recorded")}</dd></div></dl>
       <div class="student-progress-grid">
         <label>Status<select data-progress="status">${statuses.map(status => `<option ${progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
-        <label>Quantity made<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
-        <label>Usable yield<input data-progress="usableYield" type="number" min="0" value="${Number(progress.usableYield || 0)}"></label>
+        <label>${outputRecord ? "Finished quantity" : "Batch / quantity completed"}<input data-progress="quantity" type="number" min="0" value="${Number(progress.quantity || 0)}"></label>
+        ${outputRecord ? `<label>Service-ready yield<input data-progress="usableYield" type="number" min="0" value="${Number(progress.usableYield || 0)}"></label>` : ""}
         <label>Waste<input data-progress="waste" type="number" min="0" value="${Number(progress.waste || 0)}"></label>
         <label>Storage / handoff<input data-progress="storage" value="${esc(progress.storage)}"></label>
         <label>Problem or help needed<input data-progress="issue" value="${esc(progress.issue)}"></label>

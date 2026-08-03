@@ -19,3 +19,29 @@
 .recipe-pricing-readiness{margin:12px 0;padding:11px 13px;border-left:4px solid #217346;border-radius:0 9px 9px 0;background:#eef8f2}.recipe-pricing-readiness strong,.recipe-pricing-readiness span{display:block}.recipe-pricing-readiness span{margin-top:4px;color:#52635a;font-size:.76rem}.recipe-pricing-readiness.needs-review{border-left-color:#b88216;background:#fff8e8}.recipe-pricing-readiness.needs-review strong{color:#6c4b08}
 .supplier-detail{display:block;margin-top:4px;color:var(--muted);font-size:.66rem;line-height:1.25}.supplier-detail a{color:var(--green-2);font-weight:800}.ingredient-table td{vertical-align:top}
 .task-equipment{display:block;margin-top:5px;color:var(--muted);font-size:.7rem;line-height:1.35}
+
+/* Procedure-driven production plan */
+.event-strip>div{min-width:0;overflow-wrap:anywhere}
+.task-card{display:grid;grid-template-columns:38px minmax(0,1fr);gap:12px;align-items:start;padding:18px;margin:12px 0}
+.task-main{min-width:0}
+.task-main>strong{display:block;color:var(--green);font-size:1rem;line-height:1.3}
+.task-main>p{margin:.35rem 0 .65rem;color:var(--ink);line-height:1.55}
+.task-main small{display:block;margin-top:5px;color:var(--muted);font-size:.74rem;line-height:1.45}
+.task-main .task-quality{border-left:3px solid var(--gold);padding-left:9px;color:#5d4a18}
+.task-main .task-dependency{color:#3f5650}
+.task-controls{grid-column:2;display:grid;grid-template-columns:minmax(220px,1.2fr) minmax(130px,.6fr) minmax(240px,1fr);gap:12px;padding-top:12px;border-top:1px solid var(--line)}
+.task-card input,.task-card select{margin-top:5px}
+
+@media(max-width:980px){
+  .event-strip{grid-template-columns:repeat(2,minmax(0,1fr))}
+  .task-controls{grid-template-columns:1fr 1fr}
+  .task-controls label:last-child{grid-column:1/-1}
+}
+
+@media(max-width:650px){
+  .workspace-shell{overflow:hidden}
+  .workspace-panel{overflow:hidden}
+  .task-card{grid-template-columns:30px minmax(0,1fr);padding:14px 12px;gap:9px}
+  .task-controls{grid-template-columns:1fr}
+  .task-controls label:last-child{grid-column:auto}
+}
