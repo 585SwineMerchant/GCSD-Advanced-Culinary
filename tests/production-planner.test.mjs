@@ -6,6 +6,7 @@ import { buildEventProductionTasks, buildProductionTasks, productionUnit, scalin
 const sections = [
   { id: "kevin-advanced-p3", course: "Advanced Culinary Arts", active: true },
   { id: "carlson-advanced-p4", course: "Advanced Culinary Arts", active: true },
+  { id: "carlson-advanced-p5", course: "Advanced Culinary Arts", active: true, requiresRotationConfirmation: true, allowedPeriods: [5, 6] },
   { id: "km", course: "Kitchen & Restaurant Management", active: true }
 ];
 const cinnamonRolls = {
@@ -19,26 +20,44 @@ const cinnamonRolls = {
     "Place in greased pan, egg wash, and bake at 375-400°F until center reaches 195°F. Drizzle with glaze once cooled."
   ]
 };
+const cookies = {
+  id: "menu-cookies", name: "Chocolate Chip Cookies", required: 80, yield: 28, portion: "1 cookie",
+  ingredients: [{ name: "AP flour" }, { name: "butter" }],
+  equipment: ["Mixer", "Sheet pans", "Oven"],
+  procedure: [
+    "Cream butter and sugar, add eggs, mix in dry ingredients and chips.",
+    "Scoop and bake until golden."
+  ]
+};
 const event = { serviceDate: "2026-09-24", serviceTime: "07:30", requirements: "Delivery and setup must be complete before 7:15 a.m." };
 
 test("production units use the approved recipe unit instead of generic portions", () => {
   assert.equal(productionUnit(cinnamonRolls), "cinnamon rolls");
 });
 
-test("Cinnamon Rolls creates an actionable multi-stage plan", () => {
+test("Cinnamon Rolls keeps only schedule-worthy stages plus handoff", () => {
   const tasks = buildProductionTasks(cinnamonRolls, 0, event, sections);
   assert.deepEqual(tasks.map(task => task.name), [
-    "Cinnamon Rolls — Prepare filling", "Cinnamon Rolls — Mix dough", "Cinnamon Rolls — Bulk fermentation",
-    "Cinnamon Rolls — Shape and portion", "Cinnamon Rolls — Final proof", "Cinnamon Rolls — Bake",
-    "Cinnamon Rolls — Cool and glaze", "Cinnamon Rolls — Final yield and handoff"
+    "Cinnamon Rolls — Mix dough",
+    "Cinnamon Rolls — Bulk fermentation",
+    "Cinnamon Rolls — Shape, bake, and finish",
+    "Cinnamon Rolls — Final yield and handoff"
   ]);
   assert.match(tasks[0].detail, /^3 batches/);
+  assert.match(tasks[0].detail, /production sheet/i);
   assert.match(tasks.at(-1).detail, /48 gross cinnamon rolls/);
   assert.match(tasks.at(-1).detail, /40 reserved for service/);
   assert.equal(tasks.at(-1).deadline, "07:15");
   assert.equal(tasks.at(-1).outputRecord, true);
   assert.equal(tasks.slice(0, -1).every(task => task.outputRecord === false), true);
-  assert.equal(new Set(tasks.map(task => task.deadline)).size > 2, true);
+});
+
+test("simple bakery items collapse to one produce task plus handoff", () => {
+  const tasks = buildProductionTasks(cookies, 1, event, sections);
+  assert.deepEqual(tasks.map(task => task.name), [
+    "Chocolate Chip Cookies — Produce",
+    "Chocolate Chip Cookies — Final yield and handoff"
+  ]);
 });
 
 test("100 required rolls at 16 per batch produces seven whole batches and planned surplus", () => {
@@ -62,11 +81,9 @@ test("100 required rolls at 16 per batch produces seven whole batches and planne
 
 test("temperature, equipment, quality controls, and dependencies carry into tasks", () => {
   const tasks = buildProductionTasks(cinnamonRolls, 0, event, sections);
-  const bake = tasks.find(task => task.name.endsWith("— Bake"));
-  assert.ok(bake.equipment.includes("Oven"));
-  assert.ok(bake.equipment.includes("Instant-read thermometer"));
-  assert.match(bake.qualityControls.join(" "), /195°F/);
-  assert.match(bake.dependency, /final proof/i);
+  const finish = tasks.find(task => task.name.endsWith("— Shape, bake, and finish"));
+  assert.ok(finish.equipment.length);
+  assert.match(finish.dependency, /bulk fermentation/i);
   assert.equal(tasks.filter(task => task.outputRecord).length, 1);
 });
 
@@ -80,7 +97,12 @@ test("regeneration preserves teacher assignments and progress through stable pla
   assert.equal(second[1].progress.status, "In progress");
 });
 
-test("the complete pathway library generates traceable production work", () => {
+test("generated defaults skip unconfirmed split sections", () => {
+  const tasks = buildProductionTasks(cookies, 2, event, sections);
+  assert.equal(tasks.every(task => task.section !== "carlson-advanced-p5"), true);
+});
+
+test("the complete pathway library generates compact production work", () => {
   const menu = PATHWAY_RECIPES.map((recipe, index) => ({ ...structuredClone(recipe), id: `menu-${index}`, required: Number(recipe.yield) * 3 }));
   const tasks = buildEventProductionTasks({ ...event, menu, tasks: [] }, sections);
   const planKeys = new Set(tasks.map(task => task.planKey));
@@ -88,7 +110,8 @@ test("the complete pathway library generates traceable production work", () => {
   assert.equal(tasks.every(task => task.detail && task.day && task.deadline && task.section && task.dependency), true);
   assert.equal(tasks.every(task => Array.isArray(task.qualityControls) && Array.isArray(task.equipment)), true);
   assert.equal(tasks.filter(task => task.outputRecord).length, PATHWAY_RECIPES.length);
-  assert.equal(tasks.length > PATHWAY_RECIPES.length * 2, true);
+  assert.ok(tasks.length <= PATHWAY_RECIPES.length * 4);
+  assert.ok(tasks.length >= PATHWAY_RECIPES.length * 2);
 });
 
 test("evening service schedules final production on service day while morning delivery remains advance production", () => {
@@ -96,5 +119,6 @@ test("evening service schedules final production on service day while morning de
   assert.match(evening.at(-2).day, /Sep 24 · service-day production/);
   assert.match(evening.at(-1).day, /Sep 24 · service handoff/);
   const morning = buildProductionTasks(cinnamonRolls, 0, event, sections);
-  assert.equal(morning.slice(0, -1).every(task => /Sep 23 · advance production/.test(task.day)), true);
+  assert.match(morning[0].day, /Sep 23 · advance production/);
+  assert.match(morning.at(-2).day, /Sep 24 · service-day production/);
 });

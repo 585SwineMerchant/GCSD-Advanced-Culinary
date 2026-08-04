@@ -17,6 +17,7 @@ import {
   contributionsForDate,
   kitchenSchedulingIssues,
   makeAssignment,
+  meetingForAssignment,
   normalizeSections,
   normalizeTaskAssignments,
   offsetDate,
@@ -63,7 +64,7 @@ test("split-period sections remain one stable section with nullable official num
   assert.deepEqual(intro45.map(section => section.id).sort(), ["kevin-culinary-p4", "kevin-culinary-p6"]);
   assert.ok(sections.find(section => section.id === "carlson-advanced-p5")?.requiresRotationConfirmation);
   assert.equal(sectionMeetsOnDate("carlson-advanced-p5", "2026-09-22", sections), null);
-  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p5", "2026-09-22", ["carlson-p5-team-a"])] }, sections).join(" "), /requires district confirmation/);
+  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p5", "2026-09-22", ["carlson-p5-team-a"])] }, sections).join(" "), /confirm Period 5 or 6/i);
   assert.ok(sections.every(section => section.officialSectionNumber === ""));
 });
 
@@ -125,9 +126,16 @@ test("date-first filtering shows only Advanced Culinary meetings for the selecte
   assert.equal(meetings.some(meeting => meeting.section.id === "km"), false);
 });
 
-test("a split section with unconfirmed rotation mapping is blocked", () => {
+test("a split section with unconfirmed rotation mapping is blocked until a period is confirmed", () => {
   assert.equal(sectionMeetsOnDate("carlson-advanced-p5", "2026-09-17", sections), null);
-  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p5", "2026-09-17", ["carlson-p5-team-a"])] }, sections).join(" "), /requires district confirmation/);
+  assert.match(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [makeAssignment(sections, "carlson-advanced-p5", "2026-09-17", ["carlson-p5-team-a"])] }, sections).join(" "), /confirm Period 5 or 6/i);
+  const confirmed = makeAssignment(sections, "carlson-advanced-p5", "2026-09-17", ["carlson-p5-team-a"]);
+  confirmed.confirmedPeriod = 5;
+  confirmed.kitchen = "Kitchen 1";
+  const meeting = meetingForAssignment(confirmed, sections);
+  assert.equal(meeting?.period, 5);
+  assert.equal(meeting?.teacherConfirmedPeriod, true);
+  assert.equal(assignmentIssues({ id: "task", name: "Shape dough", assignmentRecords: [confirmed] }, sections).some(issue => /confirm Period/i.test(issue)), false);
 });
 
 test("team choices are dependent on the selected period", () => {
@@ -252,10 +260,13 @@ test("section 4 production plan does not render an arbitrary Finish by time fiel
 test("sections 4 and 5 are replaced by one data-backed production workspace", () => {
   const teacherHtml = readFileSync(new URL("../site/teacher/index.html", import.meta.url), "utf8");
   const teacherCss = readFileSync(new URL("../site/teacher/teacher.css", import.meta.url), "utf8");
+  const teacherOperations = readFileSync(new URL("../site/teacher/teacher-operations.js", import.meta.url), "utf8");
   assert.match(teacherHtml, /Production plan &amp; assignments/i);
   assert.doesNotMatch(teacherHtml, /<button data-panel="assignments"/);
   assert.doesNotMatch(teacherHtml, /<h2>Work assignments<\/h2>/);
-  assert.match(teacherCss, /\.assignment-record\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(teacherCss, /\.assignment-grid-row\.schedule-row\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(teacherOperations, /production-menu-group/);
+  assert.match(teacherOperations, /confirmedPeriod/);
   assert.doesNotMatch(teacherCss, /\.assignment-record\{[^}]*minmax\(260px,1\.2fr\)[^}]*minmax\(170px,\.85fr\)[^}]*minmax\(260px,1\.25fr\)[^}]*auto/);
 });
 

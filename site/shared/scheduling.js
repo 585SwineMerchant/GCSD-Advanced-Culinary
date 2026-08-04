@@ -151,8 +151,41 @@ export function sectionMeetsOnDate(sectionId, iso, sections = DEFAULT_SECTIONS, 
   return { date: isoDate(iso), rotationDay, period, start: bell.start, end: bell.end, section };
 }
 
+export function normalizeConfirmedPeriod(value, section) {
+  const period = Math.trunc(Number(value));
+  if (!Number.isFinite(period) || !section?.allowedPeriods?.includes(period)) return null;
+  return period;
+}
+
+/** Meeting resolution for an assignment record, including teacher-confirmed periods for split sections. */
+export function meetingForAssignment(record, sections = DEFAULT_SECTIONS, calendar = SCHOOL_CALENDAR) {
+  const section = normalizeSections(sections).find(item => item.id === record?.sectionId);
+  if (!section || !record?.workDate) return null;
+  const mapped = sectionMeetsOnDate(section.id, record.workDate, sections, calendar);
+  if (mapped) return mapped;
+  if (!isAdvancedSection(section) || !section.requiresRotationConfirmation) return null;
+  const rotationDay = rotationDayForDate(record.workDate, calendar);
+  const period = normalizeConfirmedPeriod(record.confirmedPeriod, section);
+  if (!rotationDay || !period) return null;
+  const bell = BELL_SCHEDULE[period];
+  if (!bell) return null;
+  return {
+    date: isoDate(record.workDate),
+    rotationDay,
+    period,
+    start: bell.start,
+    end: bell.end,
+    section,
+    teacherConfirmedPeriod: true
+  };
+}
+
 export function availableMeetingsForDate(iso, sections = DEFAULT_SECTIONS, calendar = SCHOOL_CALENDAR) {
   return normalizeSections(sections).map(section => sectionMeetsOnDate(section.id, iso, sections, calendar)).filter(Boolean);
+}
+
+export function schedulableAdvancedSections(sections = DEFAULT_SECTIONS) {
+  return normalizeSections(sections).filter(section => isAdvancedSection(section) && !section.requiresRotationConfirmation);
 }
 
 export function nextMeetingDates(sectionId, fromIso, sections = DEFAULT_SECTIONS, count = 3) {
@@ -171,7 +204,8 @@ export function nextMeetingDates(sectionId, fromIso, sections = DEFAULT_SECTIONS
 export function formatMeetingWindow(meeting) {
   if (!meeting) return "This section does not meet on the selected date.";
   const date = parseDate(meeting.date).toLocaleDateString(undefined, { weekday: "long", month: "long", day: "numeric" });
-  return `${date} - Day ${meeting.rotationDay} - ${sectionDisplayLabel(meeting.section)} - Period ${meeting.period} - ${meeting.start}-${meeting.end}`;
+  const confirmed = meeting.teacherConfirmedPeriod ? " · teacher-confirmed period" : "";
+  return `${date} - Day ${meeting.rotationDay} - ${sectionDisplayLabel(meeting.section)} - Period ${meeting.period} - ${meeting.start}-${meeting.end}${confirmed}`;
 }
 
 export const PRODUCTION_STATUSES = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
@@ -236,6 +270,7 @@ export function makeAssignment(sections, sectionId, workDate, teamIds = []) {
     sectionId: section?.id || "",
     workDate: isoDate(workDate),
     teamIds: selected.length ? selected : teams.slice(0, 1).map(team => team.id),
+    confirmedPeriod: normalizeConfirmedPeriod(null, section),
     kitchen: "",
     stationDuty: "kitchen-production",
     stationSequence: 1,
@@ -267,6 +302,7 @@ export function normalizeTaskAssignments(task, sections) {
       sectionId: section?.id || "",
       workDate: isoDate(record.workDate || task.workDate || ""),
       teamIds: teamIds.length ? teamIds : teams.slice(0, 1).map(team => team.id),
+      confirmedPeriod: normalizeConfirmedPeriod(record.confirmedPeriod, section),
       kitchen: stationDuty === "kitchen-production" ? kitchen : "",
       stationDuty,
       stationSequence: normalizeStationSequence(record.stationSequence),
@@ -364,11 +400,17 @@ export function assignmentIssues(task, sections, calendar = SCHOOL_CALENDAR) {
     if (!section) { issues.push(`${label} has an unknown class section.`); continue; }
     if (!isAdvancedSection(section)) issues.push(`${label}: ${section.name} is not an Advanced Culinary section.`);
     if (section.requiresReview) issues.push(`${label}: ${section.name} requires teacher review before publication.`);
-    if (section.requiresRotationConfirmation) issues.push(`${label}: ${section.name} has allowed periods ${section.allowedPeriods?.join("/") || "pending"}, but its exact Day 1-Day 4 mapping requires district confirmation.`);
-    const meeting = sectionMeetsOnDate(section.id, record.workDate, configured, calendar);
+    if (section.requiresRotationConfirmation && !normalizeConfirmedPeriod(record.confirmedPeriod, section)) {
+      issues.push(`${label}: ${section.name} needs the teacher to confirm Period ${section.allowedPeriods?.join(" or ") || "pending"} for ${record.workDate || "that date"}.`);
+    }
+    const meeting = meetingForAssignment(record, configured, calendar);
     if (!meeting) {
-      const next = nextMeetingDates(section.id, record.workDate, configured).join(", ");
-      issues.push(`${label}: ${section.name} does not meet on ${record.workDate || "that date"}${next ? `. Next available: ${next}.` : "."}`);
+      if (section.requiresRotationConfirmation) {
+        issues.push(`${label}: ${section.name} cannot be scheduled until a valid period is confirmed for an instructional day.`);
+      } else {
+        const next = nextMeetingDates(section.id, record.workDate, configured).join(", ");
+        issues.push(`${label}: ${section.name} does not meet on ${record.workDate || "that date"}${next ? `. Next available: ${next}.` : "."}`);
+      }
     }
     const sectionTeams = teamsForSection(configured, section.id);
     if (!sectionTeams.length) issues.push(`${label}: ${section.name} has no teams in Access & Rosters. Complete team setup in Step 8.`);
@@ -416,7 +458,7 @@ export function assignmentContributions(task, sections) {
     const section = normalizeSections(sections).find(item => item.id === record.sectionId);
     const teams = teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id));
     const usableTeams = teams.length ? teams : [{ id: "", name: "Team not selected", students: [] }];
-    const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
+    const meeting = meetingForAssignment(record, sections);
     return usableTeams.map(team => {
       const key = assignmentContributionKey(task.id, record, team.id);
       const legacy = progress[key] || progress[record.id] || progress[record.sectionId] || {};

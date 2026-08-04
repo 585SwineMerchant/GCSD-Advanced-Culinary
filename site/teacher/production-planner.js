@@ -119,47 +119,64 @@ function equipmentFor(stage, equipment) {
 }
 
 function procedureStages(item) {
-  const sentences = (item.procedure || []).flatMap(step => String(step).split(/(?<=[.!?])\s+(?=[A-Z])/)).map(value => value.trim()).filter(Boolean);
-  const stages = sentences.map((detail, index) => ({ title: stageTitle(detail, index), detail, inferred: false }));
-  const recipeText = `${item.name} ${(item.ingredients || []).map(value => value.name || value.sourceText || value).join(" ")}`.toLowerCase();
-  const yeastedRoll = /yeast/.test(recipeText) && /cinnamon roll|donut|bread|focaccia/.test(recipeText);
-  if (yeastedRoll && !stages.some(stage => /ferment|rise/.test(stage.detail.toLowerCase()))) {
-    const mixIndex = stages.findIndex(stage => stage.title === "Mix dough");
-    stages.splice(Math.max(0, mixIndex + 1), 0, {
-      title: "Bulk fermentation",
-      detail: "Ferment the mixed dough until it is relaxed and visibly expanded. The teacher confirms the stopping point before shaping.", inferred: true
-    });
+  const procedureText = (item.procedure || []).map(step => String(step)).join(" ");
+  const recipeText = `${item.name} ${(item.ingredients || []).map(value => value.name || value.sourceText || value).join(" ")} ${procedureText}`.toLowerCase();
+  const yeasted = /yeast/.test(recipeText);
+  const overnightCandidate = yeasted && /cinnamon roll|donut|focaccia|naan|bread|ferment|overnight|bulk/.test(recipeText);
+
+  // Keep only schedule-worthy breakpoints. Students follow the full recipe on the production sheet.
+  if (overnightCandidate) {
+    return [
+      {
+        title: "Mix dough",
+        detail: "Mix the dough per the approved recipe on the production sheet. Stop when the dough is ready for fermentation.",
+        inferred: true
+      },
+      {
+        title: "Bulk fermentation",
+        detail: "Ferment until the dough is relaxed and expanded. Teacher confirms before shaping. This stage may run overnight or across class periods.",
+        inferred: true
+      },
+      {
+        title: "Shape, bake, and finish",
+        detail: "Shape, proof if needed, bake, and finish per the approved recipe on the production sheet.",
+        inferred: true
+      }
+    ];
   }
-  if (yeastedRoll && !stages.some(stage => /proof/.test(`${stage.title} ${stage.detail}`.toLowerCase()))) {
-    const bakeIndex = stages.findIndex(stage => stage.title === "Bake");
-    if (bakeIndex >= 0) stages.splice(bakeIndex, 0, {
-      title: "Final proof",
-      detail: "Proof the shaped product until visibly expanded and soft. The teacher confirms readiness before baking.", inferred: true
-    });
-  }
-  return stages.length ? stages : [{ title: "Produce recipe", detail: `Complete the approved procedure for ${item.name}.`, inferred: true }];
+
+  return [{
+    title: "Produce",
+    detail: `Produce ${item.name} per the approved recipe on the production sheet. Use this Event Order card for station assignment, timing, and finished count—not as a substitute for the recipe steps.`,
+    inferred: true
+  }];
 }
 
 function stageSchedule(stages, readyMinutes) {
-  const sameDayStart = readyMinutes >= 13 * 60 ? Math.max(0, stages.length - 2) : stages.length;
-  const advanceCount = sameDayStart;
-  const sameDayCount = stages.length - sameDayStart;
+  const morningService = readyMinutes < 13 * 60;
   return stages.map((stage, index) => {
-    const dayOffset = index < sameDayStart ? -1 : 0;
+    let dayOffset = 0;
+    if (morningService) {
+      if (/mix dough|bulk fermentation/i.test(stage.title)) dayOffset = -1;
+      else if (/shape, bake, and finish/i.test(stage.title)) dayOffset = 0;
+      else if (/produce/i.test(stage.title)) dayOffset = -1;
+    }
     if (dayOffset < 0) {
       const start = 12 * 60;
       const end = 15 * 60 + 15;
-      return { dayOffset, deadline: minutesToTime(start + Math.round((end - start) * (index / Math.max(1, advanceCount - 1)))) };
+      return {
+        dayOffset,
+        deadline: minutesToTime(start + Math.round((end - start) * (index / Math.max(1, stages.length - 1 || 1))))
+      };
     }
-    const rank = index - sameDayStart;
-    const start = Math.max(8 * 60, readyMinutes - Math.max(90, sameDayCount * 45));
+    const start = Math.max(8 * 60, readyMinutes - 90);
     const end = readyMinutes - 15;
-    return { dayOffset, deadline: minutesToTime(start + Math.round((end - start) * (rank / Math.max(1, sameDayCount - 1)))) };
+    return { dayOffset, deadline: minutesToTime(Math.round((start + end) / 2)) };
   });
 }
 
 export function buildProductionTasks(item, menuIndex, event, sections, previousTasks = []) {
-  const assignmentSections = sections.filter(isAdvancedSection);
+  const assignmentSections = sections.filter(section => isAdvancedSection(section) && !section.requiresRotationConfirmation);
   const stages = procedureStages(item);
   const readyMinutes = requiredReadyTime(event);
   const scale = scalingPlan(item);
