@@ -1066,7 +1066,19 @@ q("#addIngredient").addEventListener("click", () => {
 });
 q("#regenerateTasks").addEventListener("click", generateTasks);
 q("#packetView").addEventListener("change", packetPreview);
-q("#saveDraft").addEventListener("click", () => { if (canEdit()) { collectBrief(); current().stage = "Draft"; save(); renderAll(); toast("Event Order saved as a private draft."); } });
+q("#saveDraft").addEventListener("click", () => {
+  if (!canEdit()) return;
+  collectBrief();
+  const event = current();
+  if (event.publishedAt) {
+    event.stage = "Revised draft";
+  } else {
+    event.stage = "Draft";
+  }
+  save();
+  renderAll();
+  toast(event.publishedAt ? "Draft edits saved. Students still see the last published revision until you publish again." : "Event Order saved as a private draft.");
+});
 q("#publishOrder").addEventListener("click", () => {
   if (!isOwner()) return;
   collectBrief();

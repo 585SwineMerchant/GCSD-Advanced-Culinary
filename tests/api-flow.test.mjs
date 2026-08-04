@@ -163,6 +163,16 @@ test("student receives only the assigned section packet", async () => {
   assert.deepEqual(body.events[0].tasks.map(task => task.id), ["task-p2"]);
 });
 
+test("student packet remains available when publishedAt is set even if stage was later marked Draft", async () => {
+  const drifted = { ...event, stage: "Draft" };
+  const env = { DB: new FakeDB({ requests: [], events: [drifted] }) };
+  const response = await worker.fetch(request("/api/student/events", "student@district.example"), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.events.length, 1);
+  assert.equal(body.events[0].id, "event-1");
+});
+
 test("student progress reaches shared state and cannot cross sections", async () => {
   const db = new FakeDB({ requests: [], events: [event] });
   const env = { DB: db };

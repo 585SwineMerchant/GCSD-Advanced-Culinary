@@ -309,7 +309,7 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/student/events" && request.method === "GET") {
     const row = await getState(env);
     const state = parseState(row);
-    const events = (state.events || []).filter(event => event.publishedAt && event.stage !== "Draft").map(event => ({
+    const events = (state.events || []).filter(event => Boolean(event.publishedAt)).map(event => ({
       id: event.id, name: event.name, customer: event.customer, school: event.school, serviceDate: event.serviceDate,
       serviceTime: event.serviceTime, guestCount: event.guestCount, serviceFormat: event.serviceFormat,
       requirements: event.requirements, allergens: event.allergens, stage: event.stage, version: event.version,
