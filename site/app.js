@@ -699,23 +699,46 @@ function bindRecipeEvents() {
   });
   $("#copyRecipe").addEventListener("click", () => copyText(recipeSummaryText(), $("#recipeMessage")));
   $("#submitRecipeForReview").addEventListener("click", async () => {
+    const message = $("#recipeMessage");
     const data = collectRecipeData();
-    const event = liveRecipeEvents.find(item => String(item.id) === $("#recipeExperience").value);
-    if (!event) { $("#recipeMessage").textContent = "Choose a published Event Order before submitting."; return; }
+    const selectedId = $("#recipeExperience")?.value || "";
+    const event = liveRecipeEvents.find(item => String(item.id) === String(selectedId));
+    if (!selectedId || !event) {
+      message.textContent = "Choose a published Event Order in the Event dropdown before submitting.";
+      message.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    if (!String(data.recipeName || "").trim() || !String(data.recipeIngredients || "").trim() || !String(data.recipeProcedure || "").trim()) {
+      message.textContent = "Add a recipe title, ingredient list, and procedure before submitting.";
+      message.scrollIntoView({ behavior: "smooth", block: "center" });
+      return;
+    }
+    message.textContent = "Submitting to the teacher review queue…";
     const sources = [1, 2, 3].map(number => [data.candidates[`${number}-0`], data.candidates[`${number}-1`]].filter(Boolean).join(": ")).filter(Boolean);
-    const response = await fetch("/api/recipe-submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
-      name: data.recipeName, yield: data.recipeYield, portion: data.recipePortion,
-      ingredients: data.recipeIngredients, equipment: data.recipeEquipment, procedure: data.recipeProcedure,
-      eventId: event.id, eventName: event.name, parentSubmissionId: data.parentSubmissionId, threadId: data.threadId, revision: data.revision,
-      allergens: data.recipeAllergens || data.recipeNeeds, sourceNotes: sources.join("\n"), testNotes: data.recipeTestNotes
-    }) });
-    const result = await response.json().catch(() => ({}));
-    if (!response.ok) { $("#recipeMessage").textContent = result.error || "Recipe could not be submitted."; return; }
-    data.recipeApproval = "Submitted for teacher review";
-    $("#recipeApproval").value = data.recipeApproval;
-    const store = recipeStorage(); store[$("#recipeExperience").value] = data; localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store));
-    $("#recipeMessage").textContent = "Submitted to the teacher recipe approval queue."; updateRecipeSummary();
-    await loadRecipeReviewData();
+    try {
+      const response = await fetch("/api/recipe-submissions", { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+        name: data.recipeName, yield: data.recipeYield, portion: data.recipePortion,
+        ingredients: data.recipeIngredients, equipment: data.recipeEquipment, procedure: data.recipeProcedure,
+        eventId: event.id, eventName: event.name, parentSubmissionId: data.parentSubmissionId, threadId: data.threadId, revision: data.revision,
+        allergens: data.recipeAllergens || data.recipeNeeds, sourceNotes: sources.join("\n"), testNotes: data.recipeTestNotes
+      }) });
+      const result = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        message.textContent = result.error || "Recipe could not be submitted.";
+        message.scrollIntoView({ behavior: "smooth", block: "center" });
+        return;
+      }
+      data.recipeApproval = "Submitted for teacher review";
+      $("#recipeApproval").value = data.recipeApproval;
+      const store = recipeStorage(); store[$("#recipeExperience").value] = data; localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store));
+      message.textContent = "Submitted to the teacher recipe approval queue. Refresh Teacher → Menu to see it awaiting review.";
+      updateRecipeSummary();
+      await loadRecipeReviewData();
+      message.scrollIntoView({ behavior: "smooth", block: "center" });
+    } catch (error) {
+      message.textContent = "Submission failed. Check your connection and try again.";
+      message.scrollIntoView({ behavior: "smooth", block: "center" });
+    }
   });
   $("#clearRecipe").addEventListener("click", () => {
     if (!window.confirm("Clear the Recipe Studio work saved for this event?")) return;

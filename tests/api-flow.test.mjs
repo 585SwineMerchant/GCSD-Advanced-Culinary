@@ -173,6 +173,21 @@ test("student packet remains available when publishedAt is set even if stage was
   assert.equal(body.events[0].id, "event-1");
 });
 
+test("recipe submission accepts a published Event Order even if stage drifted to Draft", async () => {
+  const drifted = { ...event, stage: "Draft" };
+  const env = { DB: new FakeDB({ requests: [], events: [drifted] }) };
+  const submitted = await worker.fetch(request("/api/recipe-submissions", "student@district.example", {
+    method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({
+      eventId: "event-1", name: "Apple Butter", yield: 8, portion: "4 oz jar", ingredients: "4 lb apples\n1 cup sugar",
+      equipment: "Pot", procedure: "Cook apples\nPuree and jar", allergens: "None identified"
+    })
+  }), env);
+  assert.equal(submitted.status, 201);
+  const body = await submitted.json();
+  assert.equal(body.submission.name, "Apple Butter");
+  assert.equal(body.submission.status, "Awaiting review");
+});
+
 test("student progress reaches shared state and cannot cross sections", async () => {
   const db = new FakeDB({ requests: [], events: [event] });
   const env = { DB: db };

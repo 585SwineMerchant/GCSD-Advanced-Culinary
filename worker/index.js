@@ -189,7 +189,7 @@ async function handleApi(request, env, url) {
     if (!submission || !submission.eventId || !submission.ingredients.length || !submission.procedure.length) {
       return json({ error: "Choose an event and include a recipe title, ingredient list, and procedure." }, 400);
     }
-    const linkedEvent = state.events.find(event => String(event.id) === submission.eventId && event.publishedAt && event.stage !== "Draft");
+    const linkedEvent = state.events.find(event => String(event.id) === submission.eventId && event.publishedAt);
     if (!linkedEvent) return json({ error: "Choose a currently published Event Order." }, 400);
     submission.eventName = linkedEvent.name;
     if (parent) parent.status = "Revised and resubmitted";
