@@ -65,12 +65,22 @@
     <div id="archivedBanner" class="archived-banner" hidden></div>
 
     <section class="workspace-shell">
-      <aside class="attention-rail">
-        <p class="eyebrow">Needs attention</p>
-        <div id="attentionList"></div>
-        <div class="rail-note">
-          <strong>Owner controls publication</strong>
-          <p>Collaborators may edit assigned areas. Section teachers monitor their students without changing the controlling order.</p>
+      <aside class="attention-rail" id="workspaceRail">
+        <div id="attentionRailMode">
+          <p class="eyebrow">Needs attention</p>
+          <div id="attentionList"></div>
+          <div class="rail-note">
+            <strong>Owner controls publication</strong>
+            <p>Collaborators may edit assigned areas. Section teachers monitor their students without changing the controlling order.</p>
+          </div>
+        </div>
+        <div id="budgetRailMode" hidden>
+          <p class="eyebrow">Budget sections</p>
+          <nav id="budgetSectionNav" class="budget-section-nav" aria-label="Budget sections you can manage"></nav>
+          <div class="rail-note" id="budgetRailNote">
+            <strong>One section at a time</strong>
+            <p>Choose a funding source to review balances and record spends.</p>
+          </div>
         </div>
       </aside>
 
@@ -250,34 +260,34 @@
 
         <section class="workspace-panel" data-panel-view="budget">
           <header class="panel-heading">
-            <div><p class="eyebrow">Independent funding sources · shared Advanced SBE</p><h2>Budget tracker</h2></div>
-            <p>Track Culinary 1–2 by section (teacher-private), Advanced Culinary as one shared School Based Enterprise pot, and Kitchen Management as its own source.</p>
+            <div><p class="eyebrow">Independent funding sources · shared Advanced SBE</p><h2 id="budgetDetailTitle">Budget tracker</h2></div>
+            <p id="budgetDetailLead">Select a section on the left to review its allotment, remaining balance, and spend history.</p>
           </header>
           <div class="budget-year-bar">
             <div><span>School year</span><strong id="budgetSchoolYear"></strong></div>
             <p id="budgetVisibilityNote" class="section-note"></p>
           </div>
-          <div id="budgetPotGrid" class="budget-pot-grid"></div>
+          <div id="budgetPotDetail" class="budget-pot-detail"></div>
 
           <section class="budget-section" aria-labelledby="budgetLedgerTitle">
             <header class="subheading">
               <div><p class="eyebrow">Spend log</p><h3 id="budgetLedgerTitle">Record a purchase or lab spend</h3></div>
             </header>
             <form id="budgetSpendForm" class="form-grid compact-grid">
+              <input type="hidden" name="potId" id="budgetSpendPot" value="" />
               <label>Date<input name="date" type="date" required /></label>
-              <label>Budget pot<select name="potId" id="budgetSpendPot" required></select></label>
-              <label>Bucket<select name="bucket" required><option value="food">Food (labs / production)</option><option value="nonfood">Non-food</option><option value="popup">Pop-ups / WBL</option></select></label>
+              <label>Bucket<select name="bucket" id="budgetSpendBucket" required><option value="food">Food (labs / production)</option><option value="nonfood">Non-food</option><option value="popup">Pop-ups / WBL</option></select></label>
               <label>Amount ($)<input name="amount" type="number" min="0" step="0.01" required placeholder="0.00" /></label>
               <label class="span-2">Note<input name="note" placeholder="Vendor, lab number, or receipt reference" /></label>
               <div class="panel-actions"><button class="primary-button" type="submit">Add spend</button></div>
             </form>
             <div class="table-wrap"><table>
-              <thead><tr><th>Date</th><th>Pot</th><th>Bucket</th><th>Amount</th><th>Note</th><th>By</th><th></th></tr></thead>
+              <thead><tr><th>Date</th><th>Bucket</th><th>Amount</th><th>Note</th><th>By</th><th></th></tr></thead>
               <tbody id="budgetLedgerRows"></tbody>
             </table></div>
           </section>
 
-          <section class="budget-section" aria-labelledby="budgetPopupTitle">
+          <section class="budget-section" id="budgetPopupSection" aria-labelledby="budgetPopupTitle" hidden>
             <header class="subheading">
               <div><p class="eyebrow">Advanced SBE pop-up scorecard</p><h3 id="budgetPopupTitle">Pop-up / WBL events</h3></div>
               <strong>$360 target · $300 food / $60 overhead · $900 gross</strong>

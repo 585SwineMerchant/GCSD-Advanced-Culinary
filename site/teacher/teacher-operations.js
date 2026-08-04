@@ -91,6 +91,7 @@ let ingredientMenuIndex = 0;
 let recipeLibrary = [];
 let supplierCatalog = [];
 let recipeSearch = "";
+let selectedBudgetPotId = "";
 
 function current() { return state.events.find(event => String(event.id) === String(currentId)) || activeEvents()[0] || state.events[0]; }
 function activeEvents() { return (state.events || []).filter(event => !isArchivedEvent(event)); }
@@ -119,6 +120,37 @@ function ensureBudget() {
 }
 function viewerBudgetPots() {
   return visiblePots(ensureBudget(), activeTeacher(), teacherRole());
+}
+
+function orderedBudgetPots(pots = viewerBudgetPots()) {
+  const rank = { "advanced-sbe": 0, "kitchen-management": 1, "ca-section": 2 };
+  return [...pots].sort((a, b) => {
+    const kindDiff = (rank[a.kind] ?? 9) - (rank[b.kind] ?? 9);
+    if (kindDiff) return kindDiff;
+    return String(a.label || "").localeCompare(String(b.label || ""));
+  });
+}
+
+function selectedBudgetPot() {
+  const pots = orderedBudgetPots();
+  if (!pots.length) return null;
+  if (!pots.some(pot => pot.id === selectedBudgetPotId)) selectedBudgetPotId = pots[0].id;
+  return pots.find(pot => pot.id === selectedBudgetPotId) || pots[0];
+}
+
+function syncWorkspaceRail() {
+  const budgetMode = activePanel === "budget";
+  const attention = q("#attentionRailMode");
+  const budget = q("#budgetRailMode");
+  if (attention) attention.hidden = budgetMode;
+  if (budget) budget.hidden = !budgetMode;
+  q("#workspaceRail")?.classList.toggle("budget-rail", budgetMode);
+}
+
+function potKindLabel(pot) {
+  if (pot?.kind === "advanced-sbe") return "Shared SBE";
+  if (pot?.kind === "kitchen-management") return "Independent";
+  return "Culinary 1–2";
 }
 function batches(item) { return item.yield > 0 ? Math.ceil(item.required / item.yield) : 0; }
 
@@ -815,6 +847,8 @@ function stageContext(event, panel = activePanel) {
 }
 
 function renderAttention() {
+  syncWorkspaceRail();
+  if (activePanel === "budget") return;
   const event = current();
   const items = [];
   if (!canEdit()) items.push(["View-only event", `${event.owner} controls the Event Order. You can monitor the full operation.`]);
@@ -842,7 +876,7 @@ function renderAttention() {
   const [contextTitle, contextDetail] = stageContext(event);
   if (!items.length) items.push([activePanel === "publish" ? "Ready to publish" : "No critical alerts", contextDetail]);
   q("#attentionList").innerHTML = items.map(([title, detail]) => `<div class="attention-item"><strong>${esc(title)}</strong><span>${esc(detail)}</span></div>`).join("");
-  q(".rail-note").innerHTML = `<strong>${esc(contextTitle)}</strong><p>${esc(contextDetail)}</p>`;
+  q("#attentionRailMode .rail-note").innerHTML = `<strong>${esc(contextTitle)}</strong><p>${esc(contextDetail)}</p>`;
 }
 
 function publicationSignature(event) {
@@ -1103,65 +1137,95 @@ function collectBudgetPostPreferences(closeout) {
 }
 
 function renderBudget() {
+  syncWorkspaceRail();
   const budget = ensureBudget();
-  const pots = viewerBudgetPots();
+  const pots = orderedBudgetPots();
+  const pot = selectedBudgetPot();
   if (q("#budgetSchoolYear")) q("#budgetSchoolYear").textContent = budget.schoolYear || currentSchoolYear();
   if (q("#budgetVisibilityNote")) {
     q("#budgetVisibilityNote").textContent = teacherRole() === "admin"
-      ? "Administrator view: all independent pots are visible."
-      : "You see Advanced Culinary SBE (shared), Kitchen Management if it is assigned to you, and only your own Culinary 1–2 sections.";
+      ? "Administrator view: every independent pot appears in the left menu."
+      : "Left menu shows Advanced Culinary SBE (shared), Kitchen Management if assigned to you, and only your Culinary 1–2 sections.";
   }
 
-  const grid = q("#budgetPotGrid");
-  if (grid) {
-    if (!pots.length) {
-      grid.innerHTML = `<p class="muted">No budget pots are visible for this account.</p>`;
-    } else {
-      grid.innerHTML = pots.map(pot => {
-        const totals = potTotals(budget, pot);
-        const pace = paceStatus(totals.percent);
-        const kindLabel = pot.kind === "advanced-sbe" ? "Shared SBE" : pot.kind === "kitchen-management" ? "Independent" : "Section · private";
-        return `<article class="budget-pot-card" data-pace="${pace}">
-          <header><div><p class="eyebrow">${esc(kindLabel)}</p><h3>${esc(pot.label)}</h3></div><strong>${formatMoney(totals.remaining)} left</strong></header>
-          <p>${esc(pot.description || "")}</p>
-          <div class="budget-meter" aria-hidden="true"><span style="width:${Math.min(100, Math.round(totals.percent * 100))}%"></span></div>
-          <dl class="budget-totals"><div><dt>Allotted</dt><dd>${formatMoney(totals.allotted)}</dd></div><div><dt>Spent</dt><dd>${formatMoney(totals.spent)}</dd></div><div><dt>Used</dt><dd>${Math.round(totals.percent * 100)}%</dd></div></dl>
-          <div class="budget-bucket-list">${totals.buckets.map(row => `
-            <div class="budget-bucket" data-pace="${paceStatus(row.percent)}">
-              <strong>${esc(row.label)}</strong>
-              <span>${formatMoney(row.spent)} of ${formatMoney(row.allotment)}</span>
-              <em>${formatMoney(row.remaining)} remaining</em>
-            </div>`).join("")}</div>
-        </article>`;
-      }).join("");
-    }
+  const nav = q("#budgetSectionNav");
+  if (nav) {
+    nav.innerHTML = pots.length
+      ? pots.map(item => {
+        const totals = potTotals(budget, item);
+        const active = item.id === pot?.id;
+        return `<button type="button" class="budget-nav-item${active ? " active" : ""}" data-budget-pot="${esc(item.id)}" aria-current="${active ? "page" : "false"}">
+          <span class="budget-nav-kind">${esc(potKindLabel(item))}</span>
+          <strong>${esc(item.label)}</strong>
+          <span class="budget-nav-remain">${formatMoney(totals.remaining)} left</span>
+        </button>`;
+      }).join("")
+      : `<p class="muted">No budget sections are visible for this account.</p>`;
+    nav.querySelectorAll("[data-budget-pot]").forEach(button => button.addEventListener("click", () => {
+      selectedBudgetPotId = button.dataset.budgetPot;
+      renderBudget();
+    }));
   }
 
-  const spendPot = q("#budgetSpendPot");
-  if (spendPot) {
-    spendPot.innerHTML = pots.map(pot => `<option value="${esc(pot.id)}">${esc(pot.label)}</option>`).join("");
+  const detail = q("#budgetPotDetail");
+  if (!pot) {
+    if (q("#budgetDetailTitle")) q("#budgetDetailTitle").textContent = "Budget tracker";
+    if (q("#budgetDetailLead")) q("#budgetDetailLead").textContent = "No budget sections are available for this account.";
+    if (detail) detail.innerHTML = "";
+    if (q("#budgetSpendPot")) q("#budgetSpendPot").value = "";
+    if (q("#budgetPopupSection")) q("#budgetPopupSection").hidden = true;
+    if (q("#budgetLedgerRows")) q("#budgetLedgerRows").innerHTML = `<tr><td colspan="6">Select a section to view spend history.</td></tr>`;
+    return;
+  }
+
+  const totals = potTotals(budget, pot);
+  const pace = paceStatus(totals.percent);
+  if (q("#budgetDetailTitle")) q("#budgetDetailTitle").textContent = pot.label;
+  if (q("#budgetDetailLead")) q("#budgetDetailLead").textContent = pot.description || "Review remaining balances and record spends for this funding source.";
+  if (q("#budgetRailNote")) {
+    q("#budgetRailNote").innerHTML = `<strong>${esc(pot.label)}</strong><p>${formatMoney(totals.remaining)} remaining of ${formatMoney(totals.allotted)} allotted this year.</p>`;
+  }
+  if (detail) {
+    detail.innerHTML = `<article class="budget-pot-card" data-pace="${pace}">
+      <header><div><p class="eyebrow">${esc(potKindLabel(pot))}</p><h3>${esc(pot.label)}</h3></div><strong>${formatMoney(totals.remaining)} left</strong></header>
+      <div class="budget-meter" aria-hidden="true"><span style="width:${Math.min(100, Math.round(totals.percent * 100))}%"></span></div>
+      <dl class="budget-totals"><div><dt>Allotted</dt><dd>${formatMoney(totals.allotted)}</dd></div><div><dt>Spent</dt><dd>${formatMoney(totals.spent)}</dd></div><div><dt>Used</dt><dd>${Math.round(totals.percent * 100)}%</dd></div></dl>
+      <div class="budget-bucket-list">${totals.buckets.map(row => `
+        <div class="budget-bucket" data-pace="${paceStatus(row.percent)}">
+          <strong>${esc(row.label)}</strong>
+          <span>${formatMoney(row.spent)} of ${formatMoney(row.allotment)}</span>
+          <em>${formatMoney(row.remaining)} remaining</em>
+        </div>`).join("")}</div>
+    </article>`;
+  }
+
+  if (q("#budgetSpendPot")) q("#budgetSpendPot").value = pot.id;
+  const bucketSelect = q("#budgetSpendBucket");
+  if (bucketSelect) {
+    const allowPopup = Number(pot.allotments?.popup || 0) > 0;
+    [...bucketSelect.options].forEach(option => {
+      if (option.value === "popup") option.hidden = !allowPopup;
+    });
+    if (!allowPopup && bucketSelect.value === "popup") bucketSelect.value = "food";
   }
   const dateInput = q('#budgetSpendForm [name="date"]');
   if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
   const popupDate = q('#budgetPopupForm [name="date"]');
   if (popupDate && !popupDate.value) popupDate.value = new Date().toISOString().slice(0, 10);
 
-  const potLabel = id => budget.pots.find(pot => pot.id === id)?.label || id;
-  const visibleIds = new Set(pots.map(pot => pot.id));
-  const rows = (budget.ledger || []).filter(entry => !entry.voided && visibleIds.has(entry.potId));
+  const rows = (budget.ledger || []).filter(entry => !entry.voided && entry.potId === pot.id);
   const ledgerBody = q("#budgetLedgerRows");
   if (ledgerBody) {
     ledgerBody.innerHTML = rows.length
       ? rows.map(entry => `<tr>
           <td>${esc(entry.date)}</td>
-          <td>${esc(potLabel(entry.potId))}</td>
           <td>${esc(BUCKET_LABELS[entry.bucket] || entry.bucket)}</td>
           <td><strong>${formatMoney(entry.amount)}</strong></td>
           <td>${esc(entry.note || "—")}${entry.eventId ? ` <small class="supplier-detail">Event ${esc(entry.eventId)}</small>` : ""}</td>
           <td>${esc(entry.createdBy || "—")}</td>
           <td><button class="ghost-danger" type="button" data-void-ledger="${esc(entry.id)}">Void</button></td>
         </tr>`).join("")
-      : `<tr><td colspan="7">No spends recorded yet for the pots you can see.</td></tr>`;
+      : `<tr><td colspan="6">No spends recorded yet for this section.</td></tr>`;
     ledgerBody.querySelectorAll("[data-void-ledger]").forEach(button => button.addEventListener("click", () => {
       const entry = budget.ledger.find(item => item.id === button.dataset.voidLedger);
       if (!entry) return;
@@ -1175,9 +1239,12 @@ function renderBudget() {
     }));
   }
 
+  const popupSection = q("#budgetPopupSection");
+  const showPopups = pot.kind === "advanced-sbe";
+  if (popupSection) popupSection.hidden = !showPopups;
   const popupList = q("#budgetPopupList");
-  if (popupList) {
-    const popups = (budget.popupEvents || []).filter(item => !item.voided && (item.potId === "advanced-sbe" || visibleIds.has(item.potId)));
+  if (popupList && showPopups) {
+    const popups = (budget.popupEvents || []).filter(item => !item.voided && item.potId === "advanced-sbe");
     popupList.innerHTML = popups.length
       ? popups.map(popup => {
         const score = popupScorecard(popup);
@@ -1427,9 +1494,9 @@ q("#budgetSpendForm")?.addEventListener("submit", event => {
   event.preventDefault();
   const budget = ensureBudget();
   const form = new FormData(event.currentTarget);
-  const potId = String(form.get("potId") || "");
-  const pot = viewerBudgetPots().find(item => item.id === potId);
-  if (!pot) return toast("Choose a budget pot you can use.");
+  const pot = selectedBudgetPot();
+  const potId = pot?.id || String(form.get("potId") || "");
+  if (!pot || pot.id !== potId) return toast("Choose a budget section from the left menu.");
   const amount = Number(form.get("amount"));
   if (!(amount >= 0)) return toast("Enter a valid amount.");
   budget.ledger.unshift(makeLedgerEntry({
@@ -1442,6 +1509,7 @@ q("#budgetSpendForm")?.addEventListener("submit", event => {
     createdBy: activeTeacher()
   }));
   event.currentTarget.reset();
+  if (q("#budgetSpendPot")) q("#budgetSpendPot").value = potId;
   const dateInput = event.currentTarget.querySelector('[name="date"]');
   if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
   save();
