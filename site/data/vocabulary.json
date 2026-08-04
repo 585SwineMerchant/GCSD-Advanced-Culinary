@@ -1,0 +1,314 @@
+{
+  "source": "GCSD Culinary 1 & 2 Field Manual + Advanced Culinary operating terms",
+  "note": "Foundational Culinary 1 & 2 vocabulary carried forward. Advanced terms extend the glossary for this course.",
+  "foundations": [
+    {
+      "term": "mis\r\ne en place",
+      "definition": "Everything in place: ingredients\r\n, equipment, information, and work arranged b\r\nefore production begins.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "cross-contaminat\r\nion",
+      "definition": "The transfer of harmful microorganisms \r\nfrom one food, surface, or person to another.\r\n",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "cross-contact",
+      "definition": "The accidental transfer \r\nof a food allergen to another food or surface\r\n.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "sanitize",
+      "definition": "Reduce harmful microorganism\r\ns on a cleaned surface to a safe level.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "T\r\nCS food",
+      "definition": "Food that needs time and temperatur\r\ne control for safety.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "FIFO",
+      "definition": "First In, Fi\r\nrst Out: use the oldest safe product before n\r\newer product.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "conduction",
+      "definition": "Heat transfer \r\nthrough direct contact.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "convection",
+      "definition": "Heat\r\n transfer through moving air or liquid.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "r\r\nadiation",
+      "definition": "Heat transfer through waves withou\r\nt direct contact.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "gluten",
+      "definition": "A protein netw\r\nork that gives wheat dough strength and elast\r\nicity.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "fermentation",
+      "definition": "The process in whic\r\nh yeast or bacteria convert sugars and create\r\n gas, acid, or alcohol.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "proof",
+      "definition": "The final\r\n rise of shaped yeast dough before baking.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "knead",
+      "definition": "Work dough to organize and strength\r\nen its gluten network.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "hydration",
+      "definition": "The am\r\nount of liquid in relation to flour or anothe\r\nr dry ingredient.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "al dente",
+      "definition": "Cooked until\r\n tender with a slight firmness when bitten.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "pilaf",
+      "definition": "A grain method that begins by coat\r\ning the grain in fat before adding liquid.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "risotto",
+      "definition": "A rice method that builds a cream\r\ny surrounding texture while keeping the grain\r\ns distinct.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "umami",
+      "definition": "The savory taste asso\r\nciated with glutamates.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "aroma",
+      "definition": "The part \r\nof flavor detected through the nose.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "seas\r\noning",
+      "definition": "Adjusting food to improve and balance\r\n its flavor.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "AP",
+      "definition": "As purchased: the full \r\namount of an ingredient before trimming or pr\r\neparation.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "EP",
+      "definition": "Edible portion: the usabl\r\ne amount after trimming or preparation.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "y\r\nield percent",
+      "definition": "The edible-portion amount divi\r\nded by the as-purchased amount, multiplied by\r\n 100.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "portion cost",
+      "definition": "The total recipe cos\r\nt divided by the number of portions produced.\r\n",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "conversion factor",
+      "definition": "Desired yield divide\r\nd by original yield; used to scale a recipe.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "coagulation",
+      "definition": "The setting or firming of p\r\nroteins through heat, acid, or another change\r\n.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "carryover cooking",
+      "definition": "Cooking that contin\r\nues after food leaves the heat source.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "re\r\nsting",
+      "definition": "Holding cooked food before cutting so\r\n heat and moisture can redistribute.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "brin\r\ning",
+      "definition": "Soaking food in a salt solution to seas\r\non it and change moisture retention.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "emul\r\nsion",
+      "definition": "A mixture of two liquids that normally\r\n separate, such as oil and water.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "denatur\r\nation",
+      "definition": "The change in a protein’s structure\r\n caused by heat, acid, or agitation.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "stoc\r\nk",
+      "definition": "A flavorful liquid made by gently simmeri\r\nng bones, vegetables, and aromatics.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "roux\r\n",
+      "definition": "A cooked mixture of fat and flour used to \r\nthicken.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "reduction",
+      "definition": "Concentrating a liqu\r\nid by simmering away water.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "aromatics",
+      "definition": "F\r\nlavor-building ingredients such as onion, cel\r\nery, garlic, herbs, and spices.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "mother sa\r\nuce",
+      "definition": "One of the foundational sauces used as \r\na base for other sauces.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "nappe",
+      "definition": "A sauce \r\nconsistency that coats the back of a spoon.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "blanch",
+      "definition": "Cook briefly in boiling water or \r\nsteam.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "shock",
+      "definition": "Cool food rapidly, usually\r\n in ice water, to stop cooking.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "cultured \r\ndairy",
+      "definition": "Dairy changed by beneficial bacteria,\r\n such as yogurt or sour cream.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "yield",
+      "definition": "Th\r\ne usable amount or number of portions a recip\r\ne produces.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "lamination",
+      "definition": "Building thin al\r\nternating layers of dough and fat.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "creami\r\nng",
+      "definition": "Beating fat and sugar together to incorp\r\norate air.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "aeration",
+      "definition": "Adding or trapping \r\nair in a mixture.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "custard",
+      "definition": "A liquid thic\r\nkened mainly by egg proteins.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "tenderness",
+      "definition": "A texture that is \r\neasy to bite or cut, often created by limitin\r\ng gluten.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "authentic recipient",
+      "definition": "A real pe\r\nrson or group beyond the instructor who recei\r\nves or responds to the work.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "sustaina\r\nbility",
+      "definition": "Using food, water, energy, and mater\r\nials responsibly.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "production plan",
+      "definition": "A wri\r\ntten sequence for ingredients, equipment, rol\r\nes, timing, safety, and service.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "portfoli\r\no evidence",
+      "definition": "Work saved to show a skill, deci\r\nsion, result, or growth.",
+      "level": "Culinary 1-2"
+    },
+    {
+      "term": "capstone",
+      "definition": "A cul\r\nminating experience that brings several cours\r\ne skills together.",
+      "level": "Culinary 1-2"
+    }
+  ],
+  "byUnit": [],
+  "advancedTerms": [
+    {
+      "term": "Event Order",
+      "definition": "The published chef packet that states the accepted customer commitment, menu, allergens, quantities, schedule, and station plan.",
+      "level": "Advanced"
+    },
+    {
+      "term": "client commitment",
+      "definition": "What the department has promised after acceptance—product, quantity, quality, packaging, and deadline that students must protect.",
+      "level": "Advanced"
+    },
+    {
+      "term": "station update",
+      "definition": "A short production report sent from a student station card to the chef: status, yield, waste, issues, and recovery.",
+      "level": "Advanced"
+    },
+    {
+      "term": "complete closeout",
+      "definition": "Finishing delivery, records, dishes, sanitation, storage, and station restoration so the event is truly done.",
+      "level": "Advanced"
+    },
+    {
+      "term": "professional recovery",
+      "definition": "Owning a failure, diagnosing it with the instructor, and correcting only after approval—separate from the original technical result.",
+      "level": "Advanced"
+    },
+    {
+      "term": "simple catering",
+      "definition": "A smaller published catering job used to build technique and standards between the major assessment experiences.",
+      "level": "Advanced"
+    },
+    {
+      "term": "comprehensive assessment",
+      "definition": "One of the six major Advanced Culinary experiences that evaluates full-cycle readiness and production.",
+      "level": "Advanced"
+    },
+    {
+      "term": "standardized recipe",
+      "definition": "The teacher-approved production version with yield, portion, ingredients, procedure, allergens, and quality standard for an event.",
+      "level": "Advanced"
+    },
+    {
+      "term": "holding",
+      "definition": "Keeping finished or staged food at a safe temperature and quality until service or handoff.",
+      "level": "Advanced"
+    },
+    {
+      "term": "allocation",
+      "definition": "The quantity and unit assigned to your section or team for a menu item on the Event Order.",
+      "level": "Advanced"
+    }
+  ]
+}

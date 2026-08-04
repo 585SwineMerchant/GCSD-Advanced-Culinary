@@ -20,16 +20,15 @@
     const panel = document.querySelector('[data-view-panel="today"]');
     if (panel) panel.dataset.homeMode = "idle";
     const continueBtn = document.querySelector("#continueWork");
-    if (continueBtn) continueBtn.textContent = "Open Classwork →";
+    if (continueBtn) continueBtn.textContent = "Open Learning →";
     const lede = document.querySelector("#deskLede");
-    if (lede) lede.textContent = "This static copy cannot load live Event Orders. Use Classwork for the opening unit and assessments, or open the classroom host for production.";
+    if (lede) lede.textContent = "This static copy cannot load live Event Orders. Use Learning, Recipes, and Reference here, or open the classroom host for production.";
     const liveTitle = document.querySelector("#liveJobTitle");
     const liveMeta = document.querySelector("#liveJobMeta");
     const eyebrow = document.querySelector("#deskStatusEyebrow");
     if (eyebrow) eyebrow.textContent = "Static field manual";
     if (liveTitle) liveTitle.textContent = "Live jobs require the classroom host";
     if (liveMeta) liveMeta.textContent = "Learning, Recipes, and Reference still work here. Station updates need the secure app.";
-    window.syncAgendaFromLive?.();
     return;
   }
 
@@ -37,26 +36,15 @@
     const panel = document.querySelector('[data-view-panel="today"]');
     if (panel) panel.dataset.homeMode = mode;
     const continueBtn = document.querySelector("#continueWork");
-    const secondary = document.querySelector("#mastheadSecondary");
     const lede = document.querySelector("#deskLede");
     const eyebrow = document.querySelector("#deskStatusEyebrow");
     if (mode === "live") {
       if (continueBtn) continueBtn.textContent = "Open Event Order →";
-      if (secondary) {
-        secondary.textContent = "Open Classwork";
-        secondary.dataset.viewTarget = "workspace";
-        delete secondary.dataset.scrollLive;
-      }
-      if (lede) lede.textContent = "A catering job is live. Kitchen teams work the Event desk; classroom teams continue Classwork. Both tracks serve the same customer promise.";
+      if (lede) lede.textContent = "A catering job is published. Read the packet, cook your station, and send short updates. Learning, Recipes, and Reference support the work—they do not replace the Event Order.";
       if (eyebrow) eyebrow.textContent = "Event desk · published job";
     } else if (mode === "idle") {
-      if (continueBtn) continueBtn.textContent = "Open Classwork →";
-      if (secondary) {
-        secondary.textContent = "Event desk";
-        delete secondary.dataset.viewTarget;
-        secondary.dataset.scrollLive = "true";
-      }
-      if (lede) lede.textContent = "No catering job is published right now. Check Classwork for today’s path—opening unit or a comprehensive assessment—and start before the teacher begins.";
+      if (continueBtn) continueBtn.textContent = "Open Learning →";
+      if (lede) lede.textContent = "No catering job is published right now. Classroom assignments stay in Google Classroom. Use Learning to review safety, operations, or the event cycle until a job lands here.";
       if (eyebrow) eyebrow.textContent = "Event desk";
     }
   }
@@ -501,25 +489,7 @@
   }
 
   function syncWorkspacePanels() {
-    const brief = document.querySelector("#workspaceLiveBrief");
-    const produce = document.querySelector("#workspaceLiveProduce");
-    const banner = document.querySelector("#workspaceLiveBanner");
-    const active = cache.events[0] || null;
-
-    if (banner) {
-      if (active) {
-        banner.hidden = false;
-        banner.innerHTML = `<strong>Live Event Order on Today:</strong> ${esc(active.name)} · Version ${Number(active.version || 0)} · ${esc(active.stage)}
-          <button class="text-link" type="button" data-view-target="today" data-scroll-live>Open Event desk →</button>`;
-      } else {
-        banner.hidden = false;
-        banner.innerHTML = `<strong>No published Event Order yet.</strong> Classwork continues here. When a catering job publishes, it appears on Today—not as a second packet inside Classwork.`;
-      }
-    }
-
-    // Event Order content stays on Today; Classwork only carries the correspondence banner.
-    if (brief) brief.innerHTML = "";
-    if (produce) produce.innerHTML = "";
+    // Classwork removed; Event Order content lives only on Today.
   }
 
   function updateHomePriority(event, errorMessage = "") {
@@ -530,16 +500,14 @@
       liveTitle.textContent = errorMessage ? "Live Event Order unavailable" : "No published Event Order yet";
       liveMeta.textContent = errorMessage
         ? errorMessage
-        : "Simple catering jobs publish here through the year. Classwork holds the opening unit and the six comprehensive assessments.";
+        : "Simple catering jobs publish here through the year and build toward the six major assessments. Classroom work stays in Google Classroom.";
       setHomeMode("idle");
-      window.syncAgendaFromLive?.();
       return;
     }
     liveTitle.textContent = event.name;
     const tier = event.assessmentTier === "comprehensive" ? "Comprehensive assessment" : "Simple catering";
     liveMeta.textContent = `${tier} · ${event.customer || "Client"} · ${dateLabel(event.serviceDate)} · ${Number(event.guestCount || 0)} guests · Version ${Number(event.version || 0)}`;
     setHomeMode("live");
-    window.syncAgendaFromLive?.();
   }
 
   async function saveProgress(card) {
