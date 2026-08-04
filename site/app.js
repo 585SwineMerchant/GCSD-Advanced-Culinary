@@ -282,7 +282,6 @@ const recipeCategoriesByTopic = {
   business: [], service: [], nutrition: [], proteins: []
 };
 
-const techniques = ["Safety and sanitation", "Mise en place and time management", "Knife work or fabrication", "Garde manger", "Baking or pastry", "Stocks, soups, or sauces", "Vegetables, grains, or pasta", "Protein or egg cookery", "Menu balance and allergens", "Scaling and yield", "Holding, packaging, or labeling", "Hospitality and service"];
 const candidateFields = ["Product or concept", "Source URL / book / chef", "Why it fits the event", "Feasibility concerns"];
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
@@ -317,6 +316,9 @@ function showView(name) {
   window.scrollTo({top: 0, behavior: "smooth"});
   if (name === "today") renderHome();
   if (name === "workspace") renderWorkspace();
+  if (name === "recipes") loadRecipeReviewData().catch(() => {
+    $("#recipeReviewStatus").innerHTML = "<strong>Status unavailable</strong><p>Saved work is still available on this device. Refresh to reconnect to the review queue.</p>";
+  });
 }
 
 function setCurrentEvent(id) {
@@ -344,8 +346,16 @@ function renderHome() {
   $("#homeProgress").textContent = `${completeCount} of 6 phases`;
   const phaseChecks = phaseContent[phase].actions;
   const nextIndex = phaseChecks.findIndex((_, index) => !record.checks?.[`${phase}-${index}`]);
-  $("#homeNextAction").textContent = nextIndex >= 0 ? phaseChecks[nextIndex] : `Complete the ${phaseContent[phase].title.toLowerCase()} phase.`;
+  const returned = actionableRecipeSubmissions().find(item => item.status === "Returned for revision");
+  $("#homeNextAction").textContent = returned
+    ? `Revise ${returned.name}: ${returned.reviewNote || "Teacher returned this recipe for revision."}`
+    : nextIndex >= 0 ? phaseChecks[nextIndex] : `Complete the ${phaseContent[phase].title.toLowerCase()} phase.`;
   $("#homeProgressBar").style.width = `${completeCount / 6 * 100}%`;
+  const phaseIndex = phaseOrder.indexOf(phase);
+  $$(".rhythm-strip li").forEach((item, index) => {
+    item.classList.toggle("is-current", index === phaseIndex);
+    item.classList.toggle("is-complete", Boolean(record.completed?.[phaseOrder[index]]));
+  });
   $("#homeExperienceStrip").innerHTML = experiences.map(item => `
     <button class="arc-card ${item.id === exp.id ? "current" : ""}" data-home-event="${item.id}">
       <span>Experience ${item.id}</span><strong>${item.short}</strong><small>${item.timing}</small>
@@ -354,6 +364,7 @@ function renderHome() {
     setCurrentEvent(button.dataset.homeEvent);
     showView("workspace");
   }));
+  renderRecipeActionInbox("#homeRecipeActions", true);
 }
 
 function renderEventSelector() {
@@ -542,7 +553,6 @@ function useSourceRecipe(recipeId) {
   $(`[data-candidate="${openCandidate}-3"]`).value = `Captured yield: ${recipe.capturedYield || "verify from source"}. Ingredients, procedure, equipment, allergens, and current supplier pricing must be checked before production approval.`;
   $("#recipeName").value ||= recipe.name;
   $("#recipeSearchTerms").value ||= recipe.name;
-  $("#recipeCourseConnection").value ||= recipe.courseAlignment || recipe.courseRoute;
   $("#recipeMessage").textContent = `${recipe.name} was added as Possibility ${openCandidate}. It is a source candidate, not an approved production recipe.`;
   updateRecipeSummary();
   $(".recipe-workspace").scrollIntoView({ behavior: "smooth", block: "start" });
@@ -560,18 +570,85 @@ function initializeSourceControls() {
 let liveRecipeEvents = [];
 let recipeSubmissions = [];
 
+function actionableRecipeSubmissions() {
+  const latestByThread = new Map();
+  [...recipeSubmissions]
+    .sort((a, b) => Number(b.revision || 1) - Number(a.revision || 1) || String(b.submittedAt).localeCompare(String(a.submittedAt)))
+    .forEach(item => {
+      const key = item.threadId || item.id;
+      if (!latestByThread.has(key)) latestByThread.set(key, item);
+    });
+  return [...latestByThread.values()].filter(item => ["Returned for revision", "Awaiting review", "Declined", "Approved"].includes(item.status));
+}
+
+function openReturnedRecipe(submissionId, scrollToDraft = true) {
+  const submission = recipeSubmissions.find(item => item.id === submissionId) || actionableRecipeSubmissions().find(item => item.id === submissionId);
+  if (!submission) return;
+  showView("recipes");
+  if (submission.eventId && liveRecipeEvents.some(event => String(event.id) === String(submission.eventId))) {
+    $("#recipeExperience").value = String(submission.eventId);
+    localStorage.setItem("advancedRecipeEvent", String(submission.eventId));
+  }
+  loadRecipeExperience($("#recipeExperience").value);
+  if (scrollToDraft) {
+    requestAnimationFrame(() => {
+      ($("#recipeReviewStatus") || $(".recipe-workspace"))?.scrollIntoView({ behavior: "smooth", block: "start" });
+    });
+  }
+}
+
+function renderRecipeActionInbox(selector, homeOnlyReturned = false) {
+  const host = $(selector);
+  if (!host) return;
+  const items = actionableRecipeSubmissions().filter(item => !homeOnlyReturned || item.status === "Returned for revision");
+  host.hidden = !items.length;
+  if (!items.length) {
+    host.innerHTML = "";
+    return;
+  }
+  host.innerHTML = items.map(item => {
+    const statusKey = String(item.status).toLowerCase().replaceAll(" ", "-");
+    const actionLabel = item.status === "Returned for revision" ? "Open and revise →" : item.status === "Awaiting review" ? "View submission →" : "Open recipe →";
+    return `<article class="recipe-action-card" data-status="${escapeHtml(statusKey)}">
+      <strong>${escapeHtml(item.status)} · ${escapeHtml(item.name)}</strong>
+      <p>${escapeHtml(item.eventName || "Event not identified")} · revision ${Number(item.revision || 1)}${item.reviewNote ? ` · Teacher feedback: ${escapeHtml(item.reviewNote)}` : ""}</p>
+      <button class="button ${item.status === "Returned for revision" ? "primary" : "secondary"}" type="button" data-open-recipe-submission="${escapeHtml(item.id)}">${actionLabel}</button>
+    </article>`;
+  }).join("");
+  $$("[data-open-recipe-submission]", host).forEach(button => button.addEventListener("click", () => openReturnedRecipe(button.dataset.openRecipeSubmission)));
+}
+
 function renderRecipeEventOptions() {
   const select = $("#recipeExperience");
-  const previous = select.value || localStorage.getItem("advancedRecipeEvent") || "";
+  const returned = actionableRecipeSubmissions().find(item => item.status === "Returned for revision");
+  const previous = returned?.eventId || select.value || localStorage.getItem("advancedRecipeEvent") || "";
   select.innerHTML = liveRecipeEvents.length
     ? liveRecipeEvents.map(event => `<option value="${event.id}">${event.name} · ${event.serviceDate || "Date pending"}</option>`).join("")
     : '<option value="">No published Event Orders available</option>';
-  if (liveRecipeEvents.some(event => String(event.id) === previous)) select.value = previous;
+  if (liveRecipeEvents.some(event => String(event.id) === String(previous))) select.value = String(previous);
+  updateRecipeEventSummary();
+}
+
+function updateRecipeEventSummary() {
+  const summary = $("#recipeEventSummary");
+  if (!summary) return;
+  const event = liveRecipeEvents.find(item => String(item.id) === String($("#recipeExperience").value));
+  if (!event) {
+    summary.textContent = "Choose the published Event Order this recipe supports. Guest count, budget, service details, and allergen controls already live on that order.";
+    return;
+  }
+  const parts = [
+    event.customer,
+    event.guestCount != null ? `${event.guestCount} guests` : null,
+    event.serviceFormat,
+    event.serviceDate,
+    event.budget ? `Budget ${event.budget}` : null
+  ].filter(Boolean);
+  summary.textContent = parts.length ? parts.join(" · ") : `${event.name} is selected. Event details stay on the Event Order.`;
 }
 
 function renderRecipeWorkspace() {
   renderRecipeEventOptions();
-  $("#techniqueChoices").innerHTML = techniques.map((technique, index) => `<label><input type="checkbox" data-technique="${index}" /> ${technique}</label>`).join("");
   $("#candidateGrid").innerHTML = [1, 2, 3].map(number => `
     <article class="candidate-card"><h3>Possibility ${number}</h3>
       ${candidateFields.map((field, index) => `<label>${field}${index > 1 ? `<textarea rows="3" data-candidate="${number}-${index}"></textarea>` : `<input data-candidate="${number}-${index}" ${index === 1 ? 'type="url"' : ""} />`}</label>`).join("")}
@@ -580,9 +657,8 @@ function renderRecipeWorkspace() {
 }
 function recipeStorage() { try { return JSON.parse(localStorage.getItem("advancedRecipeStudioV3") || "{}"); } catch { return {}; } }
 function collectRecipeData() {
-  const fields = ["recipeOccasion", "recipeCount", "recipeBudget", "recipeService", "recipeTime", "recipeNeeds", "recipeCourseConnection", "recipeSearchTerms", "recipeSelection", "recipeApproval", "recipeTestNotes", "recipeName", "recipeYield", "recipePortion", "recipeIngredients", "recipeEquipment", "recipeProcedure", "recipeAllergens"];
+  const fields = ["recipeSearchTerms", "recipeSelection", "recipeApproval", "recipeTestNotes", "recipeName", "recipeYield", "recipePortion", "recipeIngredients", "recipeEquipment", "recipeProcedure", "recipeAllergens"];
   const data = Object.fromEntries(fields.map(id => [id, $("#" + id).value]));
-  data.techniques = $$("[data-technique]").filter(box => box.checked).map(box => box.dataset.technique);
   data.candidates = {}; $$("[data-candidate]").forEach(field => data.candidates[field.dataset.candidate] = field.value);
   const latest = latestRecipeSubmission($("#recipeExperience").value);
   if (latest?.status === "Returned for revision") {
@@ -593,24 +669,31 @@ function collectRecipeData() {
   return data;
 }
 function fillRecipeData(data = {}) {
-  ["recipeOccasion", "recipeCount", "recipeBudget", "recipeService", "recipeTime", "recipeNeeds", "recipeCourseConnection", "recipeSearchTerms", "recipeSelection", "recipeTestNotes", "recipeName", "recipeYield", "recipePortion", "recipeIngredients", "recipeEquipment", "recipeProcedure", "recipeAllergens"].forEach(id => $("#" + id).value = data[id] || "");
+  ["recipeSearchTerms", "recipeSelection", "recipeTestNotes", "recipeName", "recipeYield", "recipePortion", "recipeIngredients", "recipeEquipment", "recipeProcedure", "recipeAllergens"].forEach(id => $("#" + id).value = data[id] || "");
   $("#recipeApproval").value = data.recipeApproval || "Researching";
-  $$("[data-technique]").forEach(box => box.checked = (data.techniques || []).includes(box.dataset.technique));
   $$("[data-candidate]").forEach(field => field.value = (data.candidates || {})[field.dataset.candidate] || "");
   updateRecipeSummary();
+  updateRecipeEventSummary();
 }
 function loadRecipeExperience(id) {
   const saved = recipeStorage()[id];
   const returned = latestRecipeSubmission(id);
-  const recovered = returned?.status === "Returned for revision" ? {
+  const recovered = returned ? {
     recipeName: returned.name, recipeYield: returned.yield, recipePortion: returned.portion,
     recipeIngredients: (returned.ingredients || []).join("\n"), recipeEquipment: (returned.equipment || []).join("\n"),
     recipeProcedure: (returned.procedure || []).join("\n"), recipeAllergens: returned.allergens,
-    recipeTestNotes: returned.testNotes, recipeApproval: "Returned for revision"
+    recipeTestNotes: returned.testNotes || saved?.recipeTestNotes || "",
+    recipeApproval: returned.status === "Approved" ? "Approved for production" : returned.status === "Awaiting review" ? "Submitted for teacher review" : returned.status
   } : {};
-  fillRecipeData(saved || recovered);
-  $("#recipeMessage").textContent = saved ? "Saved work loaded for this event." : returned?.status === "Returned for revision" ? "The returned recipe and teacher feedback were restored for revision." : "No saved work yet for this event.";
+  const merged = returned?.status === "Returned for revision"
+    ? { ...(saved || {}), ...recovered, candidates: saved?.candidates || {} }
+    : (saved || recovered);
+  fillRecipeData(merged);
+  $("#recipeMessage").textContent = returned?.status === "Returned for revision"
+    ? "Teacher returned this recipe. Review the feedback above, revise the draft, and submit a new revision."
+    : saved ? "Saved work loaded for this event." : "No saved work yet for this event.";
   renderStudentReviewStatus();
+  renderRecipeActionInbox("#recipeActionInbox");
 }
 function latestRecipeSubmission(eventId) {
   return recipeSubmissions.filter(item => String(item.eventId) === String(eventId)).sort((a, b) => Number(b.revision || 1) - Number(a.revision || 1) || String(b.submittedAt).localeCompare(String(a.submittedAt)))[0] || null;
@@ -635,9 +718,9 @@ function renderStudentReviewStatus() {
   const history = recipeSubmissions.filter(item => (item.threadId || item.id) === (submission.threadId || submission.id)).sort((a, b) => Number(a.revision || 1) - Number(b.revision || 1));
   const historyText = history.length > 1 ? `<p><b>History:</b> ${history.map(item => `revision ${Number(item.revision || 1)} — ${escapeHtml(item.status)}`).join("; ")}</p>` : "";
   status.dataset.status = submission.status.toLowerCase().replaceAll(" ", "-");
-  status.innerHTML = `<strong>${escapeHtml(submission.status)} · revision ${Number(submission.revision || 1)}</strong><p>${submission.reviewNote ? `<b>Teacher feedback:</b> ${escapeHtml(submission.reviewNote)}` : submission.status === "Awaiting review" ? "This submitted version is locked while your teacher reviews it." : submission.status === "Approved" ? "This version is now in the approved recipe library. Your teacher decides whether to add it to the Event Order." : "No teacher note has been added yet."}</p>${canRevise ? "<p>Edit the draft below and submit a new revision. The earlier version and feedback remain in its history.</p>" : ""}${historyText}`;
+  status.innerHTML = `<strong>${escapeHtml(submission.status)} · ${escapeHtml(submission.name)} · revision ${Number(submission.revision || 1)}</strong><p>${submission.reviewNote ? `<b>Teacher feedback:</b> ${escapeHtml(submission.reviewNote)}` : submission.status === "Awaiting review" ? "This submitted version is locked while your teacher reviews it." : submission.status === "Approved" ? "This version is now in the approved recipe library. Your teacher decides whether to add it to the Event Order." : "No teacher note has been added yet."}</p>${canRevise ? "<p>Edit the draft below and submit a new revision. The earlier version and feedback remain in its history.</p>" : ""}${historyText}`;
   setRecipeLocked(locked);
-  $("#recipeApproval").value = submission.status === "Approved" ? "Approved for production" : submission.status;
+  $("#recipeApproval").value = submission.status === "Approved" ? "Approved for production" : submission.status === "Awaiting review" ? "Submitted for teacher review" : submission.status;
 }
 async function loadRecipeReviewData() {
   const [eventResponse, submissionResponse] = await Promise.all([fetch("/api/student/events"), fetch("/api/recipe-submissions")]);
@@ -645,26 +728,19 @@ async function loadRecipeReviewData() {
   if (submissionResponse.ok) recipeSubmissions = (await submissionResponse.json()).submissions || [];
   renderRecipeEventOptions();
   loadRecipeExperience($("#recipeExperience").value);
+  renderRecipeActionInbox("#recipeActionInbox");
+  renderRecipeActionInbox("#homeRecipeActions", true);
+  if ($(".view.active")?.dataset.viewPanel === "today") renderHome();
 }
 function recipeSummaryText() {
   const data = collectRecipeData();
   const liveEvent = liveRecipeEvents.find(item => String(item.id) === $("#recipeExperience").value);
   const exp = liveEvent ? { short: liveEvent.name } : { short: "Event not selected" };
-  const selectedTechniques = data.techniques.map(index => techniques[Number(index)]).join(", ") || "Not selected";
   const possibilities = [1, 2, 3].map(number => `Possibility ${number}: ${data.candidates[`${number}-0`] || "Not entered"}\nSource: ${data.candidates[`${number}-1`] || "No source"}\nFit: ${data.candidates[`${number}-2`] || "No rationale"}\nFeasibility: ${data.candidates[`${number}-3`] || "No concerns recorded"}`).join("\n\n");
   return `${exp.short}
 
-EVENT / RECIPIENT
-Occasion or recipient: ${data.recipeOccasion || "Not entered"}
-Count: ${data.recipeCount || "Not entered"}
-Cost boundary: ${data.recipeBudget || "Not entered"}
-Service / packaging: ${data.recipeService || "Not entered"}
-Production time: ${data.recipeTime || "Not entered"}
-Dietary needs and allergens: ${data.recipeNeeds || "Not entered"}
-
-CONNECTED LEARNING
-Selected learning: ${selectedTechniques}
-Assigned topic / stretch: ${data.recipeCourseConnection || "Not entered"}
+EVENT
+Published Event Order: ${liveEvent ? `${liveEvent.name}${liveEvent.customer ? ` · ${liveEvent.customer}` : ""}${liveEvent.guestCount != null ? ` · ${liveEvent.guestCount} guests` : ""}` : "Not selected"}
 
 RESEARCH
 ${possibilities}
@@ -691,7 +767,7 @@ async function copyText(text, target) {
   }
 }
 function bindRecipeEvents() {
-  $("#recipeExperience").addEventListener("change", event => { localStorage.setItem("advancedRecipeEvent", event.target.value); loadRecipeExperience(event.target.value); });
+  $("#recipeExperience").addEventListener("change", event => { localStorage.setItem("advancedRecipeEvent", event.target.value); updateRecipeEventSummary(); loadRecipeExperience(event.target.value); });
   $("#recipeForm").addEventListener("input", updateRecipeSummary);
   $("#recipeForm").addEventListener("submit", event => {
     event.preventDefault(); const store = recipeStorage(); store[$("#recipeExperience").value] = collectRecipeData();
@@ -720,7 +796,7 @@ function bindRecipeEvents() {
         name: data.recipeName, yield: data.recipeYield, portion: data.recipePortion,
         ingredients: data.recipeIngredients, equipment: data.recipeEquipment, procedure: data.recipeProcedure,
         eventId: event.id, eventName: event.name, parentSubmissionId: data.parentSubmissionId, threadId: data.threadId, revision: data.revision,
-        allergens: data.recipeAllergens || data.recipeNeeds, sourceNotes: sources.join("\n"), testNotes: data.recipeTestNotes
+        allergens: data.recipeAllergens, sourceNotes: sources.join("\n"), testNotes: data.recipeTestNotes
       }) });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) {
@@ -745,7 +821,7 @@ function bindRecipeEvents() {
     const store = recipeStorage(); delete store[$("#recipeExperience").value]; localStorage.setItem("advancedRecipeStudioV3", JSON.stringify(store)); fillRecipeData({}); $("#recipeMessage").textContent = "This event was cleared.";
   });
   $("#webRecipeSearch").addEventListener("click", () => {
-    const query = $("#recipeSearchTerms").value.trim() || [$("#recipeOccasion").value, $("#recipeNeeds").value, $("#recipeCourseConnection").value, "recipe"].filter(Boolean).join(" ");
+    const query = $("#recipeSearchTerms").value.trim() || "professional recipe";
     window.open(`https://www.google.com/search?q=${encodeURIComponent(query || "professional recipe")}`, "_blank", "noopener");
   });
 }
@@ -788,7 +864,8 @@ async function init() {
   $$(".phase-tab").forEach(tab => tab.addEventListener("click", () => openPhase(tab.dataset.phase)));
   $("#continueWork")?.addEventListener("click", () => {
     const liveRoot = document.querySelector("#liveEventOrder");
-    if (liveRoot && window.GCSDStudentOps?.getCache?.()?.events?.length) {
+    const hasLive = Boolean(window.GCSDStudentOps?.getCache?.()?.events?.length);
+    if (hasLive && liveRoot) {
       showView("today");
       liveRoot.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
@@ -796,7 +873,10 @@ async function init() {
     showView("workspace");
     openPhase(eventRecord().phase || nextIncompletePhase(eventRecord()));
   });
-  $("#openCurrentPhase")?.addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
+  $("#openCurrentPhase")?.addEventListener("click", () => {
+    showView("workspace");
+    openPhase(eventRecord().phase || nextIncompletePhase(eventRecord()));
+  });
   window.addEventListener("gcsd:live-events", () => {
     window.GCSDStudentOps?.syncWorkspacePanels?.();
     const activePhase = document.querySelector(".phase-tab.active")?.dataset.phase;

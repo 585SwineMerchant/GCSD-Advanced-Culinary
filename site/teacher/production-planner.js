@@ -100,9 +100,12 @@ function equipmentFor(stage, equipment) {
   const patterns = {
     "Prepare filling": /scale|mixer|paddle|bowl|spatula|whisk/,
     "Mix dough": /scale|mixer|dough hook|bowl|scraper/,
+    "Mix dough and bulk ferment": /scale|mixer|dough hook|bowl|scraper|container|proof|refrigerator/,
     "Bulk fermentation": /bowl|container|proof|refrigerator/,
     "Shape and portion": /scale|scraper|rolling pin|knife|floss|sheet pan|pan|parchment/,
+    "Shape and overnight chill": /scale|scraper|rolling pin|knife|floss|sheet pan|pan|parchment|refrigerator/,
     "Final proof": /proof|sheet pan|pan|parchment/,
+    "Final proof, bake, and finish": /proof|oven|sheet pan|pan|parchment|thermometer|cooling rack|bowl|whisk|spatula/,
     "Bake": /oven|sheet pan|pan|parchment|thermometer/,
     "Cool and glaze": /cooling rack|bowl|whisk|spatula/,
     "Finish and glaze": /cooling rack|bowl|whisk|spatula/,
@@ -114,7 +117,7 @@ function equipmentFor(stage, equipment) {
   const pattern = patterns[stage];
   let matched = pattern ? equipment.filter(item => pattern.test(String(item).toLowerCase())) : [];
   if (stage === "Prepare filling") matched = matched.filter(item => !/dough hook/i.test(item));
-  if (stage === "Mix dough") matched = matched.filter(item => !/paddle/i.test(item));
+  if (/^Mix dough/.test(stage)) matched = matched.filter(item => !/paddle/i.test(item));
   return matched.length ? matched : equipment.slice(0, 5);
 }
 
@@ -123,26 +126,36 @@ function procedureStages(item) {
   const recipeText = `${item.name} ${(item.ingredients || []).map(value => value.name || value.sourceText || value).join(" ")} ${procedureText}`.toLowerCase();
   const yeasted = /yeast/.test(recipeText);
   const overnightCandidate = yeasted && /cinnamon roll|donut|focaccia|naan|bread|ferment|overnight|bulk/.test(recipeText);
+  const hasFilling = /filling/.test(recipeText) || /cinnamon roll/.test(recipeText);
 
   // Keep only schedule-worthy breakpoints. Students follow the full recipe on the production sheet.
   if (overnightCandidate) {
-    return [
+    const stages = [];
+    if (hasFilling) {
+      stages.push({
+        title: "Prepare filling",
+        detail: "Prepare the filling per the approved recipe on the production sheet. Hold chilled and ready for shaping.",
+        inferred: true
+      });
+    }
+    stages.push(
       {
-        title: "Mix dough",
-        detail: "Mix the dough per the approved recipe on the production sheet. Stop when the dough is ready for fermentation.",
+        title: "Mix dough and bulk ferment",
+        detail: "Mix the dough and complete bulk fermentation in one stage. Stop when the dough is relaxed, expanded, and ready for shaping. Teacher confirms before shaping.",
         inferred: true
       },
       {
-        title: "Bulk fermentation",
-        detail: "Ferment until the dough is relaxed and expanded. Teacher confirms before shaping. This stage may run overnight or across class periods.",
+        title: "Shape and overnight chill",
+        detail: "Scale, shape, and pan the product. Set up for overnight chill so final proof and bake happen the next service morning.",
         inferred: true
       },
       {
-        title: "Shape, bake, and finish",
-        detail: "Shape, proof if needed, bake, and finish per the approved recipe on the production sheet.",
+        title: "Final proof, bake, and finish",
+        detail: "Final proof, bake, and finish per the approved recipe on the production sheet. This stage usually happens the morning of service after overnight chill.",
         inferred: true
       }
-    ];
+    );
+    return stages;
   }
 
   return [{
@@ -157,8 +170,8 @@ function stageSchedule(stages, readyMinutes) {
   return stages.map((stage, index) => {
     let dayOffset = 0;
     if (morningService) {
-      if (/mix dough|bulk fermentation/i.test(stage.title)) dayOffset = -1;
-      else if (/shape, bake, and finish/i.test(stage.title)) dayOffset = 0;
+      if (/prepare filling|mix dough and bulk ferment|shape and overnight chill/i.test(stage.title)) dayOffset = -1;
+      else if (/final proof, bake, and finish/i.test(stage.title)) dayOffset = 0;
       else if (/produce/i.test(stage.title)) dayOffset = -1;
     }
     if (dayOffset < 0) {
@@ -191,6 +204,8 @@ export function buildProductionTasks(item, menuIndex, event, sections, previousT
     const planKey = `${recipeKey}:stage:${index}:${stage.title.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
     const prior = previousByKey.get(planKey) || {};
     const controls = qualityControls(stage.detail);
+    if (stage.title === "Mix dough and bulk ferment" && !controls.length) controls.push("Dough is mixed and visibly expanded; teacher approves shaping.");
+    if (stage.title === "Final proof, bake, and finish" && !controls.length) controls.push("Final proof is complete and product is baked/finished to recipe standard.");
     if (stage.title === "Bulk fermentation" && !controls.length) controls.push("Dough is relaxed and visibly expanded; teacher approves shaping.");
     if (stage.title === "Final proof" && !controls.length) controls.push("Shaped product is visibly expanded and soft; teacher approves baking.");
     const pointLabel = schedule[index].dayOffset < 0 ? "advance production" : "service-day production";

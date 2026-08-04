@@ -38,9 +38,10 @@ test("production units use the approved recipe unit instead of generic portions"
 test("Cinnamon Rolls keeps only schedule-worthy stages plus handoff", () => {
   const tasks = buildProductionTasks(cinnamonRolls, 0, event, sections);
   assert.deepEqual(tasks.map(task => task.name), [
-    "Cinnamon Rolls — Mix dough",
-    "Cinnamon Rolls — Bulk fermentation",
-    "Cinnamon Rolls — Shape, bake, and finish",
+    "Cinnamon Rolls — Prepare filling",
+    "Cinnamon Rolls — Mix dough and bulk ferment",
+    "Cinnamon Rolls — Shape and overnight chill",
+    "Cinnamon Rolls — Final proof, bake, and finish",
     "Cinnamon Rolls — Final yield and handoff"
   ]);
   assert.match(tasks[0].detail, /^3 batches/);
@@ -50,6 +51,8 @@ test("Cinnamon Rolls keeps only schedule-worthy stages plus handoff", () => {
   assert.equal(tasks.at(-1).deadline, "07:15");
   assert.equal(tasks.at(-1).outputRecord, true);
   assert.equal(tasks.slice(0, -1).every(task => task.outputRecord === false), true);
+  assert.match(tasks.find(task => /overnight chill/i.test(task.name)).day, /Sep 23/);
+  assert.match(tasks.find(task => /Final proof, bake/i.test(task.name)).day, /Sep 24/);
 });
 
 test("simple bakery items collapse to one produce task plus handoff", () => {
@@ -81,9 +84,9 @@ test("100 required rolls at 16 per batch produces seven whole batches and planne
 
 test("temperature, equipment, quality controls, and dependencies carry into tasks", () => {
   const tasks = buildProductionTasks(cinnamonRolls, 0, event, sections);
-  const finish = tasks.find(task => task.name.endsWith("— Shape, bake, and finish"));
+  const finish = tasks.find(task => task.name.endsWith("— Final proof, bake, and finish"));
   assert.ok(finish.equipment.length);
-  assert.match(finish.dependency, /bulk fermentation/i);
+  assert.match(finish.dependency, /overnight chill/i);
   assert.equal(tasks.filter(task => task.outputRecord).length, 1);
 });
 
@@ -110,7 +113,7 @@ test("the complete pathway library generates compact production work", () => {
   assert.equal(tasks.every(task => task.detail && task.day && task.deadline && task.section && task.dependency), true);
   assert.equal(tasks.every(task => Array.isArray(task.qualityControls) && Array.isArray(task.equipment)), true);
   assert.equal(tasks.filter(task => task.outputRecord).length, PATHWAY_RECIPES.length);
-  assert.ok(tasks.length <= PATHWAY_RECIPES.length * 4);
+  assert.ok(tasks.length <= PATHWAY_RECIPES.length * 5);
   assert.ok(tasks.length >= PATHWAY_RECIPES.length * 2);
 });
 

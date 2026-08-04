@@ -173,6 +173,24 @@ test("student packet remains available when publishedAt is set even if stage was
   assert.equal(body.events[0].id, "event-1");
 });
 
+test("completed events leave the live student feed and appear in the current-year archive", async () => {
+  const completed = {
+    ...event,
+    stage: "Completed",
+    archived: true,
+    completedAt: "2026-09-25T12:00:00.000Z",
+    serviceDate: "2026-09-24"
+  };
+  const env = { DB: new FakeDB({ requests: [], events: [completed] }) };
+  const response = await worker.fetch(request("/api/student/events", "student@district.example"), env);
+  const body = await response.json();
+  assert.equal(response.status, 200);
+  assert.equal(body.events.length, 0);
+  assert.equal(body.yearArchive.length, 1);
+  assert.equal(body.yearArchive[0].id, "event-1");
+  assert.equal(body.yearArchive[0].archived, true);
+});
+
 test("recipe submission accepts a published Event Order even if stage drifted to Draft", async () => {
   const drifted = { ...event, stage: "Draft" };
   const env = { DB: new FakeDB({ requests: [], events: [drifted] }) };

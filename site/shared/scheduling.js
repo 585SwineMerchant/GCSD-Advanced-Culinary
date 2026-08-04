@@ -121,6 +121,42 @@ export function sectionDisplayLabel(section) {
   return section.officialSectionNumber ? `${family} - Section ${section.officialSectionNumber}` : section.name || `${family} - ${section.provisionalLabel || "Section TBD"}`;
 }
 
+/** Greece CSD instructional year boundary: September 1. */
+export function schoolYearStartYear(iso, now = new Date()) {
+  const date = parseDate(iso) || now;
+  const year = date.getFullYear();
+  const month = date.getMonth();
+  return month >= 8 ? year : year - 1;
+}
+
+export function schoolYearLabel(iso, now = new Date()) {
+  const start = schoolYearStartYear(iso, now);
+  return `${start}–${start + 1}`;
+}
+
+export function isCurrentSchoolYear(iso, now = new Date()) {
+  if (!iso) return false;
+  return schoolYearStartYear(iso, now) === schoolYearStartYear(dateKey(now), now);
+}
+
+/** Student archive visibility: current instructional year, plus the upcoming year before September. */
+export function isStudentArchiveYear(iso, now = new Date()) {
+  if (!iso) return false;
+  const eventStart = schoolYearStartYear(iso, now);
+  const currentStart = schoolYearStartYear(dateKey(now), now);
+  if (eventStart === currentStart) return true;
+  if (now.getMonth() < 8 && eventStart === currentStart + 1) return true;
+  return false;
+}
+
+export function isArchivedEvent(event) {
+  return Boolean(event?.archived) || event?.stage === "Completed";
+}
+
+export function eventSchoolYearAnchor(event) {
+  return event?.serviceDate || event?.completedAt || event?.publishedAt || null;
+}
+
 export function rotationDayForDate(iso, calendar = SCHOOL_CALENDAR) {
   const key = isoDate(iso);
   if (!key) return null;

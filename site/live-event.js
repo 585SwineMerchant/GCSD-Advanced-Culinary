@@ -4,19 +4,63 @@
   const identity = document.querySelector("#liveEventIdentity");
   if (!root || !content) return;
 
+  const TEAM_FILTER_KEY = "advancedTeamFilter";
   const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
   const statuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];
   const wasteCategories = ["", "Trim", "Spoilage", "Production error", "Damaged finished product", "Unused but recoverable", "Other"];
   const dateLabel = value => value ? new Date(`${value}T12:00:00`).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" }) : "Date pending";
 
-  let cache = { events: [], user: null, error: null };
+  let cache = { events: [], yearArchive: [], schoolYear: "", user: null, error: null };
+  let teamFilter = "all";
 
   if (location.hostname.endsWith("github.io")) {
     document.querySelectorAll(".teacher-entry").forEach(link => { link.hidden = true; });
-    root.hidden = false;
-    identity.textContent = "Static field manual";
-    content.innerHTML = '<div class="live-event-empty"><strong>Live Event Orders run on the secure classroom host.</strong><p>Open the Cloudflare app to see published catering jobs and send production updates.</p></div>';
+    root.hidden = true;
+    content.innerHTML = "";
+    const panel = document.querySelector('[data-view-panel="today"]');
+    if (panel) panel.dataset.homeMode = "idle";
+    const continueBtn = document.querySelector("#continueWork");
+    if (continueBtn) continueBtn.textContent = "Open current phase →";
+    const lede = document.querySelector("#deskLede");
+    if (lede) lede.textContent = "This static copy cannot load live Event Orders. Use Workspace to walk the course pathway, or open the classroom host for production.";
+    const liveTitle = document.querySelector("#liveJobTitle");
+    const liveMeta = document.querySelector("#liveJobMeta");
+    const eyebrow = document.querySelector("#deskStatusEyebrow");
+    if (eyebrow) eyebrow.textContent = "Static field manual";
+    if (liveTitle) liveTitle.textContent = "Live jobs require the classroom host";
+    if (liveMeta) liveMeta.textContent = "Learning, Recipes, and Reference still work here. Station updates need the secure app.";
     return;
+  }
+
+  function setHomeMode(mode) {
+    const panel = document.querySelector('[data-view-panel="today"]');
+    if (panel) panel.dataset.homeMode = mode;
+    const continueBtn = document.querySelector("#continueWork");
+    const lede = document.querySelector("#deskLede");
+    const eyebrow = document.querySelector("#deskStatusEyebrow");
+    if (mode === "live") {
+      if (continueBtn) continueBtn.textContent = "Go to station updates →";
+      if (lede) lede.textContent = "Your chef published the catering job. Read the packet, cook your station, and send short updates. Learning tools support the work—they do not replace the Event Order.";
+      if (eyebrow) eyebrow.textContent = "Live Event Order";
+    } else if (mode === "idle") {
+      if (continueBtn) continueBtn.textContent = "Open current phase →";
+      if (lede) lede.textContent = "No catering job is published right now. Use the course pathway to prepare—when a job lands, this desk becomes the Event Order.";
+      if (eyebrow) eyebrow.textContent = "Between published jobs";
+    }
+  }
+
+  function ensureArchiveSection() {
+    let section = document.querySelector("#yearArchiveSection");
+    if (section) return section;
+    section = document.createElement("section");
+    section.id = "yearArchiveSection";
+    section.className = "year-archive-section";
+    section.hidden = true;
+    section.setAttribute("aria-labelledby", "yearArchiveTitle");
+    const yearArc = document.querySelector(".year-arc");
+    if (yearArc) yearArc.insertAdjacentElement("afterend", section);
+    else root.insertAdjacentElement("afterend", section);
+    return section;
   }
 
   function stationDutyLabel(record) {
@@ -90,6 +134,92 @@
     });
   }
 
+  function allContributions(user) {
+    return (cache.events || []).flatMap(event =>
+      (event.tasks || []).flatMap(task => contributions(task, event, user))
+    );
+  }
+
+  function nameMatchesStudent(displayName, students) {
+    const needle = String(displayName || "").trim().toLowerCase();
+    if (!needle) return false;
+    return (students || []).some(name => String(name || "").trim().toLowerCase() === needle);
+  }
+
+  function collectTeamOptions(user) {
+    const map = new Map();
+    allContributions(user).forEach(item => {
+      const id = item.team?.id || "";
+      if (!id || map.has(id)) return;
+      const sectionLabel = item.record?.sectionLabel || item.record?.sectionName || "";
+      map.set(id, {
+        id,
+        name: item.team.name || id,
+        sectionLabel,
+        students: item.team.students || []
+      });
+    });
+    return [...map.values()].sort((a, b) => {
+      const left = `${a.sectionLabel} ${a.name}`.toLowerCase();
+      const right = `${b.sectionLabel} ${b.name}`.toLowerCase();
+      return left.localeCompare(right);
+    });
+  }
+
+  function resolveTeamFilter(user) {
+    const options = collectTeamOptions(user);
+    const ids = new Set(options.map(option => option.id));
+    let stored = "";
+    try { stored = sessionStorage.getItem(TEAM_FILTER_KEY) || ""; } catch (_) { stored = ""; }
+    if (stored === "all") return "all";
+    if (stored && ids.has(stored)) return stored;
+    if (user?.role === "student") {
+      const match = options.find(option => nameMatchesStudent(user.display_name, option.students));
+      if (match) return match.id;
+    }
+    return "all";
+  }
+
+  function persistTeamFilter(value) {
+    teamFilter = value || "all";
+    try { sessionStorage.setItem(TEAM_FILTER_KEY, teamFilter); } catch (_) { /* ignore */ }
+  }
+
+  function filterItems(items) {
+    if (teamFilter === "all") return items;
+    return items.filter(item => (item.team?.id || "") === teamFilter);
+  }
+
+  function isPreviewUser(user) {
+    return user && user.role !== "student";
+  }
+
+  function teamFilterBarHtml(user) {
+    const options = collectTeamOptions(user);
+    if (!options.length) return "";
+    const preview = isPreviewUser(user);
+    const allLabel = preview ? "All teams · All classes" : "All teams";
+    const optionHtml = options.map(option => {
+      const label = preview && option.sectionLabel
+        ? `${option.sectionLabel} · ${option.name}`
+        : option.name;
+      return `<option value="${esc(option.id)}" ${teamFilter === option.id ? "selected" : ""}>${esc(label)}</option>`;
+    }).join("");
+    return `<div class="team-filter-bar">
+      <label for="advancedTeamFilterSelect">${preview ? "Filter by class / team" : "Filter by team"}</label>
+      <select id="advancedTeamFilterSelect" data-team-filter>
+        <option value="all" ${teamFilter === "all" ? "selected" : ""}>${esc(allLabel)}</option>
+        ${optionHtml}
+      </select>
+    </div>`;
+  }
+
+  function sectionStyle(record) {
+    const color = record?.sectionColor;
+    if (!color) return "";
+    return ` style="--section-tint:${esc(color.tint)};--section-border:${esc(color.border)};--section-text:${esc(color.text)}"`;
+  }
+
   function contributionCard(item) {
     const { task, record, team, progress, outputRecord, key, legacy } = item;
     const station = record ? stationDutyLabel(record) : (task.station || "Production");
@@ -105,15 +235,21 @@
     const schedule = record
       ? `${dateLabel(record.workDate)} · ${stationDutyLabel(record)}${sequence}`
       : (task.workDate ? `${dateLabel(task.workDate)} · ${esc(task.deadline || "time pending")}` : "Teacher will confirm");
-
+    const classLabel = record?.sectionLabel || record?.sectionName || "";
+    const teacherLabel = record?.sectionTeacher || "";
+    const classLine = classLabel
+      ? `${esc(classLabel)}${teacherLabel ? ` · ${esc(teacherLabel)}` : ""}`
+      : "";
+    const tinted = Boolean(record?.sectionColor);
     const recipe = task.recipe;
     const recipeButton = recipe
       ? `<button class="button secondary" type="button" data-open-recipe="${esc(task.id)}" data-event-id="${esc(item.event.id)}">View recipe · ${esc(recipe.name)}</button>`
       : "";
 
-    return `<article class="student-live-task" data-task-id="${esc(task.id)}" data-event-id="${esc(item.event.id)}" data-contribution-key="${esc(key)}" data-legacy="${legacy ? "1" : "0"}">
+    return `<article class="student-live-task${tinted ? " section-tinted" : ""}" data-task-id="${esc(task.id)}" data-event-id="${esc(item.event.id)}" data-contribution-key="${esc(key)}" data-team-id="${esc(team.id || "")}" data-legacy="${legacy ? "1" : "0"}"${sectionStyle(record)}>
       <header>
         <div>
+          ${classLine ? `<p class="student-section-label">${classLine}</p>` : ""}
           <span>${esc(station)}${esc(sequence)} · ${esc(team.name || "Team pending")}</span>
           <h4>${esc(task.name)}</h4>
         </div>
@@ -165,17 +301,54 @@
   }
 
   function eventProduceHtml(event, user) {
-    const items = (event.tasks || []).flatMap(task => contributions(task, event, user));
-    if (!items.length) {
+    const all = (event.tasks || []).flatMap(task => contributions(task, event, user));
+    if (!all.length) {
       return '<div class="live-event-empty">No production tasks are assigned to your section yet.</div>';
     }
+    const items = filterItems(all);
+    if (!items.length) {
+      return '<div class="live-event-empty">No production tasks match this team filter.</div>';
+    }
     return `<div class="student-task-list">${items.map(contributionCard).join("")}</div>`;
+  }
+
+  function yearArchiveHtml() {
+    const archive = cache.yearArchive || [];
+    if (!archive.length) return "";
+    const year = cache.schoolYear ? ` (${esc(cache.schoolYear)})` : "";
+    return `<div class="section-heading">
+        <div><p class="eyebrow">Completed this year</p><h2 id="yearArchiveTitle">This year's completed events${year}</h2></div>
+        <p>Read-only summary. Live production updates stay on current Event Orders only.</p>
+      </div>
+      <div class="year-archive-list">
+        ${archive.map(event => {
+          const menuNames = (event.menu || []).map(item => item.name).filter(Boolean).join(", ") || "Menu pending";
+          return `<article class="year-archive-card">
+            <strong>${esc(event.name)}</strong>
+            <span>${dateLabel(event.serviceDate)} · ${Number(event.guestCount || 0)} guests</span>
+            <p>${esc(menuNames)}</p>
+          </article>`;
+        }).join("")}
+      </div>`;
+  }
+
+  function renderYearArchive() {
+    const section = ensureArchiveSection();
+    const html = yearArchiveHtml();
+    if (!html) {
+      section.hidden = true;
+      section.innerHTML = "";
+      return;
+    }
+    section.hidden = false;
+    section.innerHTML = html;
   }
 
   function renderHome() {
     root.hidden = false;
     const user = cache.user;
-    const previewNote = user && user.role !== "student"
+    teamFilter = resolveTeamFilter(user);
+    const previewNote = isPreviewUser(user)
       ? " · Teacher/admin preview"
       : "";
     identity.textContent = user
@@ -183,19 +356,27 @@
       : "Secure connection required";
 
     if (cache.error) {
-      content.innerHTML = `<div class="live-event-empty"><strong>Live Event Order unavailable.</strong><p>${esc(cache.error)}</p></div>`;
+      content.innerHTML = "";
+      root.hidden = true;
+      setHomeMode("idle");
+      renderYearArchive();
       syncWorkspacePanels();
+      updateHomePriority(null, cache.error);
       return;
     }
 
     if (!cache.events.length) {
-      content.innerHTML = '<div class="live-event-empty"><strong>No Event Order is currently published for you.</strong><p>When your chef publishes a catering job, the menu, station plan, and update forms will appear here.</p></div>';
+      content.innerHTML = "";
+      root.hidden = true;
+      setHomeMode("idle");
+      renderYearArchive();
       syncWorkspacePanels();
       updateHomePriority(null);
       return;
     }
 
-    content.innerHTML = cache.events.map(event => `<article class="student-event-card">
+    root.hidden = false;
+    content.innerHTML = `${teamFilterBarHtml(user)}${cache.events.map(event => `<article class="student-event-card">
       ${eventBriefHtml(event)}
       <div class="student-produce-heading">
         <div>
@@ -205,9 +386,58 @@
         <button class="button secondary" type="button" data-print-packet="${esc(event.id)}">Print production sheet</button>
       </div>
       ${eventProduceHtml(event, user)}
-    </article>`).join("");
+    </article>`).join("")}`;
+    setHomeMode("live");
+    renderYearArchive();
     syncWorkspacePanels();
     updateHomePriority(cache.events[0]);
+  }
+
+  function recipeLines(value) {
+    const formatLine = (entry) => {
+      if (entry == null) return "";
+      if (typeof entry === "string" || typeof entry === "number") return String(entry).trim();
+      if (typeof entry === "object") {
+        return [entry.quantity, entry.unit, entry.name || entry.ingredient || entry.sourceText].filter(part => part != null && String(part).trim() !== "").join(" ").trim();
+      }
+      return String(entry).trim();
+    };
+    return (Array.isArray(value) ? value : String(value || "").split(/\n+/)).map(formatLine).filter(Boolean);
+  }
+
+  function recipePacketHtml(recipe, { includeActions = false } = {}) {
+    const ingredients = recipeLines(recipe.ingredients);
+    const equipment = recipeLines(recipe.equipment);
+    const procedure = recipeLines(recipe.procedure);
+    const yieldMeta = [
+      recipe.yield ? `Yield: ${recipe.yield}` : null,
+      recipe.portion ? `Portion: ${recipe.portion}` : null
+    ].filter(Boolean).join(" · ") || "Yield / portion on chef packet";
+    return `<div class="recipe-packet culinary-form">
+      <header class="recipe-packet-header">
+        <p class="recipe-pathway">GCSD Culinary Pathway · Advanced Culinary</p>
+        <h2>${esc(recipe.name)}</h2>
+        <p class="recipe-meta-row">${esc(yieldMeta)}</p>
+      </header>
+      ${recipe.allergens ? `<p class="recipe-allergens"><strong>Allergens:</strong> ${esc(recipe.allergens)}</p>` : `<p class="recipe-allergens"><strong>Allergens:</strong> See chef packet.</p>`}
+      <section class="recipe-ingredients">
+        <h3>Ingredients</h3>
+        <ul>${ingredients.map(line => `<li>${esc(line)}</li>`).join("") || "<li>See chef packet.</li>"}</ul>
+      </section>
+      <section class="recipe-equipment">
+        <h3>Equipment</h3>
+        <ul>${equipment.map(line => `<li>${esc(line)}</li>`).join("") || "<li>See station card.</li>"}</ul>
+      </section>
+      <section class="recipe-procedure">
+        <h3>Procedure</h3>
+        <ol>${procedure.map(line => `<li>${esc(line)}</li>`).join("") || "<li>See chef packet.</li>"}</ol>
+      </section>
+      <p class="recipe-footer-note">Inspect what you expect.</p>
+      ${includeActions ? `<div class="form-actions">
+        <button class="button primary" type="button" data-print-recipe>Print recipe</button>
+        <button class="button secondary" type="button" data-close-modal="recipeDialog">Close</button>
+      </div>` : ""}
+    </div>`;
   }
 
   function openRecipe(taskId, eventId) {
@@ -217,38 +447,17 @@
     const dialog = document.querySelector("#recipeDialog");
     const body = document.querySelector("#recipeDialogContent");
     if (!dialog || !body || !recipe) return;
-    const formatLine = (value) => {
-      if (value == null) return "";
-      if (typeof value === "string" || typeof value === "number") return String(value).trim();
-      if (typeof value === "object") {
-        return [value.quantity, value.unit, value.name || value.ingredient || value.sourceText].filter(part => part != null && String(part).trim() !== "").join(" ").trim();
-      }
-      return String(value).trim();
-    };
-    const lines = (value) => (Array.isArray(value) ? value : String(value || "").split(/\n+/)).map(formatLine).filter(Boolean);
     body.innerHTML = `
       <div class="modal-hero">
         <p class="eyebrow">Approved event recipe</p>
         <h2>${esc(recipe.name)}</h2>
-        <p>${recipe.yield ? `Yield ${esc(recipe.yield)}` : "Yield on packet"}${recipe.portion ? ` · ${esc(recipe.portion)}` : ""}</p>
+        <p>Culinary pathway station packet</p>
       </div>
-      <div class="modal-body recipe-packet">
-        ${recipe.allergens ? `<p><strong>Allergens:</strong> ${esc(recipe.allergens)}</p>` : ""}
-        <h3>Ingredients</h3>
-        <ul>${lines(recipe.ingredients).map(line => `<li>${esc(line)}</li>`).join("") || "<li>See chef packet.</li>"}</ul>
-        <h3>Equipment</h3>
-        <ul>${lines(recipe.equipment).map(line => `<li>${esc(line)}</li>`).join("") || "<li>See station card.</li>"}</ul>
-        <h3>Procedure</h3>
-        <ol>${lines(recipe.procedure).map(line => `<li>${esc(line)}</li>`).join("") || "<li>See chef packet.</li>"}</ol>
-        <div class="form-actions">
-          <button class="button primary" type="button" data-print-recipe>Print recipe</button>
-          <button class="button secondary" type="button" data-close-modal="recipeDialog">Close</button>
-        </div>
-      </div>`;
+      <div class="modal-body">${recipePacketHtml(recipe, { includeActions: true })}</div>`;
     body.querySelector("[data-print-recipe]")?.addEventListener("click", () => {
       const printArea = document.querySelector("#printArea");
       if (!printArea) return;
-      printArea.innerHTML = body.querySelector(".recipe-packet")?.outerHTML || body.innerHTML;
+      printArea.innerHTML = recipePacketHtml(recipe, { includeActions: false });
       window.print();
     });
     body.querySelector('[data-close-modal="recipeDialog"]')?.addEventListener("click", () => dialog.close());
@@ -259,7 +468,7 @@
     const event = cache.events.find(item => item.id === eventId);
     const printArea = document.querySelector("#printArea");
     if (!event || !printArea) return;
-    const items = (event.tasks || []).flatMap(task => contributions(task, event, cache.user));
+    const items = filterItems((event.tasks || []).flatMap(task => contributions(task, event, cache.user)));
     printArea.innerHTML = `
       <div class="print-header">
         <div><h1>Advanced Culinary</h1><p>Production sheet</p></div>
@@ -272,7 +481,8 @@
         ${items.map(item => {
           const station = item.record ? stationDutyLabel(item.record) : (item.task.station || "Production");
           const allocated = item.record ? `${Number(item.record.allocatedQuantity || 0)} ${item.record.allocatedUnit || item.task.plannedUnit || "units"}` : "";
-          return `<section class="print-box"><strong>${esc(item.task.name)}</strong><p>${esc(station)} · ${esc(item.team.name)}</p><p>${esc(allocated)}</p><p>${esc(item.record?.studentDetails || "")}</p><div class="print-lines"></div></section>`;
+          const classLabel = item.record?.sectionLabel || "";
+          return `<section class="print-box"><strong>${esc(item.task.name)}</strong><p>${esc(classLabel ? `${classLabel} · ` : "")}${esc(station)} · ${esc(item.team.name)}</p><p>${esc(allocated)}</p><p>${esc(item.record?.studentDetails || "")}</p><div class="print-lines"></div></section>`;
         }).join("")}
       </div>`;
     window.print();
@@ -288,37 +498,41 @@
       if (active) {
         banner.hidden = false;
         banner.innerHTML = `<strong>Live Event Order:</strong> ${esc(active.name)} · Version ${Number(active.version || 0)} · ${esc(active.stage)}
-          <button class="text-link" type="button" data-view-target="today" data-scroll-live>Open full packet on Home →</button>`;
+          <button class="text-link" type="button" data-view-target="today" data-scroll-live>Open full station desk on Today →</button>`;
       } else {
         banner.hidden = false;
-        banner.innerHTML = `<strong>No published Event Order for your section yet.</strong> Course phases below still help you practice. When a job is published, Brief and Produce will show the live packet here.`;
+        banner.innerHTML = `<strong>No published Event Order for your section yet.</strong> Work the course phases below. When a job is published, Brief and Produce show the live packet here—and Today becomes the station desk.`;
       }
     }
 
     if (brief) {
       brief.innerHTML = active
         ? `${eventBriefHtml(active)}<p class="phase-callout"><strong>Do not retype this brief.</strong> Your chef already published the promise. Use the checklist to confirm the team understands it.</p>`
-        : `<div class="live-event-empty"><strong>No live brief yet.</strong><p>Optional Tool A remains available for practice when no Event Order is published.</p></div>`;
+        : `<div class="live-event-empty"><strong>No live brief yet.</strong><p>When an Event Order is published, the chef packet appears here. Until then, use the checklist to practice reading a client commitment.</p></div>`;
     }
 
     if (produce) {
       produce.innerHTML = active
-        ? `${eventProduceHtml(active, cache.user)}<p class="phase-callout"><strong>These updates go to your chef’s Live Production board.</strong> Keep them short and accurate.</p>`
-        : `<div class="live-event-empty"><strong>No live production tasks yet.</strong><p>When an Event Order is published, your station cards will appear here.</p></div>`;
+        ? `${teamFilterBarHtml(cache.user)}${eventProduceHtml(active, cache.user)}<p class="phase-callout"><strong>These updates go to your chef’s Live Production board.</strong> Keep them short and accurate.</p>`
+        : `<div class="live-event-empty"><strong>No live production tasks yet.</strong><p>When an Event Order is published, your station cards appear here and on Today.</p></div>`;
     }
   }
 
-  function updateHomePriority(event) {
+  function updateHomePriority(event, errorMessage = "") {
     const liveTitle = document.querySelector("#liveJobTitle");
     const liveMeta = document.querySelector("#liveJobMeta");
     if (!liveTitle || !liveMeta) return;
     if (!event) {
-      liveTitle.textContent = "Waiting for a published Event Order";
-      liveMeta.textContent = "Course experiences below stay available for learning. The kitchen job appears here when your chef publishes.";
+      liveTitle.textContent = errorMessage ? "Live Event Order unavailable" : "No published Event Order yet";
+      liveMeta.textContent = errorMessage
+        ? errorMessage
+        : "Use the course pathway to prepare. When your chef publishes a catering job, this desk becomes the station packet.";
+      setHomeMode("idle");
       return;
     }
     liveTitle.textContent = event.name;
     liveMeta.textContent = `${event.customer || "Client"} · ${dateLabel(event.serviceDate)} · ${Number(event.guestCount || 0)} guests · Version ${Number(event.version || 0)}`;
+    setHomeMode("live");
   }
 
   async function saveProgress(card) {
@@ -353,6 +567,13 @@
     }
   }
 
+  document.addEventListener("change", event => {
+    const filter = event.target.closest("[data-team-filter]");
+    if (!filter) return;
+    persistTeamFilter(filter.value);
+    renderHome();
+  });
+
   document.addEventListener("click", event => {
     const saveButton = event.target.closest("[data-save-progress]");
     if (saveButton) {
@@ -381,11 +602,17 @@
       const response = await fetch("/api/student/events", { cache: "no-store" });
       const result = await response.json().catch(() => ({}));
       if (!response.ok) throw new Error(result.error || "Live Event Order unavailable.");
-      cache = { events: result.events || [], user: result.user || null, error: null };
+      cache = {
+        events: result.events || [],
+        yearArchive: result.yearArchive || [],
+        schoolYear: result.schoolYear || "",
+        user: result.user || null,
+        error: null
+      };
       renderHome();
       window.dispatchEvent(new CustomEvent("gcsd:live-events", { detail: cache }));
     } catch (error) {
-      cache = { events: [], user: null, error: error.message || String(error) };
+      cache = { events: [], yearArchive: [], schoolYear: "", user: null, error: error.message || String(error) };
       renderHome();
       window.dispatchEvent(new CustomEvent("gcsd:live-events", { detail: cache }));
     }

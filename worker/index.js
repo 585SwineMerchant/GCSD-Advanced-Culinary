@@ -1,6 +1,6 @@
 import { PATHWAY_RECIPES } from "./pathway-recipes.js";
 import { SUPPLIER_CATALOG } from "./supplier-catalog.js";
-import { DEFAULT_SECTIONS, aggregateProgress, assignmentContributionKey, assignmentsForSection, normalizeProgress, reconcileActiveTeamLabels, normalizeTaskAssignments, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
+import { DEFAULT_SECTIONS, aggregateProgress, assignmentContributionKey, assignmentsForSection, eventSchoolYearAnchor, isArchivedEvent, isStudentArchiveYear, normalizeProgress, reconcileActiveTeamLabels, normalizeTaskAssignments, schoolYearLabel, sectionColor, sectionDisplayLabel, taskPublicationIssues, teamsForSection } from "../site/shared/scheduling.js";
 
 const JSON_HEADERS = { "content-type": "application/json; charset=utf-8", "cache-control": "no-store" };
 const BOOTSTRAP_ADMIN_NAME = "Kevin McCann";
@@ -41,11 +41,65 @@ function normalizeState(state = {}) {
   state.recipeSubmissions ||= [];
   state.approvedRecipes ||= [];
   state.sections = reconcileActiveTeamLabels(state.sections || DEFAULT_SECTIONS);
-  state.events.forEach(event => (event.tasks || []).forEach(task => {
-    normalizeTaskAssignments(task, state.sections);
-    task.progress = aggregateProgress(task);
-  }));
+  state.events.forEach(event => {
+    if (event.stage === "Completed") event.archived = true;
+    (event.tasks || []).forEach(task => {
+      normalizeTaskAssignments(task, state.sections);
+      task.progress = aggregateProgress(task);
+    });
+  });
   return state;
+}
+
+function studentParticipates(event, user, sections) {
+  if (!user?.section_id) return user?.role !== "student";
+  return (event.tasks || []).some(task => assignmentsForSection(task, user.section_id, sections).length > 0);
+}
+
+function mapStudentEvent(event, user, sections) {
+  return {
+    id: event.id, name: event.name, customer: event.customer, school: event.school, serviceDate: event.serviceDate,
+    serviceTime: event.serviceTime, guestCount: event.guestCount, serviceFormat: event.serviceFormat,
+    budget: event.budget, requirements: event.requirements, allergens: event.allergens, stage: event.stage, version: event.version,
+    publishedAt: event.publishedAt, archived: Boolean(event.archived), completedAt: event.completedAt || null,
+    schoolYear: schoolYearLabel(eventSchoolYearAnchor(event)),
+    menu: event.menu,
+    tasks: (event.tasks || [])
+      .filter(task => user.role !== "student" || (user.section_id && assignmentsForSection(task, user.section_id, sections).length))
+      .map(task => {
+        const menuItem = (event.menu || [])[Number(task.menuIndex)] || null;
+        const records = user.role === "student" && user.section_id
+          ? assignmentsForSection(task, user.section_id, sections)
+          : (task.assignmentRecords || []);
+        return {
+          ...task,
+          recipe: menuItem ? {
+            name: menuItem.name,
+            yield: menuItem.yield,
+            portion: menuItem.portion,
+            ingredients: menuItem.ingredients || [],
+            equipment: menuItem.equipment || [],
+            procedure: menuItem.procedure || [],
+            allergens: menuItem.allergens || "",
+            recipeId: menuItem.recipeId || null
+          } : null,
+          assignmentRecords: records.map(record => {
+            const section = sections.find(item => item.id === record.sectionId);
+            const color = sectionColor(record.sectionId);
+            return {
+              ...record,
+              sectionLabel: sectionDisplayLabel(section),
+              sectionTeacher: section?.teacher || "",
+              sectionName: section?.name || sectionDisplayLabel(section),
+              sectionColor: color,
+              teamLabels: teamsForSection(sections, record.sectionId)
+                .filter(team => (record.teamIds || []).includes(team.id))
+                .map(team => ({ id: team.id, name: team.name, students: team.students || [] }))
+            };
+          })
+        };
+      })
+  };
 }
 
 function recipeLibrary(state) {
@@ -191,6 +245,7 @@ async function handleApi(request, env, url) {
     }
     const linkedEvent = state.events.find(event => String(event.id) === submission.eventId && event.publishedAt);
     if (!linkedEvent) return json({ error: "Choose a currently published Event Order." }, 400);
+    if (isArchivedEvent(linkedEvent)) return json({ error: "That Event Order is archived. Choose an active published event." }, 400);
     submission.eventName = linkedEvent.name;
     if (parent) parent.status = "Revised and resubmitted";
     state.recipeSubmissions.push(submission);
@@ -309,37 +364,23 @@ async function handleApi(request, env, url) {
   if (url.pathname === "/api/student/events" && request.method === "GET") {
     const row = await getState(env);
     const state = parseState(row);
-    const events = (state.events || []).filter(event => Boolean(event.publishedAt)).map(event => ({
-      id: event.id, name: event.name, customer: event.customer, school: event.school, serviceDate: event.serviceDate,
-      serviceTime: event.serviceTime, guestCount: event.guestCount, serviceFormat: event.serviceFormat,
-      requirements: event.requirements, allergens: event.allergens, stage: event.stage, version: event.version,
-      publishedAt: event.publishedAt, menu: event.menu,
-      tasks: (event.tasks || [])
-        .filter(task => user.role !== "student" || (user.section_id && assignmentsForSection(task, user.section_id, state.sections).length))
-        .map(task => {
-          const menuItem = (event.menu || [])[Number(task.menuIndex)] || null;
-          return {
-            ...task,
-            recipe: menuItem ? {
-              name: menuItem.name,
-              yield: menuItem.yield,
-              portion: menuItem.portion,
-              ingredients: menuItem.ingredients || [],
-              equipment: menuItem.equipment || [],
-              procedure: menuItem.procedure || [],
-              allergens: menuItem.allergens || "",
-              recipeId: menuItem.recipeId || null
-            } : null,
-            assignmentRecords: (task.assignmentRecords || []).map(record => ({
-              ...record,
-              teamLabels: teamsForSection(state.sections, record.sectionId)
-                .filter(team => (record.teamIds || []).includes(team.id))
-                .map(team => ({ id: team.id, name: team.name, students: team.students || [] }))
-            }))
-          };
-        })
-    }));
-    return json({ events, revision: row.revision, user });
+    const published = (state.events || []).filter(event => Boolean(event.publishedAt));
+    const participated = published.filter(event => studentParticipates(event, user, state.sections));
+    const live = participated
+      .filter(event => !isArchivedEvent(event))
+      .sort((a, b) => String(b.serviceDate || "").localeCompare(String(a.serviceDate || "")))
+      .map(event => mapStudentEvent(event, user, state.sections));
+    const yearArchive = participated
+      .filter(event => isArchivedEvent(event) && isStudentArchiveYear(eventSchoolYearAnchor(event)))
+      .sort((a, b) => String(b.serviceDate || b.completedAt || "").localeCompare(String(a.serviceDate || a.completedAt || "")))
+      .map(event => mapStudentEvent(event, user, state.sections));
+    return json({
+      events: live,
+      yearArchive,
+      schoolYear: schoolYearLabel(new Date().toISOString().slice(0, 10)),
+      revision: row.revision,
+      user
+    });
   }
 
   const progressMatch = url.pathname.match(/^\/api\/tasks\/([^/]+)\/progress$/);
@@ -354,6 +395,7 @@ async function handleApi(request, env, url) {
       if (found) { targetEvent = event; task = found; break; }
     }
     if (!task || !targetEvent?.publishedAt) return json({ error: "Published task not found." }, 404);
+    if (isArchivedEvent(targetEvent)) return json({ error: "This event is archived and locked." }, 409);
     if (user.role === "student" && user.section_id && !assignmentsForSection(task, user.section_id, state.sections).length) return json({ error: "That task belongs to another section." }, 403);
     if (user.role !== "student" && !canEditEvent(user, targetEvent)) return json({ error: "You do not have access to update this event." }, 403);
     const allowedStatuses = ["Not started", "In progress", "Blocked", "Ready for handoff", "Complete"];

@@ -294,7 +294,9 @@ test("publish, live production, and closeout controls expose requested second-pa
   assert.match(teacherOperations, /assignmentProgress\[card\.dataset\.contributionKey\]/);
   assert.match(teacherOperations, /closeoutReadiness/);
   assert.match(teacherOperations, /Completion blocked/);
-  assert.match(teacherOperations, /completeEvent\.disabled = !editable \|\| closeoutReadiness\(current\(\)\)\.blockers\.length > 0/);
+  assert.match(teacherOperations, /completeEvent\.disabled = !editable \|\| closeoutReadiness\(current\(\) \|\| \{ menu: \[\], tasks: \[\], closeout: \{\} \}\)\.blockers\.length > 0/);
+  assert.match(teacherOperations, /event\.archived = true/);
+  assert.match(teacherHtml, /data-panel="archive"/);
 });
 
 test("eight persistent teams can exist in one section", () => {

@@ -1,5 +1,5 @@
 import { buildEventProductionTasks } from "./production-planner.js";
-import { DEFAULT_SECTIONS, KITCHENS, MAX_TEAMS_PER_SECTION, PRODUCTION_STATUSES, STATION_DUTIES, STATION_DUTY_LABELS, WASTE_CATEGORIES, allocationLabel, allocationStatus, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionIsIncomplete, contributionsForDate, derivedTaskStatus, formatMeetingWindow, isAdvancedSection, kitchenSchedulingIssues, makeAssignment, meetingForAssignment, normalizeConfirmedPeriod, normalizeSections, normalizeStationDuty, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, progressDisplayState, reconcileActiveTeamLabels, requiresKitchen, schedulableAdvancedSections, sectionColor, sectionDisplayLabel, sectionMeetsOnDate, sectionTeamCapacity, stationAssignmentLabel, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
+import { DEFAULT_SECTIONS, KITCHENS, MAX_TEAMS_PER_SECTION, PRODUCTION_STATUSES, STATION_DUTIES, STATION_DUTY_LABELS, WASTE_CATEGORIES, allocationLabel, allocationStatus, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionIsIncomplete, contributionsForDate, derivedTaskStatus, eventSchoolYearAnchor, formatMeetingWindow, isAdvancedSection, isArchivedEvent, kitchenSchedulingIssues, makeAssignment, meetingForAssignment, normalizeConfirmedPeriod, normalizeSections, normalizeStationDuty, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, progressDisplayState, reconcileActiveTeamLabels, requiresKitchen, schedulableAdvancedSections, schoolYearLabel, sectionColor, sectionDisplayLabel, sectionMeetsOnDate, sectionTeamCapacity, stationAssignmentLabel, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
 const statuses = PRODUCTION_STATUSES;
 let sections = normalizeSections(DEFAULT_SECTIONS);
@@ -33,6 +33,35 @@ const q = selector => document.querySelector(selector);
 const qa = selector => [...document.querySelectorAll(selector)];
 const esc = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
 const clone = value => JSON.parse(JSON.stringify(value));
+const linkifyText = value => esc(value).replace(/https?:\/\/[^\s<>"']+/g, url => {
+  const href = url.replace(/[.,);:]+$/g, "");
+  const trailing = url.slice(href.length);
+  return `<a href="${href}" target="_blank" rel="noopener noreferrer">${href}</a>${trailing}`;
+});
+const listHtml = (items, empty) => {
+  const lines = (items || []).map(item => String(item || "").trim()).filter(Boolean);
+  return lines.length ? `<ol>${lines.map(line => `<li>${esc(line)}</li>`).join("")}</ol>` : `<p class="muted">${esc(empty)}</p>`;
+};
+
+function submissionBodyHtml(item) {
+  const sourceLines = String(item.sourceNotes || "").split(/\n+/).map(line => line.trim()).filter(Boolean);
+  const sourceHtml = sourceLines.length
+    ? `<ul class="recipe-submission-sources">${sourceLines.map(line => `<li>${linkifyText(line)}</li>`).join("")}</ul>`
+    : `<p class="muted">No source recorded.</p>`;
+  const testHtml = item.testNotes ? `<div class="recipe-submission-block"><strong>Test / revision notes</strong><p>${linkifyText(item.testNotes)}</p></div>` : "";
+  const allergenHtml = item.allergens ? `<div class="recipe-submission-block"><strong>Allergens and controls</strong><p>${esc(item.allergens)}</p></div>` : "";
+  const equipmentHtml = (item.equipment || []).length
+    ? `<div class="recipe-submission-block"><strong>Equipment</strong>${listHtml(item.equipment, "None listed.")}</div>`
+    : "";
+  return `<div class="recipe-submission-body">
+    <div class="recipe-submission-block"><strong>Source</strong>${sourceHtml}</div>
+    <div class="recipe-submission-grid">
+      <div class="recipe-submission-block"><strong>Ingredients</strong>${listHtml(item.ingredients, "No ingredients submitted.")}</div>
+      <div class="recipe-submission-block"><strong>Procedure</strong>${listHtml(item.procedure, "No procedure submitted.")}</div>
+    </div>
+    ${equipmentHtml}${allergenHtml}${testHtml}
+  </div>`;
+}
 
 let session = null;
 let revision = 0;
@@ -49,7 +78,10 @@ let recipeLibrary = [];
 let supplierCatalog = [];
 let recipeSearch = "";
 
-function current() { return state.events.find(event => event.id === currentId); }
+function current() { return state.events.find(event => String(event.id) === String(currentId)) || activeEvents()[0] || state.events[0]; }
+function activeEvents() { return (state.events || []).filter(event => !isArchivedEvent(event)); }
+function archivedEventsList() { return (state.events || []).filter(event => isArchivedEvent(event)); }
+function isWorkingArchived() { return isArchivedEvent(current()); }
 function setSync(message, kind = "") { const element = q("#syncStatus"); if (element) { element.textContent = message; element.dataset.kind = kind; } }
 function save() {
   setSync("Saving…", "pending");
@@ -344,10 +376,21 @@ function readiness(event) {
 }
 
 function renderSelect() {
-  q("#eventSelect").innerHTML = state.events.map(event => `<option value="${esc(event.id)}">${esc(event.name)}</option>`).join("");
-  q("#eventSelect").value = currentId;
+  const active = activeEvents();
+  if (!active.some(event => String(event.id) === String(currentId))) currentId = active[0]?.id || "";
+  q("#eventSelect").innerHTML = active.length
+    ? active.map(event => `<option value="${esc(event.id)}">${esc(event.name)}</option>`).join("")
+    : '<option value="">No active events</option>';
+  if (currentId) q("#eventSelect").value = currentId;
   q("#accountName").textContent = activeTeacher();
   q("#accountRole").textContent = session?.user?.role === "admin" ? "Administrator" : "Teacher";
+  const banner = q("#archivedBanner");
+  if (banner) {
+    banner.hidden = !isWorkingArchived();
+    banner.innerHTML = isWorkingArchived()
+      ? `<strong>Archived event record</strong><span>${esc(current()?.name || "")} · ${esc(schoolYearLabel(eventSchoolYearAnchor(current())))} · view only. Use Event archive to browse prior years.</span>`
+      : "";
+  }
 }
 
 function renderSummary() {
@@ -407,9 +450,9 @@ function renderRecipeSubmissions() {
   const submissions = state.recipeSubmissions || [];
   const awaiting = submissions.filter(item => item.status === "Awaiting review");
   q("#recipeSubmissionCount").textContent = `${awaiting.length} awaiting review`;
-  const awaitingHtml = awaiting.length ? awaiting.map(item => `<article class="recipe-submission-card" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)}</h4><div class="recipe-submission-meta">${esc(item.eventName || "Event not identified")} · revision ${Number(item.revision || 1)} · Submitted by ${esc(item.submittedBy)} · ${item.yield || "Yield not confirmed"} · ${esc(item.portion || "Portion not confirmed")} · ${(item.ingredients || []).length} ingredients</div><p>${esc(item.sourceNotes || item.testNotes || "No research note supplied.")}</p>${submissionPricingHtml(item)}<div class="recipe-submission-actions"><label>Teacher review note<input data-review-note placeholder="Required corrections, reason, or approval note"></label><button class="secondary-button" data-return-recipe type="button">Return for revision</button><button class="ghost-danger" data-decline-recipe type="button">Decline</button><button class="primary-button" data-approve-recipe type="button">Approve for production</button></div></article>`).join("") : '<div class="empty-state"><strong>No student recipes are waiting.</strong><p>New Recipe Studio submissions will appear here.</p></div>';
+  const awaitingHtml = awaiting.length ? awaiting.map(item => `<article class="recipe-submission-card" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)}</h4><div class="recipe-submission-meta">${esc(item.eventName || "Event not identified")} · revision ${Number(item.revision || 1)} · Submitted by ${esc(item.submittedBy)} · ${item.yield || "Yield not confirmed"} · ${esc(item.portion || "Portion not confirmed")} · ${(item.ingredients || []).length} ingredients</div>${submissionBodyHtml(item)}${submissionPricingHtml(item)}<div class="recipe-submission-actions"><label>Teacher review note<input data-review-note placeholder="Required corrections, reason, or approval note"></label><button class="secondary-button" data-return-recipe type="button">Return for revision</button><button class="ghost-danger" data-decline-recipe type="button">Decline</button><button class="primary-button" data-approve-recipe type="button">Approve for production</button></div></article>`).join("") : '<div class="empty-state"><strong>No student recipes are waiting.</strong><p>New Recipe Studio submissions will appear here.</p></div>';
   const reviewed = submissions.filter(item => ["Approved", "Returned for revision", "Declined", "Revised and resubmitted"].includes(item.status)).sort((a, b) => String(b.reviewedAt || b.submittedAt).localeCompare(String(a.reviewedAt || a.submittedAt))).slice(0, 12);
-  const reviewedHtml = reviewed.length ? `<div class="recipe-review-history"><h4>Recent decisions and revision history</h4>${reviewed.map(item => `<article class="recipe-submission-card compact" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)} · revision ${Number(item.revision || 1)}</h4><div class="recipe-submission-meta">${esc(item.eventName || "Event not identified")} · ${esc(item.submittedBy)}</div>${item.reviewNote ? `<p><strong>Teacher note:</strong> ${esc(item.reviewNote)}</p>` : ""}${item.status === "Approved" ? `<div class="recipe-event-add"><label>Event quantity required<input type="number" min="1" value="${Number(item.yield || 1)}" data-event-quantity></label><button class="primary-button" data-add-approved-recipe type="button" ${item.addedToEventAt ? "disabled" : ""}>${item.addedToEventAt ? "Added to Event Order" : "Add to linked Event Order"}</button></div>` : ""}</article>`).join("")}</div>` : "";
+  const reviewedHtml = reviewed.length ? `<div class="recipe-review-history"><h4>Recent decisions and revision history</h4>${reviewed.map(item => `<article class="recipe-submission-card compact" data-submission="${esc(item.id)}"><span class="recipe-source-badge">${esc(item.status)}</span><h4>${esc(item.name)} · revision ${Number(item.revision || 1)}</h4><div class="recipe-submission-meta">${esc(item.eventName || "Event not identified")} · ${esc(item.submittedBy)}</div>${submissionBodyHtml(item)}${item.reviewNote ? `<p><strong>Teacher note:</strong> ${esc(item.reviewNote)}</p>` : ""}${item.status === "Approved" ? `<div class="recipe-event-add"><label>Event quantity required<input type="number" min="1" value="${Number(item.yield || 1)}" data-event-quantity></label><button class="primary-button" data-add-approved-recipe type="button" ${item.addedToEventAt ? "disabled" : ""}>${item.addedToEventAt ? "Added to Event Order" : "Add to linked Event Order"}</button></div>` : ""}</article>`).join("")}</div>` : "";
   q("#recipeSubmissionList").innerHTML = awaitingHtml + reviewedHtml;
   qa("[data-return-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Return for revision")));
   qa("[data-decline-recipe]").forEach(button => button.addEventListener("click", () => reviewRecipe(button.closest("[data-submission]"), "Decline")));
@@ -940,6 +983,23 @@ function currencyNumber(value) {
   return Number.isFinite(number) ? number : null;
 }
 
+function ensureCloseoutDefaults(event) {
+  event.closeout ||= clone(seed.events[0].closeout);
+  const closeout = event.closeout;
+  if (closeout.actualGuests === "" || closeout.actualGuests == null) {
+    closeout.actualGuests = event.guestCount != null && event.guestCount !== "" ? String(event.guestCount) : "";
+  }
+  if (!String(closeout.actualRevenue ?? "").trim()) {
+    const budgetNumber = currencyNumber(event.budget);
+    closeout.actualRevenue = budgetNumber != null ? budgetNumber.toFixed(2) : String(event.budget || "").trim();
+  }
+  if (!String(closeout.actualCost ?? "").trim()) {
+    const planned = plannedIngredientCost(event);
+    closeout.actualCost = planned > 0 ? planned.toFixed(2) : "";
+  }
+  return closeout;
+}
+
 function closeoutReadiness(event) {
   const counts = productionCounts(event, sections);
   const finalRequired = event.menu.reduce((sum, item) => sum + Number(item.required || 0), 0);
@@ -955,7 +1015,7 @@ function closeoutReadiness(event) {
 
 function renderCloseout() {
   const event = current();
-  event.closeout ||= clone(seed.events[0].closeout);
+  ensureCloseoutDefaults(event);
   event.closeout.estimatedProgramValue ||= "";
   event.closeout.closeoutException ||= "";
   event.closeout.closeoutExceptionReason ||= "";
@@ -991,19 +1051,93 @@ function renderCloseout() {
   }).join("");
   const status = readiness.blockers.length ? readiness.blockers.join(" ") : "Closeout requirements are satisfied for ordinary completion.";
   q("#closeoutStatus").innerHTML = `<strong>${readiness.blockers.length ? "Completion blocked" : "Ready for completion"}</strong><p>${esc(status)}</p><small>Tasks completed: ${readiness.counts.taskCompleted} of ${readiness.counts.taskTotal}; task corrections: ${readiness.counts.taskInvalid}. Assignments completed: ${readiness.counts.completed} of ${readiness.counts.contributionTotal}; assignment corrections: ${readiness.counts.invalid}; blocked: ${readiness.counts.blocked}.</small>`;
-  q("#completeEvent").disabled = !canEdit() || readiness.blockers.length > 0;
+  q("#completeEvent").disabled = !canEdit() || isWorkingArchived() || readiness.blockers.length > 0;
 }
 function collectCloseout() {
-  if (!canEdit()) return false;
+  if (!canEdit() || isWorkingArchived()) return false;
   const closeout = current().closeout ||= {};
   ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason"].forEach(field => { const element = q(`#${field}`); if (element) closeout[field] = element.value; });
   closeout.updatedAt = new Date().toISOString();
   closeout.updatedBy = activeTeacher();
   return true;
 }
+function archiveCsvRows() {
+  return archivedEventsList().map(event => {
+    const sectionIds = [...new Set((event.tasks || []).flatMap(task => (task.assignmentRecords || []).map(record => record.sectionId)).filter(Boolean))];
+    return {
+      id: event.id,
+      name: event.name,
+      customer: event.customer || "",
+      school: event.school || "",
+      serviceDate: event.serviceDate || "",
+      schoolYear: schoolYearLabel(eventSchoolYearAnchor(event)),
+      guestCount: event.guestCount ?? "",
+      budget: event.budget || "",
+      actualGuests: event.closeout?.actualGuests ?? "",
+      actualRevenue: event.closeout?.actualRevenue ?? "",
+      actualCost: event.closeout?.actualCost ?? "",
+      stage: event.stage || "",
+      completedAt: event.completedAt || "",
+      completedBy: event.completedBy || "",
+      sections: sectionIds.map(id => sectionDisplayLabel(sections.find(section => section.id === id) || { id })).join("; "),
+      menu: (event.menu || []).map(item => `${item.name} (${item.required || 0})`).join("; ")
+    };
+  });
+}
+
+function downloadArchiveSpreadsheet() {
+  const rows = archiveCsvRows();
+  const headers = ["id", "name", "customer", "school", "serviceDate", "schoolYear", "guestCount", "budget", "actualGuests", "actualRevenue", "actualCost", "stage", "completedAt", "completedBy", "sections", "menu"];
+  const escapeCell = value => `"${String(value ?? "").replaceAll('"', '""')}"`;
+  const csv = [headers.join(","), ...rows.map(row => headers.map(key => escapeCell(row[key])).join(","))].join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `gcsd-advanced-culinary-event-archive-${new Date().toISOString().slice(0, 10)}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+  toast(rows.length ? `Downloaded ${rows.length} archived event${rows.length === 1 ? "" : "s"}.` : "Archive spreadsheet downloaded (no completed events yet).");
+}
+
+function renderArchive() {
+  const host = q("#archiveList");
+  const yearFilter = q("#archiveYearFilter");
+  if (!host || !yearFilter) return;
+  const archived = archivedEventsList().sort((a, b) => String(b.serviceDate || b.completedAt || "").localeCompare(String(a.serviceDate || a.completedAt || "")));
+  const years = [...new Set(archived.map(event => schoolYearLabel(eventSchoolYearAnchor(event))))].sort().reverse();
+  const selectedYear = yearFilter.value && years.includes(yearFilter.value) ? yearFilter.value : (years[0] || "");
+  yearFilter.innerHTML = years.length
+    ? years.map(year => `<option value="${esc(year)}" ${year === selectedYear ? "selected" : ""}>${esc(year)}</option>`).join("")
+    : '<option value="">No archived years yet</option>';
+  const visible = archived.filter(event => !selectedYear || schoolYearLabel(eventSchoolYearAnchor(event)) === selectedYear);
+  q("#archiveCount").textContent = `${archived.length} archived`;
+  host.innerHTML = visible.length ? visible.map(event => {
+    const closeout = event.closeout || {};
+    return `<article class="archive-card" data-archive-event="${esc(event.id)}">
+      <div class="archive-card-top"><span>${esc(schoolYearLabel(eventSchoolYearAnchor(event)))}</span><strong>${esc(event.stage || "Completed")}</strong></div>
+      <h3>${esc(event.name)}</h3>
+      <p>${esc(event.customer || "Customer not recorded")} · ${dateLabel(event.serviceDate)} · ${Number(event.guestCount || 0)} planned guests</p>
+      <dl>
+        <div><dt>Actual guests</dt><dd>${esc(closeout.actualGuests || "—")}</dd></div>
+        <div><dt>Revenue</dt><dd>${esc(closeout.actualRevenue || "—")}</dd></div>
+        <div><dt>Ingredient cost</dt><dd>${esc(closeout.actualCost || "—")}</dd></div>
+        <div><dt>Completed</dt><dd>${event.completedAt ? new Date(event.completedAt).toLocaleString() : "—"} · ${esc(event.completedBy || "")}</dd></div>
+      </dl>
+      <p>${esc((event.menu || []).map(item => item.name).join(", ") || "No menu recorded")}</p>
+      <button class="secondary-button" type="button" data-open-archive="${esc(event.id)}">Open archived record</button>
+    </article>`;
+  }).join("") : '<div class="empty-state"><strong>No archived events in this school year.</strong><p>Completing an event moves it here for year-over-year planning.</p></div>';
+  qa("[data-open-archive]").forEach(button => button.addEventListener("click", () => {
+    currentId = button.dataset.openArchive;
+    renderAll();
+    showPanel("closeout");
+    toast("Opened archived event in view-only mode.");
+  }));
+}
 
 function applyPermissions() {
-  const editable = canEdit();
+  const editable = canEdit() && !isWorkingArchived();
   ["brief", "menu", "production"].forEach(panel => {
     qa(`[data-panel-view="${panel}"] input, [data-panel-view="${panel}"] select, [data-panel-view="${panel}"] textarea, [data-panel-view="${panel}"] button`).forEach(control => { control.disabled = !editable; });
   });
@@ -1011,11 +1145,13 @@ function applyPermissions() {
   qa("#teamSetupList input, #teamSetupList textarea, #teamSetupList button, #teamForm input, #teamForm select, #teamForm textarea, #teamForm button").forEach(control => { control.disabled = session?.user?.role !== "admin"; });
   ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason", "saveCloseout"].forEach(id => { const element = q(`#${id}`); if (element) element.disabled = !editable; });
   const completeEvent = q("#completeEvent");
-  if (completeEvent) completeEvent.disabled = !editable || closeoutReadiness(current()).blockers.length > 0;
+  if (completeEvent) completeEvent.disabled = !editable || closeoutReadiness(current() || { menu: [], tasks: [], closeout: {} }).blockers.length > 0;
+  if (q("#newEvent")) q("#newEvent").disabled = false;
 }
 
 function renderAll() {
-  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); renderTeamSetup(); applyPermissions();
+  (state.events || []).forEach(event => { if (event.stage === "Completed") event.archived = true; });
+  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); renderArchive(); renderTeamSetup(); applyPermissions();
 }
 
 function showPanel(name) {
@@ -1027,6 +1163,7 @@ function showPanel(name) {
   if (name === "menu") renderIngredients();
   if (name === "live") renderLive();
   if (name === "closeout") renderCloseout();
+  if (name === "archive") renderArchive();
   if (name === "access") renderUsers();
   renderAttention();
   window.scrollTo({ top: 260, behavior: "smooth" });
@@ -1101,16 +1238,21 @@ q("#completeEvent").addEventListener("click", () => {
   if (readiness.blockers.length) { renderCloseout(); return toast("Closeout is blocked until required records are reconciled or an authorized exception is documented."); }
   const event = current();
   event.stage = "Completed";
+  event.archived = true;
   event.completedAt = new Date().toISOString();
   event.completedBy = activeTeacher();
   event.unpublishedChanges = false;
   event.unpublishedChangeNote = "";
   if (event.publishedAt) event.publishedSignature = publicationSignature(event);
-  save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
+  const archivedId = event.id;
+  currentId = activeEvents().find(item => item.id !== archivedId)?.id || "";
+  save(); renderAll(); showPanel("archive"); toast("Event completed and moved to Event archive. Download the spreadsheet anytime from Archive.");
 });
 q("#refreshData").addEventListener("click", () => {
   initialize(true);
 });
+q("#archiveYearFilter")?.addEventListener("change", () => renderArchive());
+q("#downloadArchiveCsv")?.addEventListener("click", () => downloadArchiveSpreadsheet());
 
 function updateAccountScopeControls() {
   const role = q("#accountRoleSelect")?.value || "";
@@ -1246,9 +1388,16 @@ async function initialize(force = false) {
     state.sections = sections = reconcileActiveTeamLabels(state.sections || DEFAULT_SECTIONS);
     state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
     state.events.forEach(event => event.tasks?.forEach(task => ensureTaskAssignment(task, event)));
-    currentId = state.events[0].id;
-    if (!current().tasks.length) generateTasks();
-    if (!hasEvent) await save();
+    let archiveMigrated = false;
+    state.events.forEach(event => {
+      if (event.stage === "Completed" && !event.archived) {
+        event.archived = true;
+        archiveMigrated = true;
+      }
+    });
+    currentId = activeEvents()[0]?.id || state.events[0]?.id || "";
+    if (current() && !current().tasks.length && !isArchivedEvent(current())) generateTasks();
+    if (!hasEvent || archiveMigrated) await save();
     renderAll(); setSync("Shared · current", "saved");
   } catch (error) {
     document.querySelector("main").innerHTML = `<section class="command-hero"><div><p class="eyebrow">Secure connection required</p><h1>Teacher Command Center unavailable</h1><p>${esc(error.message)}</p></div></section>`;
@@ -1267,8 +1416,8 @@ async function refreshLiveProduction() {
     const selected = currentId;
     state = result.state; revision = result.revision; recipeLibrary = result.recipes || recipeLibrary; supplierCatalog = result.supplierCatalog || supplierCatalog;
     state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
-    currentId = state.events.some(event => event.id === selected) ? selected : state.events[0].id;
-    renderSummary(); renderLive(); renderAttention(); renderCloseout();
+    currentId = activeEvents().some(event => event.id === selected) ? selected : (activeEvents()[0]?.id || state.events[0]?.id || "");
+    renderSummary(); renderLive(); renderAttention(); renderCloseout(); renderArchive();
     setSync("Shared · updated", "saved");
   } catch { setSync("Live refresh delayed", "error"); }
 }
