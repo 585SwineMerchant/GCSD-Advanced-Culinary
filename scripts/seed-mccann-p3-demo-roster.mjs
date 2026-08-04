@@ -21,8 +21,18 @@ const DEMO_TEAMS = [
   { id: "adv-p5-team-a", name: "Team C", students: ["Jamie Ortiz", "Cameron Blake", "Avery Scott", "Reese Kim"] }
 ];
 
+function quoteArg(value) {
+  if (/[\s"]/u.test(value)) return `"${String(value).replaceAll('"', '\\"')}"`;
+  return String(value);
+}
+
 function wrangler(args) {
-  const result = spawnSync("npx", ["wrangler", ...args], { cwd: root, encoding: "utf8", shell: true });
+  // Windows needs shell for npx.cmd; quote any args that contain spaces.
+  const result = spawnSync("npx", ["wrangler", ...args.map(quoteArg)], {
+    cwd: root,
+    encoding: "utf8",
+    shell: true
+  });
   if (result.status !== 0) {
     console.error(result.stdout);
     console.error(result.stderr);
@@ -31,19 +41,18 @@ function wrangler(args) {
   return result.stdout;
 }
 
-const exportSql = path.join(tmp, "export.sql");
 const exportJson = path.join(tmp, "export.json");
-fs.writeFileSync(exportSql, "SELECT revision, state_json, updated_at, updated_by FROM app_state WHERE id = 1;");
-wrangler(["d1", "execute", "gcsd-advanced-culinary", "--remote", "--file", exportSql, "--json"]);
-
-// wrangler writes JSON to stdout when --json; capture via re-run to file
-const raw = spawnSync("npx", ["wrangler", "d1", "execute", "gcsd-advanced-culinary", "--remote", "--command", "SELECT revision, state_json, updated_at, updated_by FROM app_state WHERE id = 1;", "--json"], { cwd: root, encoding: "utf8", shell: true });
-if (raw.status !== 0) {
-  console.error(raw.stderr);
-  throw new Error("export failed");
-}
-fs.writeFileSync(exportJson, raw.stdout);
-const parsed = JSON.parse(raw.stdout);
+const raw = wrangler([
+  "d1",
+  "execute",
+  "gcsd-advanced-culinary",
+  "--remote",
+  "--command",
+  "SELECT revision, state_json, updated_at, updated_by FROM app_state WHERE id = 1;",
+  "--json"
+]);
+fs.writeFileSync(exportJson, raw);
+const parsed = JSON.parse(raw);
 const row = parsed[0]?.results?.[0] || parsed.results?.[0] || parsed[0]?.result?.[0];
 if (!row?.state_json) throw new Error("Could not read app_state row");
 
@@ -71,11 +80,13 @@ if (event) {
 }
 
 const nextRevision = Number(row.revision) + 1;
-const statePath = path.join(tmp, "state.json");
-fs.writeFileSync(statePath, JSON.stringify(state));
-const escaped = JSON.stringify(JSON.stringify(state));
+// SQLite string literals use single quotes; escape by doubling.
+const sqlJson = `'${JSON.stringify(state).replaceAll("'", "''")}'`;
 const updateSql = path.join(tmp, "update.sql");
-fs.writeFileSync(updateSql, `UPDATE app_state SET revision = ${nextRevision}, state_json = ${escaped}, updated_at = CURRENT_TIMESTAMP, updated_by = 'demo-roster-seed' WHERE id = 1 AND revision = ${Number(row.revision)};`);
+fs.writeFileSync(
+  updateSql,
+  `UPDATE app_state SET revision = ${nextRevision}, state_json = ${sqlJson}, updated_at = CURRENT_TIMESTAMP, updated_by = 'demo-roster-seed' WHERE id = 1 AND revision = ${Number(row.revision)};`
+);
 wrangler(["d1", "execute", "gcsd-advanced-culinary", "--remote", "--file", updateSql]);
 
 console.log(JSON.stringify({
