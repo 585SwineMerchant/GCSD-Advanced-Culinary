@@ -23,7 +23,7 @@
     <button class="menu-button" id="menuButton" aria-expanded="false" aria-controls="primaryNav">Menu</button>
     <nav id="primaryNav" aria-label="Primary navigation">
       <button class="nav-link active" data-view-target="today">Today</button>
-      <button class="nav-link" data-view-target="workspace">Workspace</button>
+      <button class="nav-link" data-view-target="workspace">Classwork</button>
       <button class="nav-link" data-view-target="learning">Learning</button>
       <button class="nav-link" data-view-target="recipes">Recipes</button>
       <button class="nav-link" data-view-target="reference">Reference</button>
@@ -35,25 +35,44 @@
     <section class="view active" data-view-panel="today" data-home-mode="loading">
       <header class="desk-masthead">
         <div class="desk-masthead-copy">
-          <p class="eyebrow">Student field manual</p>
-          <h1>Today&rsquo;s kitchen</h1>
-          <p class="hero-lede" id="deskLede">When your chef publishes a catering job, this desk becomes the Event Order. Between jobs, use the course pathway to prepare.</p>
+          <p class="eyebrow">Start of class</p>
+          <h1>Today&rsquo;s agenda</h1>
+          <p class="hero-lede" id="deskLede">Check Events for any published catering job, then Classwork for today&rsquo;s classroom path. Start what you can before the teacher begins—lectures and demos often use Learning as the follow-along guide.</p>
         </div>
         <div class="desk-masthead-side">
-          <ol class="rhythm-strip" aria-label="Course operating rhythm">
-            <li><button type="button" data-view-target="workspace" data-open-phase="brief"><span>1</span>Brief</button></li>
-            <li><button type="button" data-view-target="workspace" data-open-phase="learn"><span>2</span>Learn</button></li>
-            <li><button type="button" data-view-target="workspace" data-open-phase="plan"><span>3</span>Plan</button></li>
-            <li><button type="button" data-view-target="workspace" data-open-phase="produce"><span>4</span>Produce</button></li>
-            <li><button type="button" data-view-target="workspace" data-open-phase="close"><span>5</span>Close</button></li>
-            <li><button type="button" data-view-target="workspace" data-open-phase="improve"><span>6</span>Improve</button></li>
-          </ol>
           <div class="hero-actions">
-            <button class="button primary" id="continueWork" type="button">Open live Event Order →</button>
-            <button class="button secondary" data-view-target="workspace">Open Workspace</button>
+            <button class="button primary" id="continueWork" type="button">Open Event Order →</button>
+            <button class="button secondary" id="mastheadSecondary" type="button" data-view-target="workspace">Open Classwork</button>
           </div>
         </div>
       </header>
+
+      <section class="day-agenda" aria-labelledby="dayAgendaTitle">
+        <div class="section-heading compact-heading">
+          <div>
+            <p class="eyebrow">Two tracks that correspond</p>
+            <h2 id="dayAgendaTitle">What to do right now</h2>
+          </div>
+          <p>Kitchen teams work the Event Order. Classroom teams work Classwork. Both feed the same customer promise and the same major assessments.</p>
+        </div>
+        <div class="agenda-grid">
+          <article class="agenda-card agenda-events">
+            <p class="eyebrow">Events · customer work</p>
+            <h3 id="agendaEventTitle">Checking for a published Event Order…</h3>
+            <p id="agendaEventMeta">Simple catering jobs and comprehensive assessment events both land here as Event Orders.</p>
+            <p class="agenda-next" id="agendaEventAction">Open Today&rsquo;s Event desk when a job is published.</p>
+            <button class="button primary desk-live-only" type="button" data-scroll-live>Go to station updates →</button>
+            <button class="button secondary desk-idle-only" type="button" data-scroll-live>View Event desk</button>
+          </article>
+          <article class="agenda-card agenda-classwork">
+            <p class="eyebrow" id="agendaClassEyebrow">Classwork · classroom path</p>
+            <h3 id="agendaClassTitle">Food Handler Certification</h3>
+            <p id="agendaClassMeta">Opening unit — safety clearance before customer production.</p>
+            <p class="agenda-next" id="agendaClassAction">Begin course and app orientation.</p>
+            <button class="button primary" id="openCurrentPhase" type="button">Continue Classwork →</button>
+          </article>
+        </div>
+      </section>
 
       <div id="homeRecipeActions" class="recipe-action-inbox desk-alerts" hidden></div>
 
@@ -61,21 +80,21 @@
         <div class="desk-primary">
           <article class="desk-status" id="deskStatus">
             <div class="desk-status-copy">
-              <p class="eyebrow" id="deskStatusEyebrow">Published Event Order</p>
+              <p class="eyebrow" id="deskStatusEyebrow">Event desk</p>
               <h2 id="liveJobHeading"><span id="liveJobTitle">Loading live Event Order…</span></h2>
               <p id="liveJobMeta">Checking for a published catering job assigned to your section.</p>
             </div>
             <div class="desk-status-actions">
-              <button class="button primary desk-live-only" type="button" data-scroll-live>Go to station updates →</button>
-              <button class="button secondary" id="openCurrentPhase" type="button">Open current phase →</button>
+              <button class="button primary desk-live-only" type="button" data-scroll-live>Station updates →</button>
+              <button class="button secondary" type="button" data-view-target="workspace">Classwork →</button>
             </div>
           </article>
 
           <section id="liveEventOrder" class="live-event-order desk-packet" hidden aria-labelledby="liveEventTitle">
             <div class="section-heading live-packet-heading">
               <div>
-                <p class="eyebrow">Chef packet</p>
-                <h2 id="liveEventTitle">Live Event Order</h2>
+                <p class="eyebrow">Published Event Order</p>
+                <h2 id="liveEventTitle">Customer job packet</h2>
               </div>
               <p id="liveEventIdentity"></p>
             </div>
@@ -85,34 +104,34 @@
 
         <aside class="desk-rail" aria-labelledby="nowTitle">
           <div class="desk-rail-block pathway-block">
-            <p class="eyebrow">Course experience</p>
+            <p class="eyebrow" id="homeTrackLabel">Classwork path</p>
             <div class="rail-experience-head">
               <span class="event-number" id="homeEventNumber">01</span>
               <div>
-                <p class="eyebrow" id="homeEventTiming">September–October</p>
-                <h2 id="nowTitle"><span id="homeEventTitle">Professional Kitchen Launch</span></h2>
+                <p class="eyebrow" id="homeEventTiming">September</p>
+                <h2 id="nowTitle"><span id="homeEventTitle">Food Handler Certification</span></h2>
               </div>
             </div>
             <p id="homeEventChallenge" class="rail-challenge"></p>
             <dl class="status-grid rail-status">
-              <div><dt>Current phase</dt><dd id="homePhaseName">Brief</dd></div>
-              <div><dt>Progress</dt><dd id="homeProgress">0 of 6 phases</dd></div>
+              <div><dt id="homePhaseLabel">Current step</dt><dd id="homePhaseName">Orientation</dd></div>
+              <div><dt>Progress</dt><dd id="homeProgress">0 of 6 steps</dd></div>
             </dl>
             <div class="rail-next">
               <p class="eyebrow">Next action</p>
-              <p id="homeNextAction">Read the accepted event brief.</p>
+              <p id="homeNextAction">Learn how this class and app operate.</p>
             </div>
             <div class="progress-track" aria-hidden="true"><span id="homeProgressBar"></span></div>
-            <button class="button secondary" type="button" data-view-target="workspace">Continue in Workspace →</button>
+            <button class="button secondary" type="button" data-view-target="workspace">Continue in Classwork →</button>
           </div>
 
           <div class="desk-rail-block tools-block">
-            <p class="eyebrow">When the work creates a need</p>
+            <p class="eyebrow">Lecture, demo, and need-based study</p>
             <h3>Support tools</h3>
             <ul class="desk-tool-list">
               <li>
                 <button class="text-link" type="button" data-view-target="learning">Connected Learning</button>
-                <span>ProStart topics tied to the menu problem</span>
+                <span>Follow along in class, or dig into a menu problem</span>
               </li>
               <li>
                 <button class="text-link" type="button" data-view-target="recipes">Recipe Studio</button>
@@ -124,32 +143,16 @@
               </li>
             </ul>
           </div>
-
-          <div class="desk-rail-block briefing-card rail-briefing">
-            <p class="eyebrow">From the previous event</p>
-            <h3>Management briefing</h3>
-            <p>Kitchen Management returns objective results as planning begins for the next event—not a critique of individual cooks.</p>
-            <div class="briefing-results">
-              <span>Food cost</span>
-              <span>Yield &amp; waste</span>
-              <span>Food safety</span>
-              <span>Deadlines</span>
-              <span>Packaging</span>
-              <span>Client result</span>
-              <span>Recovery</span>
-            </div>
-            <button class="text-link" type="button" data-view-target="workspace" data-open-phase="brief">Open Brief with the briefing →</button>
-          </div>
         </aside>
       </section>
 
       <section class="year-arc" aria-labelledby="yearArcTitle">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Six major experiences</p>
+            <p class="eyebrow">Opening unit + six assessments</p>
             <h2 id="yearArcTitle">The year pathway</h2>
           </div>
-          <p>Live catering jobs sit on Today. These experiences organize the learning rhythm around that work.</p>
+          <p>Certification opens the year. Smaller catering Event Orders build skill toward the six comprehensive assessment experiences.</p>
         </div>
         <div class="experience-strip" id="homeExperienceStrip"></div>
       </section>
@@ -159,15 +162,15 @@
 
     <section class="view" data-view-panel="workspace">
       <div class="page-intro">
-        <div><p class="eyebrow">The operating center</p><h1>Event Workspace</h1></div>
-        <p>Six phases for every major experience. When a catering Event Order is live, Brief and Produce show that job here—Today still holds the full station desk.</p>
+        <div><p class="eyebrow">Classroom path</p><h1>Classwork</h1></div>
+        <p>Opening unit: Food Handler certification. After that, every comprehensive assessment uses the same six phases. Customer Event Orders stay on Today—Classwork is the classroom side of the same year.</p>
       </div>
 
       <section id="workspaceLiveBanner" class="workspace-live-banner" aria-live="polite"></section>
 
       <section class="event-switcher" aria-labelledby="eventSwitcherTitle">
         <div>
-          <label for="eventSelect" id="eventSwitcherTitle">Course experience</label>
+          <label for="eventSelect" id="eventSwitcherTitle">Classwork focus</label>
           <select id="eventSelect"></select>
         </div>
         <div class="event-switch-summary">
@@ -177,13 +180,13 @@
         <button class="button secondary" data-view-target="today">Back to Today</button>
       </section>
 
-      <section class="workflow-shell" aria-labelledby="workflowTitle">
+      <section class="workflow-shell" id="assessmentWorkflow" aria-labelledby="workflowTitle">
         <div class="workflow-heading">
-          <div><p class="eyebrow">One event, one visible path</p><h2 id="workflowTitle">Plan all the way through closeout.</h2></div>
+          <div><p class="eyebrow">Comprehensive assessment cycle</p><h2 id="workflowTitle">Plan all the way through closeout.</h2></div>
           <div class="workflow-progress"><strong id="workflowProgressText">0 of 6 phases complete</strong><span><i id="workflowProgressBar"></i></span></div>
         </div>
 
-        <div class="phase-tabs" role="tablist" aria-label="Event phases">
+        <div class="phase-tabs" role="tablist" aria-label="Assessment phases">
           <button class="phase-tab active" role="tab" aria-selected="true" data-phase="brief"><span>1</span><strong>Brief</strong><small>Know the promise</small></button>
           <button class="phase-tab" role="tab" aria-selected="false" data-phase="learn"><span>2</span><strong>Learn</strong><small>Build readiness</small></button>
           <button class="phase-tab" role="tab" aria-selected="false" data-phase="plan"><span>3</span><strong>Plan</strong><small>Work backward</small></button>
@@ -194,40 +197,41 @@
 
         <div class="phase-stage" id="phaseStage" aria-live="polite"></div>
       </section>
+
+      <section class="workflow-shell launch-shell" id="launchWorkflow" hidden aria-labelledby="launchWorkflowTitle">
+        <div class="workflow-heading">
+          <div><p class="eyebrow">Opening unit · unique path</p><h2 id="launchWorkflowTitle">Earn clearance to produce for customers.</h2></div>
+          <div class="workflow-progress"><strong id="launchProgressText">0 of 6 steps complete</strong><span><i id="launchProgressBar"></i></span></div>
+        </div>
+        <div class="phase-tabs launch-tabs" role="tablist" aria-label="Food Handler steps" id="launchStepTabs"></div>
+        <div class="phase-stage" id="launchStage" aria-live="polite"></div>
+      </section>
     </section>
 
     <section class="view" data-view-panel="learning">
       <div class="page-intro">
-        <div><p class="eyebrow">Information when the work creates a need</p><h1>Connected Learning</h1></div>
-        <p>ProStart Second Edition and instructor materials are the course information source. This is a routing layer—not a second pacing guide and not a substitute for the textbook.</p>
+        <div><p class="eyebrow">Follow along or dig deeper</p><h1>Connected Learning</h1></div>
+        <p>Use this during teacher lectures and demos, or when a menu problem creates a need. ProStart Second Edition and instructor materials are the information source—not a second pacing guide.</p>
       </div>
 
       <section class="learning-orientation">
-        <div><p class="eyebrow">How to use this area</p><h2>Begin with the production need.</h2></div>
+        <div><p class="eyebrow">How to use this area</p><h2>Begin with the production or lesson need.</h2></div>
         <ol>
-          <li>Name the menu, technique, ingredient, service, or operating problem.</li>
+          <li>Name the technique, ingredient, service, safety, or operating problem.</li>
           <li>Open the matching learning area below.</li>
           <li>Use the assigned ProStart section, teacher lesson, demonstration, or focused lab.</li>
-          <li>Return to the event workspace and apply the learning to the plan.</li>
+          <li>Return to Classwork—or to Today&rsquo;s Event Order—and apply what you learned.</li>
         </ol>
       </section>
 
       <div class="search-box">
-        <label for="learningSearch">What does the event require?</label>
-        <input id="learningSearch" type="search" placeholder="Try: soup, holding, pastry, protein, allergens, packaging, cost..." />
+        <label for="learningSearch">What does today&rsquo;s work require?</label>
+        <input id="learningSearch" type="search" placeholder="Try: soup, holding, pastry, protein, allergens, packaging, temperature..." />
       </div>
       <div class="learning-layout">
         <aside class="topic-nav" id="topicNav" aria-label="Learning areas"></aside>
         <article class="topic-reader" id="topicReader"></article>
       </div>
-
-      <section class="business-boundary">
-        <div><p class="eyebrow">Business and entrepreneurial learning</p><h2>Understand the result without turning production class into management class.</h2></div>
-        <div>
-          <p>Advanced Culinary students encounter client needs, quantities, ingredients, yields, costs, waste, packaging, deadlines, and event results because those conditions shape real production.</p>
-          <p>Kitchen Management organizes the detailed data, conducts the deeper analysis, recommends adjustments, and presents the verified overview as planning begins for the next event.</p>
-        </div>
-      </section>
     </section>
 
     <section class="view" data-view-panel="recipes">

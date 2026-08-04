@@ -20,15 +20,16 @@
     const panel = document.querySelector('[data-view-panel="today"]');
     if (panel) panel.dataset.homeMode = "idle";
     const continueBtn = document.querySelector("#continueWork");
-    if (continueBtn) continueBtn.textContent = "Open current phase →";
+    if (continueBtn) continueBtn.textContent = "Open Classwork →";
     const lede = document.querySelector("#deskLede");
-    if (lede) lede.textContent = "This static copy cannot load live Event Orders. Use Workspace to walk the course pathway, or open the classroom host for production.";
+    if (lede) lede.textContent = "This static copy cannot load live Event Orders. Use Classwork for the opening unit and assessments, or open the classroom host for production.";
     const liveTitle = document.querySelector("#liveJobTitle");
     const liveMeta = document.querySelector("#liveJobMeta");
     const eyebrow = document.querySelector("#deskStatusEyebrow");
     if (eyebrow) eyebrow.textContent = "Static field manual";
     if (liveTitle) liveTitle.textContent = "Live jobs require the classroom host";
     if (liveMeta) liveMeta.textContent = "Learning, Recipes, and Reference still work here. Station updates need the secure app.";
+    window.syncAgendaFromLive?.();
     return;
   }
 
@@ -36,16 +37,27 @@
     const panel = document.querySelector('[data-view-panel="today"]');
     if (panel) panel.dataset.homeMode = mode;
     const continueBtn = document.querySelector("#continueWork");
+    const secondary = document.querySelector("#mastheadSecondary");
     const lede = document.querySelector("#deskLede");
     const eyebrow = document.querySelector("#deskStatusEyebrow");
     if (mode === "live") {
-      if (continueBtn) continueBtn.textContent = "Go to station updates →";
-      if (lede) lede.textContent = "Your chef published the catering job. Read the packet, cook your station, and send short updates. Learning tools support the work—they do not replace the Event Order.";
-      if (eyebrow) eyebrow.textContent = "Live Event Order";
+      if (continueBtn) continueBtn.textContent = "Open Event Order →";
+      if (secondary) {
+        secondary.textContent = "Open Classwork";
+        secondary.dataset.viewTarget = "workspace";
+        delete secondary.dataset.scrollLive;
+      }
+      if (lede) lede.textContent = "A catering job is live. Kitchen teams work the Event desk; classroom teams continue Classwork. Both tracks serve the same customer promise.";
+      if (eyebrow) eyebrow.textContent = "Event desk · published job";
     } else if (mode === "idle") {
-      if (continueBtn) continueBtn.textContent = "Open current phase →";
-      if (lede) lede.textContent = "No catering job is published right now. Use the course pathway to prepare—when a job lands, this desk becomes the Event Order.";
-      if (eyebrow) eyebrow.textContent = "Between published jobs";
+      if (continueBtn) continueBtn.textContent = "Open Classwork →";
+      if (secondary) {
+        secondary.textContent = "Event desk";
+        delete secondary.dataset.viewTarget;
+        secondary.dataset.scrollLive = "true";
+      }
+      if (lede) lede.textContent = "No catering job is published right now. Check Classwork for today’s path—opening unit or a comprehensive assessment—and start before the teacher begins.";
+      if (eyebrow) eyebrow.textContent = "Event desk";
     }
   }
 
@@ -497,25 +509,17 @@
     if (banner) {
       if (active) {
         banner.hidden = false;
-        banner.innerHTML = `<strong>Live Event Order:</strong> ${esc(active.name)} · Version ${Number(active.version || 0)} · ${esc(active.stage)}
-          <button class="text-link" type="button" data-view-target="today" data-scroll-live>Open full station desk on Today →</button>`;
+        banner.innerHTML = `<strong>Live Event Order on Today:</strong> ${esc(active.name)} · Version ${Number(active.version || 0)} · ${esc(active.stage)}
+          <button class="text-link" type="button" data-view-target="today" data-scroll-live>Open Event desk →</button>`;
       } else {
         banner.hidden = false;
-        banner.innerHTML = `<strong>No published Event Order for your section yet.</strong> Work the course phases below. When a job is published, Brief and Produce show the live packet here—and Today becomes the station desk.`;
+        banner.innerHTML = `<strong>No published Event Order yet.</strong> Classwork continues here. When a catering job publishes, it appears on Today—not as a second packet inside Classwork.`;
       }
     }
 
-    if (brief) {
-      brief.innerHTML = active
-        ? `${eventBriefHtml(active)}<p class="phase-callout"><strong>Do not retype this brief.</strong> Your chef already published the promise. Use the checklist to confirm the team understands it.</p>`
-        : `<div class="live-event-empty"><strong>No live brief yet.</strong><p>When an Event Order is published, the chef packet appears here. Until then, use the checklist to practice reading a client commitment.</p></div>`;
-    }
-
-    if (produce) {
-      produce.innerHTML = active
-        ? `${teamFilterBarHtml(cache.user)}${eventProduceHtml(active, cache.user)}<p class="phase-callout"><strong>These updates go to your chef’s Live Production board.</strong> Keep them short and accurate.</p>`
-        : `<div class="live-event-empty"><strong>No live production tasks yet.</strong><p>When an Event Order is published, your station cards appear here and on Today.</p></div>`;
-    }
+    // Event Order content stays on Today; Classwork only carries the correspondence banner.
+    if (brief) brief.innerHTML = "";
+    if (produce) produce.innerHTML = "";
   }
 
   function updateHomePriority(event, errorMessage = "") {
@@ -526,13 +530,16 @@
       liveTitle.textContent = errorMessage ? "Live Event Order unavailable" : "No published Event Order yet";
       liveMeta.textContent = errorMessage
         ? errorMessage
-        : "Use the course pathway to prepare. When your chef publishes a catering job, this desk becomes the station packet.";
+        : "Simple catering jobs publish here through the year. Classwork holds the opening unit and the six comprehensive assessments.";
       setHomeMode("idle");
+      window.syncAgendaFromLive?.();
       return;
     }
     liveTitle.textContent = event.name;
-    liveMeta.textContent = `${event.customer || "Client"} · ${dateLabel(event.serviceDate)} · ${Number(event.guestCount || 0)} guests · Version ${Number(event.version || 0)}`;
+    const tier = event.assessmentTier === "comprehensive" ? "Comprehensive assessment" : "Simple catering";
+    liveMeta.textContent = `${tier} · ${event.customer || "Client"} · ${dateLabel(event.serviceDate)} · ${Number(event.guestCount || 0)} guests · Version ${Number(event.version || 0)}`;
     setHomeMode("live");
+    window.syncAgendaFromLive?.();
   }
 
   async function saveProgress(card) {

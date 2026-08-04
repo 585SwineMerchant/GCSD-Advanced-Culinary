@@ -1,3 +1,133 @@
+const openingUnit = {
+  id: "launch",
+  short: "Food Handler Certification",
+  timing: "September",
+  focus: "Safety clearance to produce food for sale",
+  challenge: "Review food and kitchen safety, learn how this class and app operate, then earn ServSafe Food Handler certification so you can produce for customers.",
+  kind: "opening",
+  needs: ["Food safety", "Workplace safety", "Kitchen basics", "Course operations"]
+};
+
+const launchSteps = [
+  {
+    id: "orient",
+    title: "How this class and app work",
+    kicker: "Step 1 · Orientation",
+    intro: "Advanced Culinary runs on authentic customer work and classroom preparation. Today holds Event Orders. Classwork holds your unit path. Learning supports lectures, demos, and menu problems.",
+    actions: [
+      "Identify the two tracks: Events (customer Event Orders on Today) and Classwork (classroom path).",
+      "Open Learning and Reference so you know where to follow a lecture or look up a standard.",
+      "Confirm that certification comes before producing food for sale to a customer.",
+      "Ask clarifying questions about teams, kitchens, classroom work, and how updates reach your chef."
+    ],
+    protocolTitle: "How the year is organized",
+    protocol: [
+      "Smaller catering Event Orders build technique and standards toward the six comprehensive assessment experiences.",
+      "Some students work in the kitchen on an Event Order while others work Classwork in the classroom—the tracks correspond.",
+      "Teacher lectures and demos often use Learning as the follow-along guide.",
+      "After the opening unit, every comprehensive assessment uses the same six-phase Classwork cycle."
+    ],
+    callout: "You are learning the operating system of the class before you cook for a paying or school customer."
+  },
+  {
+    id: "food-safety",
+    title: "Food safety review",
+    kicker: "Step 2 · Food safety",
+    intro: "Revisit the controls that keep customers safe: contamination, personal hygiene, temperature, allergens, and holding. This review prepares you for the Food Handler exam.",
+    actions: [
+      "Identify common foodborne illness risks and how personal hygiene prevents contamination.",
+      "Explain time and temperature controls for receiving, storing, cooking, holding, cooling, and reheating.",
+      "Name major allergens and the cross-contact controls your station must follow.",
+      "Complete the assigned ProStart / instructor food-safety review materials."
+    ],
+    protocolTitle: "Food safety standard",
+    protocol: [
+      "Unsafe food never leaves the kitchen.",
+      "If you are unsure about a temperature, allergen, or contamination risk, stop and ask before continuing.",
+      "Certification proves readiness to produce for customers—it does not replace daily vigilance."
+    ],
+    callout: "Food Handler clearance is the gate to customer production in this course.",
+    view: "learning"
+  },
+  {
+    id: "workplace-safety",
+    title: "Kitchen and workplace safety",
+    kicker: "Step 3 · Workplace safety",
+    intro: "Professional kitchens demand fire awareness, equipment safety, knife discipline, and emergency response—not only food sanitation.",
+    actions: [
+      "Identify kitchen workplace hazards and the correct response for burns, cuts, slips, and fires.",
+      "Review knife safety and why uniform cuts protect quality and reduce injury risk.",
+      "Locate fire safety equipment and explain emergency procedures for your kitchen.",
+      "Complete the assigned workplace-safety review or demonstration."
+    ],
+    protocolTitle: "Workplace safety standard",
+    protocol: [
+      "Stop unsafe work immediately and protect people first.",
+      "Report injuries and near-misses to the instructor without delay.",
+      "Equipment is used only after you can name its hazard and correct setup."
+    ],
+    callout: "A certified food handler still owes the team a safe workstation.",
+    view: "reference"
+  },
+  {
+    id: "kitchen-basics",
+    title: "Kitchen basics for Advanced",
+    kicker: "Step 4 · Kitchen basics",
+    intro: "Confirm mise en place, standardized recipes, station setup, and the flow between classroom preparation and kitchen production.",
+    actions: [
+      "Define mise en place for an Advanced production station.",
+      "Explain how a standardized recipe, yield, and portion protect the customer promise.",
+      "Practice setting a workstation from an assigned recipe or demo.",
+      "Connect Classwork preparation to the Event Order you will eventually cook."
+    ],
+    protocolTitle: "Readiness before labor",
+    protocol: [
+      "Foundations from Culinary 1 & 2 are reverified here, then applied at greater complexity.",
+      "A station is ready when ingredients, tools, controls, and first actions are clear.",
+      "Classroom Classwork and kitchen Event Orders are separate desks that serve the same job."
+    ],
+    callout: "Basics are not busywork—they are the difference between a safe sale and a scramble."
+  },
+  {
+    id: "exam-prep",
+    title: "Exam readiness check",
+    kicker: "Step 5 · Ready to test",
+    intro: "Before the ServSafe Food Handler exam, confirm weak spots, complete assigned practice, and know the testing expectations.",
+    actions: [
+      "Complete instructor-assigned practice or review for the Food Handler exam.",
+      "List any topics you still need clarified and resolve them with the teacher.",
+      "Confirm testing date, materials, and accommodations with your instructor.",
+      "Arrive prepared to demonstrate professional food-handler knowledge."
+    ],
+    protocolTitle: "Exam expectations",
+    protocol: [
+      "The Food Handler exam is a credential gate for customer production this year.",
+      "Honest preparation beats last-minute guessing.",
+      "If you do not pass on the first attempt, follow the instructor’s retest plan before kitchen production for sale."
+    ],
+    callout: "Clearance is earned—then protected every service day."
+  },
+  {
+    id: "certify",
+    title: "Earn Food Handler certification",
+    kicker: "Step 6 · Certification",
+    intro: "Take the ServSafe Food Handler examination. Passing clears you to produce food for customer Event Orders under course supervision.",
+    actions: [
+      "Complete the ServSafe Food Handler exam under instructor direction.",
+      "Record your result with the teacher and keep evidence for your portfolio.",
+      "If returned for retest, complete the assigned remediation before kitchen production for sale.",
+      "After clearance, open Experience 01 and begin the comprehensive assessment cycle."
+    ],
+    protocolTitle: "After certification",
+    protocol: [
+      "Certified students may enter customer production on published Event Orders.",
+      "Simple catering Event Orders continue to teach technique between the six major assessments.",
+      "The next Classwork focus is Professional Kitchen Launch—the first comprehensive assessment experience."
+    ],
+    callout: "Certification opens the year. The six major experiences become your main assessments."
+  }
+];
+
 const experiences = [
   {
     id: 1,
@@ -5,6 +135,7 @@ const experiences = [
     timing: "September–October",
     focus: "Readiness, station systems, consistent execution",
     challenge: "Produce and serve safe, consistent small bites for an authentic or approved school audience at the promised service time.",
+    kind: "assessment",
     needs: ["Kitchen systems", "Garde manger and presentation", "Quality calibration", "Service timing"]
   },
   {
@@ -13,6 +144,7 @@ const experiences = [
     timing: "November–December",
     focus: "Scaling, scheduling, packaging, fulfillment",
     challenge: "Convert known demand into consistent baked products, accurate orders, responsible ingredient use, and on-time fulfillment.",
+    kind: "assessment",
     needs: ["Baking and pastry", "Formula scaling and yield", "Batch scheduling", "Packaging and labeling"]
   },
   {
@@ -21,6 +153,7 @@ const experiences = [
     timing: "January–February",
     focus: "Menu balance, holding, coordinated components",
     challenge: "Build and deliver a cohesive seasonal meal whose components meet an approved recipient’s needs, quantity, and schedule.",
+    kind: "assessment",
     needs: ["Stocks, soups, and sauces", "Vegetables and starches", "Menu balance", "Holding and transport"]
   },
   {
@@ -29,6 +162,7 @@ const experiences = [
     timing: "February–March",
     focus: "Order flow, hospitality, speed, accuracy",
     challenge: "Deliver customized food efficiently without sacrificing safety, consistency, hospitality, or order accuracy.",
+    kind: "assessment",
     needs: ["Batch production", "Station flow", "Hospitality and service", "Replenishment and waste"]
   },
   {
@@ -37,6 +171,7 @@ const experiences = [
     timing: "March–April",
     focus: "Protein cookery, client needs, leadership",
     challenge: "Coordinate a complete catered menu built around safe, appropriate protein fabrication and cookery for a fixed client deadline.",
+    kind: "assessment",
     needs: ["Meat, poultry, or seafood", "Fabrication and yield", "Sauces and accompaniments", "Catering and leadership"]
   },
   {
@@ -45,18 +180,21 @@ const experiences = [
     timing: "May–June",
     focus: "Full-cycle planning, production, service, closeout",
     challenge: "Complete the client-centered production cycle with the greatest feasible student ownership while meeting every safety and delivery commitment.",
+    kind: "assessment",
     needs: ["Integrated menu work", "Production leadership", "Quality and hospitality", "Evidence and improvement"]
   }
 ];
+
+const launchStepOrder = launchSteps.map(step => step.id);
 
 const phaseOrder = ["brief", "learn", "plan", "produce", "close", "improve"];
 const phaseContent = {
   brief: {
     title: "Understand the promise",
     kicker: "Phase 1 · Brief",
-    intro: "When a Live Event Order is published, read that packet first. Know exactly what the department has accepted before menu ideas become production work. Do not retype the chef’s brief into a blank form.",
+    intro: "When a Live Event Order is published on Today, read that packet first. Know exactly what the department has accepted before menu ideas become production work. Do not retype the chef’s brief into a blank form.",
     actions: [
-      "Read the published Event Order commitment, menu, allergens, quantity, and service time.",
+      "Open Today and read the published Event Order commitment, menu, allergens, quantity, and service time.",
       "Confirm budget, dietary needs, packaging, equipment, storage, and delivery expectations for your section.",
       "Review the previous event’s objective management briefing and the approved goal for this cycle.",
       "Separate confirmed requirements from preferences, assumptions, and questions."
@@ -88,7 +226,7 @@ const phaseContent = {
       "Review does not mean repeating Culinary 1 & 2; prior foundations are reverified and applied at greater complexity.",
       "Routine practice stays in class unless it provides meaningful evidence of readiness or growth."
     ],
-    callout: "Do not browse disconnected chapters. Start with the production need, find the connected learning, then return to the event.",
+    callout: "Do not browse disconnected chapters. Start with the production or lesson need, find the connected learning, then return to Classwork or Today.",
     view: "learning"
   },
   plan: {
@@ -115,10 +253,10 @@ const phaseContent = {
   produce: {
     title: "Produce, communicate, and protect the standard",
     kicker: "Phase 4 · Produce",
-    intro: "When a Live Event Order is published, use the station cards below to cook and send updates to your chef. Follow the approved plan, communicate early, and protect the client commitment.",
+    intro: "Produce on the published Event Order on Today. Classwork here is about readiness, standards, and evidence—not a second copy of the station desk.",
     actions: [
-      "Set the station from the approved plan and confirm the first three actions before beginning.",
-      "Track milestones and report status, delay, shortage, risk, or quality concerns early.",
+      "Confirm your Event Order station assignment on Today before cooking.",
+      "Track milestones and report status, delay, shortage, risk, or quality concerns early on the Event desk.",
       "Complete assigned meaningful production work and preserve evidence of individual contribution.",
       "Use release standards for safety, flavor, texture, appearance, portion, temperature, packaging, and service readiness.",
       "Ask for instructor direction before correcting, repurposing, remaking, replacing, or removing a failed component."
@@ -286,17 +424,24 @@ const candidateFields = ["Product or concept", "Source URL / book / chef", "Why 
 const $ = (selector, root = document) => root.querySelector(selector);
 const $$ = (selector, root = document) => [...root.querySelectorAll(selector)];
 const escapeHtml = value => String(value ?? "").replace(/[&<>'"]/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "'": "&#39;", '"': "&quot;" }[char]));
-const eventKey = () => String($("#eventSelect")?.value || localStorage.getItem("advancedCurrentEvent") || "1");
+const eventKey = () => String($("#eventSelect")?.value || localStorage.getItem("advancedCurrentEvent") || "launch");
+const isLaunchKey = id => String(id) === "launch";
 
 function getState() {
   try { return JSON.parse(localStorage.getItem("advancedEventStateV3") || "{}"); }
   catch { return {}; }
 }
 function saveState(state) { localStorage.setItem("advancedEventStateV3", JSON.stringify(state)); }
-function currentEvent() { return experiences.find(item => String(item.id) === eventKey()) || experiences[0]; }
+function currentEvent() {
+  if (isLaunchKey(eventKey())) return openingUnit;
+  return experiences.find(item => String(item.id) === eventKey()) || experiences[0];
+}
 function eventRecord(id = eventKey()) {
   const state = getState();
-  return state[id] || {phase: "brief", completed: {}, checks: {}};
+  if (isLaunchKey(id)) {
+    return state[id] || { phase: launchStepOrder[0], completed: {}, checks: {} };
+  }
+  return state[id] || { phase: "brief", completed: {}, checks: {} };
 }
 function updateEventRecord(update, id = eventKey()) {
   const state = getState();
@@ -326,63 +471,133 @@ function setCurrentEvent(id) {
   if ($("#eventSelect")) $("#eventSelect").value = String(id);
   renderHome();
   renderWorkspace();
-  if ($("#recipeExperience")) $("#recipeExperience").value = String(id);
 }
 
 function nextIncompletePhase(record) {
   return phaseOrder.find(phase => !record.completed?.[phase]) || "improve";
 }
 
-function renderHome() {
-  const exp = experiences.find(item => String(item.id) === (localStorage.getItem("advancedCurrentEvent") || "1")) || experiences[0];
+function nextIncompleteLaunchStep(record) {
+  return launchStepOrder.find(step => !record.completed?.[step]) || launchStepOrder[launchStepOrder.length - 1];
+}
+
+function classworkNextAction() {
+  const exp = currentEvent();
   const record = eventRecord(String(exp.id));
+  const returned = actionableRecipeSubmissions().find(item => item.status === "Returned for revision");
+  if (returned) return `Revise ${returned.name}: ${returned.reviewNote || "Teacher returned this recipe for revision."}`;
+  if (isLaunchKey(exp.id)) {
+    const stepId = record.phase || nextIncompleteLaunchStep(record);
+    const step = launchSteps.find(item => item.id === stepId) || launchSteps[0];
+    const nextIndex = step.actions.findIndex((_, index) => !record.checks?.[`${stepId}-${index}`]);
+    return nextIndex >= 0 ? step.actions[nextIndex] : `Complete ${step.title}.`;
+  }
   const phase = record.phase || nextIncompletePhase(record);
-  const completeCount = phaseOrder.filter(item => record.completed?.[item]).length;
-  $("#homeEventNumber").textContent = String(exp.id).padStart(2, "0");
+  const phaseChecks = phaseContent[phase].actions;
+  const nextIndex = phaseChecks.findIndex((_, index) => !record.checks?.[`${phase}-${index}`]);
+  return nextIndex >= 0 ? phaseChecks[nextIndex] : `Complete the ${phaseContent[phase].title.toLowerCase()} phase.`;
+}
+
+function renderHome() {
+  const exp = currentEvent();
+  const record = eventRecord(String(exp.id));
+  const launch = isLaunchKey(exp.id);
+  const stepOrPhase = launch
+    ? (record.phase || nextIncompleteLaunchStep(record))
+    : (record.phase || nextIncompletePhase(record));
+  const step = launch ? (launchSteps.find(item => item.id === stepOrPhase) || launchSteps[0]) : null;
+  const completeCount = launch
+    ? launchStepOrder.filter(item => record.completed?.[item]).length
+    : phaseOrder.filter(item => record.completed?.[item]).length;
+  const total = launch ? launchStepOrder.length : phaseOrder.length;
+
+  $("#homeEventNumber").textContent = launch ? "00" : String(exp.id).padStart(2, "0");
   $("#homeEventTiming").textContent = exp.timing;
   $("#homeEventTitle").textContent = exp.short;
   $("#homeEventChallenge").textContent = exp.challenge;
-  $("#homePhaseName").textContent = phaseContent[phase].title;
-  $("#homeProgress").textContent = `${completeCount} of 6 phases`;
-  const phaseChecks = phaseContent[phase].actions;
-  const nextIndex = phaseChecks.findIndex((_, index) => !record.checks?.[`${phase}-${index}`]);
-  const returned = actionableRecipeSubmissions().find(item => item.status === "Returned for revision");
-  $("#homeNextAction").textContent = returned
-    ? `Revise ${returned.name}: ${returned.reviewNote || "Teacher returned this recipe for revision."}`
-    : nextIndex >= 0 ? phaseChecks[nextIndex] : `Complete the ${phaseContent[phase].title.toLowerCase()} phase.`;
-  $("#homeProgressBar").style.width = `${completeCount / 6 * 100}%`;
-  const phaseIndex = phaseOrder.indexOf(phase);
-  $$(".rhythm-strip li").forEach((item, index) => {
-    item.classList.toggle("is-current", index === phaseIndex);
-    item.classList.toggle("is-complete", Boolean(record.completed?.[phaseOrder[index]]));
-  });
-  $("#homeExperienceStrip").innerHTML = experiences.map(item => `
-    <button class="arc-card ${item.id === exp.id ? "current" : ""}" data-home-event="${item.id}">
-      <span>Experience ${item.id}</span><strong>${item.short}</strong><small>${item.timing}</small>
-    </button>`).join("");
+  $("#homeTrackLabel").textContent = launch ? "Opening unit" : "Comprehensive assessment";
+  $("#homePhaseLabel").textContent = launch ? "Current step" : "Current phase";
+  $("#homePhaseName").textContent = launch ? step.title : phaseContent[stepOrPhase].title;
+  $("#homeProgress").textContent = `${completeCount} of ${total} ${launch ? "steps" : "phases"}`;
+  $("#homeNextAction").textContent = classworkNextAction();
+  $("#homeProgressBar").style.width = `${completeCount / total * 100}%`;
+
+  $("#agendaClassEyebrow").textContent = launch ? "Classwork · opening unit" : "Classwork · comprehensive assessment";
+  $("#agendaClassTitle").textContent = exp.short;
+  $("#agendaClassMeta").textContent = launch
+    ? "Food & kitchen safety review, course operations, then ServSafe Food Handler certification."
+    : `${exp.timing} · ${exp.focus}`;
+  $("#agendaClassAction").textContent = classworkNextAction();
+
+  $("#homeExperienceStrip").innerHTML = [
+    `<button class="arc-card ${launch ? "current" : ""}" data-home-event="launch">
+      <span>Opening unit</span><strong>${openingUnit.short}</strong><small>${openingUnit.timing}</small>
+    </button>`,
+    ...experiences.map(item => `
+    <button class="arc-card ${!launch && item.id === exp.id ? "current" : ""}" data-home-event="${item.id}">
+      <span>Assessment ${item.id}</span><strong>${item.short}</strong><small>${item.timing}</small>
+    </button>`)
+  ].join("");
   $$("[data-home-event]").forEach(button => button.addEventListener("click", () => {
     setCurrentEvent(button.dataset.homeEvent);
     showView("workspace");
   }));
   renderRecipeActionInbox("#homeRecipeActions", true);
+  syncAgendaFromLive();
 }
 
+function syncAgendaFromLive() {
+  const cache = window.GCSDStudentOps?.getCache?.();
+  const event = cache?.events?.[0];
+  const title = $("#agendaEventTitle");
+  const meta = $("#agendaEventMeta");
+  const action = $("#agendaEventAction");
+  if (!title || !meta || !action) return;
+  if (event) {
+    const tier = event.assessmentTier === "comprehensive" ? "Comprehensive assessment event" : "Simple catering Event Order";
+    title.textContent = event.name;
+    meta.textContent = `${tier} · ${event.customer || "Client"} · ${event.serviceDate || "Date pending"} · ${Number(event.guestCount || 0)} guests`;
+    action.textContent = "Read the packet, cook your station, and send short updates on the Event desk.";
+  } else if (cache?.error) {
+    title.textContent = "Event Order unavailable";
+    meta.textContent = cache.error;
+    action.textContent = "Use Classwork until the Event desk reconnects.";
+  } else {
+    title.textContent = "No published Event Order yet";
+    meta.textContent = "Simple catering jobs arrive here throughout the year and build toward the six comprehensive assessments.";
+    action.textContent = "Start Classwork before the teacher begins, then return here when a job publishes.";
+  }
+}
+window.syncAgendaFromLive = syncAgendaFromLive;
+
 function renderEventSelector() {
-  $("#eventSelect").innerHTML = experiences.map(item => `<option value="${item.id}">${item.id}. ${item.short}</option>`).join("");
-  $("#eventSelect").value = localStorage.getItem("advancedCurrentEvent") || "1";
+  $("#eventSelect").innerHTML = [
+    `<option value="launch">Opening · ${openingUnit.short}</option>`,
+    ...experiences.map(item => `<option value="${item.id}">Assessment ${item.id}. ${item.short}</option>`)
+  ].join("");
+  $("#eventSelect").value = localStorage.getItem("advancedCurrentEvent") || "launch";
 }
 
 function renderWorkspace() {
   const exp = currentEvent();
-  const record = eventRecord();
-  const activePhase = record.phase || nextIncompletePhase(record);
-  $("#workspaceEventNumber").textContent = String(exp.id).padStart(2, "0");
+  const launch = isLaunchKey(exp.id);
+  $("#workspaceEventNumber").textContent = launch ? "00" : String(exp.id).padStart(2, "0");
   $("#workspaceEventTitle").textContent = exp.short;
   $("#workspaceEventFocus").textContent = exp.focus;
+  $("#assessmentWorkflow").hidden = launch;
+  $("#launchWorkflow").hidden = !launch;
+  if (launch) renderLaunchWorkspace();
+  else renderAssessmentWorkspace();
+  window.GCSDStudentOps?.syncWorkspacePanels?.();
+}
+
+function renderAssessmentWorkspace() {
+  const record = eventRecord();
+  const activePhase = record.phase && phaseOrder.includes(record.phase) ? record.phase : nextIncompletePhase(record);
   const completeCount = phaseOrder.filter(phase => record.completed?.[phase]).length;
   $("#workflowProgressText").textContent = `${completeCount} of 6 phases complete`;
   $("#workflowProgressBar").style.width = `${completeCount / 6 * 100}%`;
-  $$(".phase-tab").forEach(tab => {
+  $$(".phase-tab", $("#assessmentWorkflow")).forEach(tab => {
     const active = tab.dataset.phase === activePhase;
     tab.classList.toggle("active", active);
     tab.classList.toggle("complete", !!record.completed?.[tab.dataset.phase]);
@@ -391,10 +606,36 @@ function renderWorkspace() {
   renderPhase(activePhase);
 }
 
+function renderLaunchWorkspace() {
+  const record = eventRecord("launch");
+  const activeStep = record.phase && launchStepOrder.includes(record.phase) ? record.phase : nextIncompleteLaunchStep(record);
+  const completeCount = launchStepOrder.filter(step => record.completed?.[step]).length;
+  const shortLabels = ["Orient", "Food safety", "Workplace", "Basics", "Exam prep", "Certify"];
+  $("#launchProgressText").textContent = `${completeCount} of ${launchStepOrder.length} steps complete`;
+  $("#launchProgressBar").style.width = `${completeCount / launchStepOrder.length * 100}%`;
+  $("#launchStepTabs").innerHTML = launchSteps.map((step, index) => `
+    <button class="phase-tab ${step.id === activeStep ? "active" : ""} ${record.completed?.[step.id] ? "complete" : ""}" role="tab" aria-selected="${step.id === activeStep}" data-launch-step="${step.id}">
+      <span>${index + 1}</span><strong>${shortLabels[index]}</strong><small>${step.kicker.replace(/^Step \d+ · /, "")}</small>
+    </button>`).join("");
+  $$("[data-launch-step]").forEach(tab => tab.addEventListener("click", () => openLaunchStep(tab.dataset.launchStep)));
+  renderLaunchStep(activeStep);
+}
+
 function openPhase(name, scroll = true) {
-  updateEventRecord({phase: name});
+  if (isLaunchKey(eventKey())) {
+    openLaunchStep(launchStepOrder[0], scroll);
+    return;
+  }
+  updateEventRecord({ phase: name });
   renderWorkspace();
-  if (scroll) $(".workflow-shell").scrollIntoView({behavior: "smooth", block: "start"});
+  if (scroll) $("#assessmentWorkflow")?.scrollIntoView({ behavior: "smooth", block: "start" });
+}
+
+function openLaunchStep(name, scroll = true) {
+  setCurrentEvent("launch");
+  updateEventRecord({ phase: name }, "launch");
+  renderWorkspace();
+  if (scroll) $("#launchWorkflow")?.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 
 function renderPhase(name) {
@@ -402,17 +643,13 @@ function renderPhase(name) {
   const record = eventRecord();
   const exp = currentEvent();
   const viewButton = phase.view ? `<button class="button secondary" data-view-target="${phase.view}">Open Connected Learning</button>` : "";
-  const livePanel = name === "brief"
-    ? `<section class="workspace-live-panel" id="workspaceLiveBrief" aria-label="Live event brief"></section>`
-    : (name === "produce" || name === "close"
-      ? `<section class="workspace-live-panel" id="workspaceLiveProduce" aria-label="Live production updates"></section>`
-      : "");
+  const eventLink = `<button class="button secondary" data-view-target="today" data-scroll-live>Open Event desk on Today</button>`;
   $("#phaseStage").innerHTML = `
     <div class="phase-stage-header">
       <div><p class="eyebrow">${phase.kicker}</p><h2>${phase.title}</h2><p>${phase.intro}</p></div>
-      <span class="phase-badge">${exp.short}</span>
+      <span class="phase-badge">Assessment · ${exp.short}</span>
     </div>
-    ${livePanel}
+    <p class="phase-callout"><strong>Events stay on Today.</strong> Classwork prepares and documents the classroom side of the same customer work. Kitchen teams use the Event Order; classroom teams use this path.</p>
     <div class="phase-grid">
       <article class="phase-main">
         <h3>What to complete</h3>
@@ -424,7 +661,7 @@ function renderPhase(name) {
             </label>`).join("")}
         </div>
         <p class="phase-callout"><strong>Standard:</strong> ${phase.callout}</p>
-        <div class="phase-tools">${viewButton}</div>
+        <div class="phase-tools">${viewButton}${eventLink}</div>
         <div class="complete-phase">
           <label><input type="checkbox" id="completePhase" ${record.completed?.[name] ? "checked" : ""} /> This phase is complete and the instructor has approved moving forward when approval is required.</label>
         </div>
@@ -432,7 +669,7 @@ function renderPhase(name) {
       <aside class="phase-side">
         <p class="eyebrow">${phase.protocolTitle}</p>
         <ol class="protocol-list">${phase.protocol.map(item => `<li>${item}</li>`).join("")}</ol>
-        ${name === "learn" ? `<h4>Likely needs for this event</h4><ul>${exp.needs.map(item => `<li>${item}</li>`).join("")}</ul>` : ""}
+        ${name === "learn" ? `<h4>Likely needs for this assessment</h4><ul>${exp.needs.map(item => `<li>${item}</li>`).join("")}</ul>` : ""}
       </aside>
     </div>`;
   $$("[data-phase-check]", $("#phaseStage")).forEach(box => box.addEventListener("change", () => {
@@ -450,7 +687,58 @@ function renderPhase(name) {
     renderHome();
   });
   bindDynamicButtons($("#phaseStage"));
-  window.GCSDStudentOps?.syncWorkspacePanels?.();
+}
+
+function renderLaunchStep(name) {
+  const step = launchSteps.find(item => item.id === name) || launchSteps[0];
+  const record = eventRecord("launch");
+  const viewButton = step.view ? `<button class="button secondary" data-view-target="${step.view}">Open ${step.view === "learning" ? "Connected Learning" : "Quick Reference"}</button>` : "";
+  $("#launchStage").innerHTML = `
+    <div class="phase-stage-header">
+      <div><p class="eyebrow">${step.kicker}</p><h2>${step.title}</h2><p>${step.intro}</p></div>
+      <span class="phase-badge">Opening unit</span>
+    </div>
+    <div class="phase-grid">
+      <article class="phase-main">
+        <h3>What to complete</h3>
+        <div class="action-list">
+          ${step.actions.map((action, index) => `
+            <label class="action-check">
+              <input type="checkbox" data-launch-check="${name}-${index}" ${record.checks?.[`${name}-${index}`] ? "checked" : ""} />
+              <span>${action}</span>
+            </label>`).join("")}
+        </div>
+        <p class="phase-callout"><strong>Standard:</strong> ${step.callout}</p>
+        <div class="phase-tools">${viewButton}</div>
+        <div class="complete-phase">
+          <label><input type="checkbox" id="completeLaunchStep" ${record.completed?.[name] ? "checked" : ""} /> This step is complete and the instructor has approved moving forward when approval is required.</label>
+        </div>
+      </article>
+      <aside class="phase-side">
+        <p class="eyebrow">${step.protocolTitle}</p>
+        <ol class="protocol-list">${step.protocol.map(item => `<li>${item}</li>`).join("")}</ol>
+      </aside>
+    </div>`;
+  $$("[data-launch-check]", $("#launchStage")).forEach(box => box.addEventListener("change", () => {
+    const fresh = eventRecord("launch");
+    const checks = {...fresh.checks, [box.dataset.launchCheck]: box.checked};
+    updateEventRecord({checks}, "launch");
+    renderHome();
+  }));
+  $("#completeLaunchStep").addEventListener("change", event => {
+    const fresh = eventRecord("launch");
+    const completed = {...fresh.completed, [name]: event.target.checked};
+    const next = event.target.checked
+      ? launchStepOrder[Math.min(launchStepOrder.indexOf(name) + 1, launchStepOrder.length - 1)]
+      : name;
+    updateEventRecord({completed, phase: next}, "launch");
+    if (event.target.checked && name === "certify") {
+      // stay on launch until teacher moves them; offer assessment 1 via selector
+    }
+    renderWorkspace();
+    renderHome();
+  });
+  bindDynamicButtons($("#launchStage"));
 }
 
 function renderLearning(search = "") {
@@ -481,7 +769,7 @@ function renderLearning(search = "") {
     ${relatedReferences.length ? `<h3>Course quick references</h3><div class="related-reference-list">${relatedReferences.map(reference => `<button class="reference-jump" data-reference-jump="${escapeHtml(reference.topic)}"><strong>${escapeHtml(reference.topic)}</strong><span>${escapeHtml(reference.coreIdea)}</span></button>`).join("")}</div>` : ""}
     ${relatedRecipes.length ? `<p class="source-note"><strong>${relatedRecipes.length} source recipes and formulas are indexed for this learning area.</strong> Examples include ${relatedRecipes.slice(0, 5).map(recipe => escapeHtml(recipe.name)).join(", ")}. Open Recipe Studio to search the full source bank.</p>` : ""}
     <p class="source-note"><strong>Source rule:</strong> ProStart Second Edition and instructor-approved course materials provide the specific information. The event supplies the reason and the place to apply it.</p>
-    <button class="button primary" data-view-target="workspace" data-open-phase="learn">Return to the Learn phase →</button>`;
+    <button class="button primary" data-view-target="workspace">Return to Classwork →</button>`;
   $$("[data-topic]").forEach(button => button.addEventListener("click", () => {
     activeTopic = Number(button.dataset.topic);
     renderLearning($("#learningSearch").value);
@@ -831,6 +1119,8 @@ function bindDynamicButtons(root = document) {
     if (button.dataset.bound) return;
     button.dataset.bound = "true";
     button.addEventListener("click", () => {
+      if (button.dataset.scrollLive != null && button.dataset.scrollLive !== "") return;
+      if (!button.dataset.viewTarget) return;
       showView(button.dataset.viewTarget);
       if (button.dataset.openPhase) openPhase(button.dataset.openPhase);
     });
@@ -861,7 +1151,7 @@ async function init() {
     $("#menuButton")?.setAttribute("aria-expanded", String(Boolean(open)));
   });
   $("#eventSelect")?.addEventListener("change", event => setCurrentEvent(event.target.value));
-  $$(".phase-tab").forEach(tab => tab.addEventListener("click", () => openPhase(tab.dataset.phase)));
+  $$("#assessmentWorkflow .phase-tab").forEach(tab => tab.addEventListener("click", () => openPhase(tab.dataset.phase)));
   $("#continueWork")?.addEventListener("click", () => {
     const liveRoot = document.querySelector("#liveEventOrder");
     const hasLive = Boolean(window.GCSDStudentOps?.getCache?.()?.events?.length);
@@ -871,22 +1161,21 @@ async function init() {
       return;
     }
     showView("workspace");
-    openPhase(eventRecord().phase || nextIncompletePhase(eventRecord()));
   });
   $("#openCurrentPhase")?.addEventListener("click", () => {
     showView("workspace");
-    openPhase(eventRecord().phase || nextIncompletePhase(eventRecord()));
   });
   window.addEventListener("gcsd:live-events", () => {
     window.GCSDStudentOps?.syncWorkspacePanels?.();
-    const activePhase = document.querySelector(".phase-tab.active")?.dataset.phase;
-    if (activePhase && ["brief", "produce", "close"].includes(activePhase)) renderPhase(activePhase);
+    syncAgendaFromLive();
   });
   document.addEventListener("click", event => {
     const scrollLive = event.target.closest("[data-scroll-live]");
     if (!scrollLive) return;
     showView("today");
-    document.querySelector("#liveEventOrder")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const packet = document.querySelector("#liveEventOrder");
+    const status = document.querySelector("#deskStatus");
+    (packet && !packet.hidden ? packet : status)?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
   $("#learningSearch")?.addEventListener("input", event => renderLearning(event.target.value));
   const updateSourceBank = () => renderSourceBank($("#sourceRecipeSearch")?.value || "", $("#sourceRecipeCategory")?.value || "", $("#sourceRecipeUse")?.value || "");
