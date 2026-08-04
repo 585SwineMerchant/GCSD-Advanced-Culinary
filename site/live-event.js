@@ -217,7 +217,15 @@
     const dialog = document.querySelector("#recipeDialog");
     const body = document.querySelector("#recipeDialogContent");
     if (!dialog || !body || !recipe) return;
-    const lines = (value) => (Array.isArray(value) ? value : String(value || "").split(/\n/)).map(line => String(line).trim()).filter(Boolean);
+    const formatLine = (value) => {
+      if (value == null) return "";
+      if (typeof value === "string" || typeof value === "number") return String(value).trim();
+      if (typeof value === "object") {
+        return [value.quantity, value.unit, value.name || value.ingredient || value.sourceText].filter(part => part != null && String(part).trim() !== "").join(" ").trim();
+      }
+      return String(value).trim();
+    };
+    const lines = (value) => (Array.isArray(value) ? value : String(value || "").split(/\n+/)).map(formatLine).filter(Boolean);
     body.innerHTML = `
       <div class="modal-hero">
         <p class="eyebrow">Approved event recipe</p>
@@ -227,7 +235,7 @@
       <div class="modal-body recipe-packet">
         ${recipe.allergens ? `<p><strong>Allergens:</strong> ${esc(recipe.allergens)}</p>` : ""}
         <h3>Ingredients</h3>
-        <ul>${lines(recipe.ingredients).map(line => `<li>${esc(typeof line === "string" ? line : [line.quantity, line.unit, line.name].filter(Boolean).join(" "))}</li>`).join("") || "<li>See chef packet.</li>"}</ul>
+        <ul>${lines(recipe.ingredients).map(line => `<li>${esc(line)}</li>`).join("") || "<li>See chef packet.</li>"}</ul>
         <h3>Equipment</h3>
         <ul>${lines(recipe.equipment).map(line => `<li>${esc(line)}</li>`).join("") || "<li>See station card.</li>"}</ul>
         <h3>Procedure</h3>

@@ -274,6 +274,7 @@ const quickReferences = [
 ];
 
 let sourceCatalog = { recipes: [], references: [], statusNote: "" };
+let activeTopic = 0;
 const recipeCategoriesByTopic = {
   baking: ["Breads and yeast doughs", "Pastry, cakes, and desserts"],
   produce: ["Grains, pasta, and legumes", "Potatoes"],
@@ -307,9 +308,12 @@ function updateEventRecord(update, id = eventKey()) {
 
 function showView(name) {
   $$("[data-view-panel]").forEach(panel => panel.classList.toggle("active", panel.dataset.viewPanel === name));
-  $$(".nav-link").forEach(link => link.classList.toggle("active", link.dataset.viewTarget === name));
-  $("#primaryNav").classList.remove("open");
-  $("#menuButton").setAttribute("aria-expanded", "false");
+  $$(".nav-link").forEach(link => {
+    if (!link.dataset.viewTarget) return;
+    link.classList.toggle("active", link.dataset.viewTarget === name);
+  });
+  $("#primaryNav")?.classList.remove("open");
+  $("#menuButton")?.setAttribute("aria-expanded", "false");
   window.scrollTo({top: 0, behavior: "smooth"});
   if (name === "today") renderHome();
   if (name === "workspace") renderWorkspace();
@@ -738,24 +742,28 @@ async function init() {
   await loadSourceCatalog().catch(() => {
     sourceCatalog = { recipes: [], references: [], statusNote: "The source bank is temporarily unavailable." };
   });
-  renderEventSelector();
-  renderHome();
-  renderWorkspace();
-  renderLearning();
-  renderReferences();
-  renderRecipeWorkspace();
-  initializeSourceControls();
-  bindRecipeEvents();
+  try {
+    renderEventSelector();
+    renderHome();
+    renderWorkspace();
+    renderLearning();
+    renderReferences();
+    renderRecipeWorkspace();
+    initializeSourceControls();
+    bindRecipeEvents();
+  } catch (error) {
+    console.error("Student app initialization error:", error);
+  }
   bindDynamicButtons();
   loadRecipeReviewData().catch(() => { $("#recipeReviewStatus").innerHTML = "<strong>Status unavailable</strong><p>Saved work is still available on this device. Refresh to reconnect to the review queue.</p>"; });
 
-  $("#menuButton").addEventListener("click", () => {
-    const open = $("#primaryNav").classList.toggle("open");
-    $("#menuButton").setAttribute("aria-expanded", String(open));
+  $("#menuButton")?.addEventListener("click", () => {
+    const open = $("#primaryNav")?.classList.toggle("open");
+    $("#menuButton")?.setAttribute("aria-expanded", String(Boolean(open)));
   });
-  $("#eventSelect").addEventListener("change", event => setCurrentEvent(event.target.value));
+  $("#eventSelect")?.addEventListener("change", event => setCurrentEvent(event.target.value));
   $$(".phase-tab").forEach(tab => tab.addEventListener("click", () => openPhase(tab.dataset.phase)));
-  $("#continueWork").addEventListener("click", () => {
+  $("#continueWork")?.addEventListener("click", () => {
     const liveRoot = document.querySelector("#liveEventOrder");
     if (liveRoot && window.GCSDStudentOps?.getCache?.()?.events?.length) {
       showView("today");
@@ -765,7 +773,7 @@ async function init() {
     showView("workspace");
     openPhase(eventRecord().phase || nextIncompletePhase(eventRecord()));
   });
-  $("#openCurrentPhase").addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
+  $("#openCurrentPhase")?.addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
   window.addEventListener("gcsd:live-events", () => {
     window.GCSDStudentOps?.syncWorkspacePanels?.();
     const activePhase = document.querySelector(".phase-tab.active")?.dataset.phase;
@@ -777,17 +785,17 @@ async function init() {
     showView("today");
     document.querySelector("#liveEventOrder")?.scrollIntoView({ behavior: "smooth", block: "start" });
   });
-  $("#learningSearch").addEventListener("input", event => renderLearning(event.target.value));
-  const updateSourceBank = () => renderSourceBank($("#sourceRecipeSearch").value, $("#sourceRecipeCategory").value, $("#sourceRecipeUse").value);
-  $("#sourceRecipeSearch").addEventListener("input", updateSourceBank);
-  $("#sourceRecipeCategory").addEventListener("change", updateSourceBank);
-  $("#sourceRecipeUse").addEventListener("change", updateSourceBank);
-  const updateReferences = () => renderReferences($("#referenceSearch").value, $("#referenceType").value);
-  $("#referenceSearch").addEventListener("input", updateReferences);
-  $("#referenceType").addEventListener("change", updateReferences);
-  $$("[data-close-modal]").forEach(button => button.addEventListener("click", () => $("#" + button.dataset.closeModal).close()));
-  $("#recipeDialog").addEventListener("click", event => { if (event.target === $("#recipeDialog")) $("#recipeDialog").close(); });
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && $("#recipeDialog").open) $("#recipeDialog").close(); });
+  $("#learningSearch")?.addEventListener("input", event => renderLearning(event.target.value));
+  const updateSourceBank = () => renderSourceBank($("#sourceRecipeSearch")?.value || "", $("#sourceRecipeCategory")?.value || "", $("#sourceRecipeUse")?.value || "");
+  $("#sourceRecipeSearch")?.addEventListener("input", updateSourceBank);
+  $("#sourceRecipeCategory")?.addEventListener("change", updateSourceBank);
+  $("#sourceRecipeUse")?.addEventListener("change", updateSourceBank);
+  const updateReferences = () => renderReferences($("#referenceSearch")?.value || "", $("#referenceType")?.value || "");
+  $("#referenceSearch")?.addEventListener("input", updateReferences);
+  $("#referenceType")?.addEventListener("change", updateReferences);
+  $$("[data-close-modal]").forEach(button => button.addEventListener("click", () => $("#" + button.dataset.closeModal)?.close()));
+  $("#recipeDialog")?.addEventListener("click", event => { if (event.target === $("#recipeDialog")) $("#recipeDialog").close(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && $("#recipeDialog")?.open) $("#recipeDialog").close(); });
 }
 
 init();
