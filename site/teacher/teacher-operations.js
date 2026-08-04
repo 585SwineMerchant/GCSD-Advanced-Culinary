@@ -1,5 +1,5 @@
 import { buildEventProductionTasks } from "./production-planner.js";
-import { DEFAULT_SECTIONS, KITCHENS, PRODUCTION_STATUSES, WASTE_CATEGORIES, allocationLabel, allocationStatus, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionsForDate, derivedTaskStatus, formatMeetingWindow, isAdvancedSection, makeAssignment, normalizeSections, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, progressDisplayState, reconcileActiveTeamLabels, sectionColor, sectionDisplayLabel, sectionMeetsOnDate, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
+import { DEFAULT_SECTIONS, KITCHENS, MAX_TEAMS_PER_SECTION, PRODUCTION_STATUSES, STATION_DUTIES, STATION_DUTY_LABELS, WASTE_CATEGORIES, allocationLabel, allocationStatus, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionIsIncomplete, contributionsForDate, derivedTaskStatus, formatMeetingWindow, isAdvancedSection, kitchenSchedulingIssues, makeAssignment, normalizeSections, normalizeStationDuty, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, progressDisplayState, reconcileActiveTeamLabels, requiresKitchen, sectionColor, sectionDisplayLabel, sectionMeetsOnDate, sectionTeamCapacity, stationAssignmentLabel, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
 const statuses = PRODUCTION_STATUSES;
 let sections = normalizeSections(DEFAULT_SECTIONS);
@@ -215,7 +215,7 @@ function assignmentSummary(task) {
   return normalizeTaskAssignments(task, sections).map(record => {
     const section = sections.find(item => item.id === record.sectionId);
     const teamNames = teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => team.name).join(", ") || "No team selected";
-    return `<div class="assignment-window ${sectionMeetsOnDate(record.sectionId, record.workDate, sections) ? "" : "invalid-window"}"><strong>${esc(sectionDisplayLabel(section))}</strong><span>${esc(teamNames)}</span><small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small></div>`;
+    return `<div class="assignment-window ${sectionMeetsOnDate(record.sectionId, record.workDate, sections) ? "" : "invalid-window"}"><strong>${esc(sectionDisplayLabel(section))}</strong><span>${esc(teamNames)} · ${esc(stationAssignmentLabel(record))}${requiresKitchen(record) ? ` · Seq ${record.stationSequence || 1}` : ""}</span><small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small>${record.studentDetails ? `<small>${esc(record.studentDetails)}</small>` : ""}</div>`;
   }).join("");
 }
 function assignmentRows(task, index, mode = "production") {
@@ -240,16 +240,20 @@ function assignmentRowsV2(task, index, mode = "production") {
     const meeting = sectionMeetsOnDate(record.sectionId, record.workDate, sections);
     const section = sections.find(item => item.id === record.sectionId);
     const color = sectionColor(record.sectionId);
+    const duty = normalizeStationDuty(record.stationDuty);
+    const kitchenRequired = requiresKitchen(record);
     return `<div class="assignment-record section-tinted" style="--section-tint:${color.tint};--section-border:${color.border};--section-text:${color.text}" data-task="${index}" data-record="${recordIndex}">
       <label>Production date<input data-assignment-record-field="workDate" type="date" value="${esc(record.workDate)}"></label>
       <label>Valid Advanced Culinary meeting<select data-assignment-record-field="sectionId">${meetingOptions(record.workDate, record.sectionId)}</select></label>
-      <label>Kitchen<select data-assignment-record-field="kitchen">${KITCHENS.map(value => `<option value="${esc(value)}" ${record.kitchen === value ? "selected" : ""}>${esc(value || "Choose Kitchen 1-4")}</option>`).join("")}</select></label>
+      <label>Station duty<select data-assignment-record-field="stationDuty">${STATION_DUTIES.map(value => `<option value="${esc(value)}" ${duty === value ? "selected" : ""}>${esc(STATION_DUTY_LABELS[value])}</option>`).join("")}</select></label>
+      <label>Kitchen<select data-assignment-record-field="kitchen" ${kitchenRequired ? "" : "disabled"}>${KITCHENS.map(value => `<option value="${esc(value)}" ${record.kitchen === value ? "selected" : ""}>${esc(value || (kitchenRequired ? "Choose Kitchen 1-4" : "Not used for this duty"))}</option>`).join("")}</select></label>
+      <label>Station sequence<input data-assignment-record-field="stationSequence" type="number" min="1" step="1" value="${Number(record.stationSequence || 1)}"><small>Use 1, then 2 for sequential kitchen turnover in the same period.</small></label>
       <label>Allocated contribution<input data-assignment-record-field="allocatedQuantity" type="number" min="0" step="0.25" value="${Number(record.allocatedQuantity || 0)}"><small>${esc(record.allocatedUnit || task.plannedUnit || "units")}</small></label>
-      <label>Additional instructions for students<textarea data-assignment-record-field="studentDetails" rows="2" placeholder="Optional last-minute teacher directions">${esc(record.studentDetails)}</textarea></label>
+      <label>Additional instructions for students<textarea data-assignment-record-field="studentDetails" rows="2" placeholder="Mise en place, desk work, sequencing, or station turnover notes">${esc(record.studentDetails)}</textarea></label>
       <label>Assignment status<select data-assignment-record-field="status">${statuses.map(status => `<option ${record.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
       <div class="meeting-window ${meeting ? "" : "invalid-window"}"><strong>${esc(meeting ? `Day ${meeting.rotationDay} - Period ${meeting.period}` : "Schedule review required")}</strong><span>${esc(formatMeetingWindow(meeting))}</span></div>
-      <div class="assignment-meta assignment-identity"><span>Assignment identity</span><strong>${esc(sectionDisplayLabel(section))} - ${esc(record.kitchen || "Kitchen needed")}</strong><small>${esc(allocationLabel(record, task))}</small></div>
-      <div class="team-chip-list"><span>Participating teams</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}</label>`).join("") : "<small class=\"roster-warning\">No teams are saved for this stable section.</small>"}</div>
+      <div class="assignment-meta assignment-identity"><span>Assignment identity</span><strong>${esc(sectionDisplayLabel(section))} - ${esc(stationAssignmentLabel(record))}${kitchenRequired ? ` · Seq ${record.stationSequence || 1}` : ""}</strong><small>${esc(allocationLabel(record, task))}</small></div>
+      <div class="team-chip-list"><span>Participating teams from Access &amp; Rosters</span>${teams.length ? teams.map(team => `<label class="team-chip"><input data-assignment-team value="${esc(team.id)}" type="checkbox" ${record.teamIds.includes(team.id) ? "checked" : ""}>${esc(team.name)}${team.students?.length ? ` (${team.students.length})` : ""}</label>`).join("") : "<small class=\"roster-warning\">No teams are saved for this stable section. Create teams in Step 8.</small>"}</div>
       ${records.length > 1 ? `<button class="ghost-danger remove-assignment-button" data-remove-assignment type="button">Remove assignment</button>` : ""}
     </div>`;
   }).join("")}<button class="secondary-button add-assignment-row" data-add-assignment="${index}" data-mode="${esc(mode)}" type="button">Add class section</button></div>`;
@@ -522,7 +526,7 @@ function generateTasks() {
 function taskCollapsedSummary(task) {
   const records = normalizeTaskAssignments(task, sections);
   const dates = [...new Set(records.map(record => record.workDate).filter(Boolean))].map(shortDate).join(", ") || "Date needed";
-  const identities = records.flatMap(record => teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => `${sectionColor(record.sectionId).name} ${team.name} ${record.kitchen || "Kitchen needed"}`));
+  const identities = records.flatMap(record => teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => `${sectionColor(record.sectionId).name} ${team.name} ${stationAssignmentLabel(record)}${requiresKitchen(record) ? ` seq ${record.stationSequence || 1}` : ""}`));
   const allocation = allocationStatus(task, sections);
   const issues = assignmentIssues(task, sections);
   const progress = taskProgress(task);
@@ -616,12 +620,18 @@ function bindAssignmentRecords(mode) {
     if (change.target.dataset.assignmentRecordField === "workDate") record.workDate = change.target.value;
     if (change.target.dataset.assignmentRecordField === "station") record.station = change.target.value;
     if (change.target.dataset.assignmentRecordField === "kitchen") record.kitchen = change.target.value;
+    if (change.target.dataset.assignmentRecordField === "stationDuty") {
+      record.stationDuty = change.target.value;
+      if (!requiresKitchen(record)) record.kitchen = "";
+    }
+    if (change.target.dataset.assignmentRecordField === "stationSequence") record.stationSequence = Math.max(1, Number(change.target.value || 1));
     if (change.target.dataset.assignmentRecordField === "allocatedQuantity") record.allocatedQuantity = Number(change.target.value || 0);
     if (change.target.dataset.assignmentRecordField === "studentDetails") record.studentDetails = change.target.value;
     if (change.target.dataset.assignmentRecordField === "status") record.status = change.target.value;
     if (change.target.dataset.assignmentRecordField === "sectionId") {
       record.sectionId = change.target.value;
-      record.teamIds = teamsForSection(sections, record.sectionId).slice(0, 1).map(team => team.id);
+      const sectionTeams = teamsForSection(sections, record.sectionId);
+      record.teamIds = sectionTeams.slice(0, 1).map(team => team.id);
     }
     normalizeTaskAssignments(task, sections);
     renderProduction(); renderAssignments(); renderPublish(); renderLiveFilters(); renderLive(); renderAttention();
@@ -688,13 +698,16 @@ function renderAttention() {
   const contributionAlerts = event.tasks.flatMap(task => assignmentContributions(task, sections).flatMap(item => {
     const alerts = [];
     if (!item.progress.updatedAt) alerts.push("assignment not yet saved");
-    if (!item.record.kitchen) alerts.push("kitchen selection missing");
-    if (!item.team?.students?.length) alerts.push("missing saved roster");
+    if (requiresKitchen(item.record) && !item.record.kitchen) alerts.push("kitchen selection missing");
+    if (!item.team?.id) alerts.push("select a team from Access & Rosters");
+    else if (!item.team?.students?.length) alerts.push("missing saved roster");
     if (!item.meeting) alerts.push("schedule mapping needs review");
-    return alerts.map(alert => [`${task.name}: ${alert}`, `${sectionColor(item.record.sectionId).name} ${item.team?.name || "team"} - ${item.record.kitchen || "Kitchen needed"}`]);
+    return alerts.map(alert => [`${task.name}: ${alert}`, `${sectionColor(item.record.sectionId).name} ${item.team?.name || "team"} - ${stationAssignmentLabel(item.record)}`]);
   }));
+  const kitchenAlerts = kitchenSchedulingIssues(event, sections).map(issue => [issue, "Kitchen capacity or overlap review required in Step 4."]);
   const allocationAlerts = event.tasks.map(task => ({ task, allocation: allocationStatus(task, sections) })).filter(item => ["under", "over"].includes(item.allocation.state));
   allocationAlerts.forEach(({ task, allocation }) => items.push([`${task.name}: allocation ${allocation.state}`, `Allocated ${allocation.assigned}/${allocation.required} ${allocation.unit}.`]));
+  items.push(...kitchenAlerts.slice(0, 6));
   items.push(...contributionAlerts.slice(0, 8));
   const [contextTitle, contextDetail] = stageContext(event);
   if (!items.length) items.push([activePanel === "publish" ? "Ready to publish" : "No critical alerts", contextDetail]);
@@ -763,7 +776,10 @@ function packetPreview() {
     ${warning}
     <div class="preview-block"><span>Shared purpose</span><strong>${esc(event.name)}</strong><small>${esc(event.customer)} - ${event.guestCount} guests - ${dateLabel(event.serviceDate)}</small></div>
     <div class="preview-block"><span>Authorized revision</span><strong>${event.version ? `Revision ${event.version}` : "Draft preview"}</strong><small>${event.publishedAt ? `Published ${new Date(event.publishedAt).toLocaleString()}` : "Not yet available to students"}</small></div>
-    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" | "))}</small>` : ""}${assignmentsForSection(task, sectionId, sections).map(record => `<small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small>`).join("")}<small>${esc(task.station)} - ${esc(task.team || "Teams assigned by section")}</small>${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
+    ${tasks.map(task => `<div class="packet-task"><strong>${esc(task.name)}</strong><div>${esc(task.detail)}</div>${task.equipment?.length ? `<small>Equipment: ${esc(task.equipment.join(", "))}</small>` : ""}${task.qualityControls?.length ? `<small><b>Quality controls:</b> ${esc(task.qualityControls.join(" | "))}</small>` : ""}${assignmentsForSection(task, sectionId, sections).map(record => {
+      const teamNames = teamsForSection(sections, record.sectionId).filter(team => record.teamIds.includes(team.id)).map(team => team.name).join(", ") || "Team pending";
+      return `<small>${esc(formatMeetingWindow(sectionMeetsOnDate(record.sectionId, record.workDate, sections)))}</small><small>${esc(teamNames)} - ${esc(stationAssignmentLabel(record))}${requiresKitchen(record) ? ` - Sequence ${record.stationSequence || 1}` : ""}</small>${record.studentDetails ? `<small>${esc(record.studentDetails)}</small>` : ""}`;
+    }).join("")}${task.dependency ? `<small>Handoff: ${esc(task.dependency)}</small>` : ""}</div>`).join("") || "<p>No work assigned to this section.</p>"}`;
 }
 function renderPublish() {
   const event = current();
@@ -819,7 +835,7 @@ function renderLive() {
     const unit = item.progress.unit || item.record.allocatedUnit || item.task.plannedUnit || "units";
     const color = sectionColor(item.record.sectionId);
     return `<article class="live-task assignment-contribution section-tinted" style="--section-tint:${color.tint};--section-border:${color.border};--section-text:${color.text}" data-live-task="${taskIndex}" data-contribution-key="${esc(item.key)}" data-record-id="${esc(item.record.id)}" data-team-id="${esc(item.team.id)}" data-status="${esc(progressDisplayState(item.progress))}">
-      <div class="live-task-title"><strong>${esc(item.task.name)}</strong><span>${esc(color.name)} - ${esc(item.team.name)} - ${esc(item.record.kitchen || "Kitchen needed")} - ${esc(allocationLabel(item.record, item.task))}</span><small>${esc(shortDate(item.record.workDate))} - ${esc(item.meeting ? `Day ${item.meeting.rotationDay}, Period ${item.meeting.period}, ${item.meeting.start}-${item.meeting.end}` : "Invalid or missing class meeting")}</small><small class="${item.team?.students?.length ? "" : "roster-warning"}">${esc(contributionStudents(item))}</small></div>
+      <div class="live-task-title"><strong>${esc(item.task.name)}</strong><span>${esc(color.name)} - ${esc(item.team.name)} - ${esc(stationAssignmentLabel(item.record))}${requiresKitchen(item.record) ? ` - Seq ${item.record.stationSequence || 1}` : ""} - ${esc(allocationLabel(item.record, item.task))}</span><small>${esc(shortDate(item.record.workDate))} - ${esc(item.meeting ? `Day ${item.meeting.rotationDay}, Period ${item.meeting.period}, ${item.meeting.start}-${item.meeting.end}` : "Invalid or missing class meeting")}</small><small class="${item.team?.students?.length ? "" : "roster-warning"}">${esc(contributionStudents(item))}</small>${item.record.studentDetails ? `<small>${esc(item.record.studentDetails)}</small>` : ""}</div>
       <label>Status<select data-progress="status">${statuses.map(status => `<option ${item.progress.status === status ? "selected" : ""}>${status}</option>`).join("")}</select></label>
       <label>Quantity completed<input data-progress="quantity" type="number" min="0" value="${Number(item.progress.quantity || 0)}"><small>${Number(item.progress.quantity || 0)} of ${esc(item.task.detail.match(/^(.*?)\s*-|^(.*?)\s*·/)?.[1] || "planned work")} ${esc(unit)}</small></label>
       <input data-progress="unit" type="hidden" value="${esc(unit)}">
@@ -907,7 +923,7 @@ function renderCloseout() {
   </div>`;
   q("#productionRecord").innerHTML = event.tasks.map(task => {
     const contributions = assignmentContributions(task, sections);
-    return `<details class="stage-record"><summary>${esc(task.name)} - ${esc(taskProgress(task).status)}</summary>${contributions.map(item => `<div class="record-contribution section-tinted" style="--section-tint:${sectionColor(item.record.sectionId).tint};--section-border:${sectionColor(item.record.sectionId).border};--section-text:${sectionColor(item.record.sectionId).text}"><strong>${esc(sectionColor(item.record.sectionId).name)} - ${esc(item.team.name)} - ${esc(item.record.kitchen || "Kitchen needed")}</strong><span>${esc(item.record.workDate || "date missing")} - ${esc(item.meeting ? `Period ${item.meeting.period}` : "invalid meeting")} - ${esc(allocationLabel(item.record, task))}</span><span>${Number(item.progress.quantity || 0)} ${esc(item.progress.unit || item.record.allocatedUnit || task.plannedUnit || "units")} complete; ${Number(item.progress.waste || 0)} waste${item.progress.wasteCategory ? ` (${esc(item.progress.wasteCategory)})` : ""}</span><span>Problem: ${esc(item.progress.issue || "none recorded")}</span><span>Recovery: ${esc(item.progress.recoveryAction || "none recorded")}</span><span>Students: ${esc(item.team.students?.length ? item.team.students.join(", ") : "Roster warning: no students saved")}</span><span>${item.progress.updatedAt ? `Saved by ${esc(item.progress.updatedBy || "staff")} at ${new Date(item.progress.updatedAt).toLocaleString()}` : "Not yet saved"}</span></div>`).join("")}</details>`;
+    return `<details class="stage-record"><summary>${esc(task.name)} - ${esc(taskProgress(task).status)}</summary>${contributions.map(item => `<div class="record-contribution section-tinted" style="--section-tint:${sectionColor(item.record.sectionId).tint};--section-border:${sectionColor(item.record.sectionId).border};--section-text:${sectionColor(item.record.sectionId).text}"><strong>${esc(sectionColor(item.record.sectionId).name)} - ${esc(item.team.name)} - ${esc(stationAssignmentLabel(item.record))}${requiresKitchen(item.record) ? ` - Seq ${item.record.stationSequence || 1}` : ""}</strong><span>${esc(item.record.workDate || "date missing")} - ${esc(item.meeting ? `Period ${item.meeting.period}` : "invalid meeting")} - ${esc(allocationLabel(item.record, task))}</span><span>${Number(item.progress.quantity || 0)} ${esc(item.progress.unit || item.record.allocatedUnit || task.plannedUnit || "units")} complete; ${Number(item.progress.waste || 0)} waste${item.progress.wasteCategory ? ` (${esc(item.progress.wasteCategory)})` : ""}</span><span>Problem: ${esc(item.progress.issue || "None")} | Recovery: ${esc(item.progress.recoveryAction || "None")}</span><small>${item.progress.updatedAt ? `Saved ${new Date(item.progress.updatedAt).toLocaleString()} by ${esc(item.progress.updatedBy || "unknown")}` : "Not yet saved"}</small></div>`).join("") || "<p>No assignment contributions.</p>"}</details>`;
   }).join("");
   const status = readiness.blockers.length ? readiness.blockers.join(" ") : "Closeout requirements are satisfied for ordinary completion.";
   q("#closeoutStatus").innerHTML = `<strong>${readiness.blockers.length ? "Completion blocked" : "Ready for completion"}</strong><p>${esc(status)}</p><small>Tasks completed: ${readiness.counts.taskCompleted} of ${readiness.counts.taskTotal}; task corrections: ${readiness.counts.taskInvalid}. Assignments completed: ${readiness.counts.completed} of ${readiness.counts.contributionTotal}; assignment corrections: ${readiness.counts.invalid}; blocked: ${readiness.counts.blocked}.</small>`;
@@ -991,7 +1007,7 @@ q("#publishOrder").addEventListener("click", () => {
   if (!isOwner()) return;
   collectBrief();
   const event = current();
-  event.version = (event.version || 0) + 1; event.publishedAt = new Date().toISOString(); event.publishedBy = activeTeacher(); event.stage = "Published"; event.publishedSignature = publicationSignature(event);
+  event.version = (event.version || 0) + 1; event.publishedAt = new Date().toISOString(); event.publishedBy = activeTeacher(); event.stage = "Published"; event.publishedSignature = publicationSignature(event); event.unpublishedChanges = false; event.unpublishedChangeNote = "";
   save(); renderAll(); toast(`Event Order v${event.version} published to student views.`);
 });
 q("#newEvent").addEventListener("click", () => {
@@ -1007,7 +1023,14 @@ q("#completeEvent").addEventListener("click", () => {
   if (!collectCloseout()) return;
   const readiness = closeoutReadiness(current());
   if (readiness.blockers.length) { renderCloseout(); return toast("Closeout is blocked until required records are reconciled or an authorized exception is documented."); }
-  current().stage = "Completed"; current().completedAt = new Date().toISOString(); current().completedBy = activeTeacher(); save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
+  const event = current();
+  event.stage = "Completed";
+  event.completedAt = new Date().toISOString();
+  event.completedBy = activeTeacher();
+  event.unpublishedChanges = false;
+  event.unpublishedChangeNote = "";
+  if (event.publishedAt) event.publishedSignature = publicationSignature(event);
+  save(); renderAll(); showPanel("closeout"); toast("Event completed and preserved for Kitchen Management analysis.");
 });
 q("#refreshData").addEventListener("click", () => {
   initialize(true);
@@ -1042,8 +1065,10 @@ function renderTeamSetup() {
   const renderSectionCard = section => `<article class="team-period section-card ${section.active === false ? "inactive-section" : ""}" data-section-card="${esc(section.id)}"><header><div><h4>${esc(sectionDisplayLabel(section))}</h4><small>${esc(section.course)} - ${esc(section.teacher)} - ${esc(section.site)} - ${esc(section.active === false ? "Inactive legacy" : "Active")}</small></div><span class="stable-id">ID: ${esc(section.id)}</span></header>
     <div class="section-admin-grid"><label>Official section number<input data-section-field="officialSectionNumber" data-team-section="${esc(section.id)}" value="${esc(section.officialSectionNumber || "")}" placeholder="Pending"></label><label>Active state<select data-section-field="active" data-team-section="${esc(section.id)}"><option value="true" ${section.active !== false ? "selected" : ""}>Active</option><option value="false" ${section.active === false ? "selected" : ""}>Inactive</option></select></label><div class="assignment-meta"><span>Schedule model</span><strong>${esc(scheduleSummary(section))}</strong>${section.retiredIntoSectionId ? `<small>Retained for history; active successor: ${esc(section.retiredIntoSectionId)}</small>` : ""}</div></div>
     ${section.officialSectionNumber ? "" : `<div class="provisional-warning"><strong>Official district section number pending.</strong><p>This provisional label may be used for planning; adding the official number later will not change the durable section ID or connected records.</p></div>`}
-    <div class="team-list">${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Student roster<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label><small class="save-meta">${esc(team.updatedAt ? `Saved ${new Date(team.updatedAt).toLocaleString()} by ${team.updatedBy || "administrator"}` : "Roster not yet updated in this session.")}</small></div><button class="ghost-danger" data-remove-team type="button">Remove team</button></div>`).join("") : '<p class="team-empty">No teams configured. Tasks in this stable section cannot be published.</p>'}</div>
-    <form class="team-inline-form" data-add-team-section="${esc(section.id)}"><label>Team name<input name="teamName" placeholder="Team B" required></label><label>Student roster<textarea name="students" rows="2" placeholder="One name per line"></textarea></label><button class="primary-button" type="submit">Add team</button></form>
+    <div class="team-list">${section.teams.length ? section.teams.map(team => `<div class="team-row" data-team-section="${esc(section.id)}" data-team-id="${esc(team.id)}"><div><label>Team name<input data-team-field="name" value="${esc(team.name)}"></label><label>Student roster<textarea data-team-field="students" rows="2" placeholder="One name per line">${esc(team.students.join("\n"))}</textarea></label><small class="save-meta">${esc(team.updatedAt ? `Saved ${new Date(team.updatedAt).toLocaleString()} by ${team.updatedBy || "administrator"}` : "Roster not yet updated in this session.")}</small></div><button class="ghost-danger" data-remove-team type="button">Remove team</button></div>`).join("") : '<p class="team-empty">No teams configured. Create persistent teams here so Step 4 can select them for each event.</p>'}</div>
+    ${sectionTeamCapacity(section).atLimit ? `<p class="roster-warning">This section already has ${MAX_TEAMS_PER_SECTION} teams. Remove or deactivate a team before adding another.</p>` : ""}
+    <form class="team-inline-form" data-add-team-section="${esc(section.id)}"><label>Team name<input name="teamName" placeholder="Team B" required ${sectionTeamCapacity(section).atLimit ? "disabled" : ""}></label><label>Student roster<textarea name="students" rows="2" placeholder="One name per line" ${sectionTeamCapacity(section).atLimit ? "disabled" : ""}></textarea></label><button class="primary-button" type="submit" ${sectionTeamCapacity(section).atLimit ? "disabled" : ""}>Add team</button></form>
+    <p class="section-note">Teams are persistent roster data for this section. Kitchen 1-4 assignments are made per event in Step 4 and are not stored here.</p>
   </article>`;
   const courseOrder = ["Advanced Culinary Arts", "Culinary Arts & Nutrition I", "Kitchen & Restaurant Management"];
   const activeSections = sections.filter(section => section.active !== false);
@@ -1093,7 +1118,8 @@ function renderTeamSetup() {
     const data = new FormData(form);
     const name = String(data.get("teamName") || "").trim();
     if (!section || !name) return;
-    section.teams.push({ id: `${section.id}-team-${Date.now()}`, name, students: String(data.get("students") || "").split(/[\n,]+/).map(value => value.trim()).filter(Boolean), updatedAt: new Date().toISOString(), updatedBy: activeTeacher() });
+    if (sectionTeamCapacity(section).atLimit) return toast(`A section can have at most ${MAX_TEAMS_PER_SECTION} teams.`);
+    section.teams.push({ id: `${section.id}-team-${Date.now()}`, name, students: String(data.get("students") || "").split(/[\n,]+/).map(value => value.trim()).filter(Boolean), updatedAt: new Date().toISOString(), updatedBy: activeTeacher(), active: true });
     state.sections = sections;
     save(); renderAll(); toast(`${name} added to ${sectionDisplayLabel(section)}.`);
   }));
@@ -1105,8 +1131,9 @@ q("#teamForm").addEventListener("submit", event => {
   const section = sections.find(item => item.id === form.get("sectionId"));
   const name = String(form.get("teamName") || "").trim();
   if (!section || !name) return;
+  if (sectionTeamCapacity(section).atLimit) return toast(`A section can have at most ${MAX_TEAMS_PER_SECTION} teams.`);
   const id = `${section.id}-team-${Date.now()}`;
-  section.teams.push({ id, name, students: String(form.get("students") || "").split(/[\n,]+/).map(value => value.trim()).filter(Boolean) });
+  section.teams.push({ id, name, students: String(form.get("students") || "").split(/[\n,]+/).map(value => value.trim()).filter(Boolean), active: true });
   state.sections = sections;
   event.currentTarget.reset(); save(); renderAll(); toast(`${name} added to ${section.name}.`);
 });

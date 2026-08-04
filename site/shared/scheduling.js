@@ -11,7 +11,11 @@ export const BELL_SCHEDULE = {
 };
 
 export const DEFAULT_SECTIONS = [
-  { id: "kevin-advanced-p3", name: "McCann Advanced - Period 3", provisionalLabel: "Advanced - Period 3", officialSectionNumber: "", teacher: "Kevin McCann", site: "Arcadia", course: "Advanced Culinary Arts", period: 3, allowedPeriods: [3], focus: "Advanced culinary production", active: true, teams: [{ id: "kevin-p3-team-a", name: "Team A", students: [] }] },
+  { id: "kevin-advanced-p3", name: "McCann Advanced - Period 3", provisionalLabel: "Advanced - Period 3", officialSectionNumber: "", teacher: "Kevin McCann", site: "Arcadia", course: "Advanced Culinary Arts", period: 3, allowedPeriods: [3], focus: "Advanced culinary production", active: true, teams: [
+    { id: "kevin-p3-team-a", name: "Team A", students: ["Ava Rivera", "Jordan Lee", "Sam Patel", "Casey Morgan"] },
+    { id: "adv-p2-team-a", name: "Team B", students: ["Riley Chen", "Morgan Brooks", "Quinn Alvarez", "Taylor Nguyen"] },
+    { id: "adv-p5-team-a", name: "Team C", students: ["Jamie Ortiz", "Cameron Blake", "Avery Scott", "Reese Kim"] }
+  ] },
   { id: "carlson-advanced-p4", name: "Carlson Advanced - Period 4", provisionalLabel: "Advanced - Period 4", officialSectionNumber: "", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: 4, allowedPeriods: [4], focus: "Advanced culinary production", active: true, teams: [{ id: "carlson-p4-team-a", name: "Team A", students: [] }] },
   { id: "carlson-advanced-p5", name: "Carlson Advanced - Period 5/6", provisionalLabel: "Advanced - Period 5/6", officialSectionNumber: "", teacher: "Jason Carlson", site: "Arcadia", course: "Advanced Culinary Arts", period: null, allowedPeriods: [5, 6], requiresRotationConfirmation: true, focus: "Advanced culinary production", active: true, teams: [{ id: "carlson-p5-team-a", name: "Team A", students: [] }] },
   { id: "kevin-culinary-p1", name: "McCann Intro - Period 1", provisionalLabel: "Intro - Period 1", officialSectionNumber: "", teacher: "Kevin McCann", site: "Arcadia", course: "Culinary Arts & Nutrition I", period: 1, allowedPeriods: [1], focus: "Intro culinary production", teams: [{ id: "kevin-p1-team-a", name: "Team A", students: [] }] },
@@ -77,11 +81,7 @@ export function normalizeSections(value) {
       retiredIntoSectionId: String(base.retiredIntoSectionId || fallback.retiredIntoSectionId || ""),
       period: Number(fallback.period || base.period || 0) || null,
       allowedPeriods: (Array.isArray(fallback.allowedPeriods) ? fallback.allowedPeriods : Array.isArray(base.allowedPeriods) ? base.allowedPeriods : []).map(Number).filter(Boolean),
-      teams: (Array.isArray(base.teams) && base.teams.length ? base.teams : fallback.teams).map((team, teamIndex) => ({
-        id: String(team.id || `${base.id}-team-${teamIndex + 1}`),
-        name: String(team.name || `Team ${teamIndex + 1}`),
-        students: cleanStudents(team.students)
-      }))
+      teams: (Array.isArray(base.teams) && base.teams.length ? base.teams : fallback.teams).map((team, teamIndex) => normalizeTeamRecord(team, base.id || fallback.id, teamIndex))
     };
   }).concat([...suppliedById.values()].filter(section => !defaultsById.has(String(section.id))).map((section, index) => ({
     id: String(section.id || `extra-section-${index + 1}`),
@@ -98,16 +98,17 @@ export function normalizeSections(value) {
     retiredIntoSectionId: String(section.retiredIntoSectionId || ""),
     period: Number(section.period || 0) || null,
     allowedPeriods: (Array.isArray(section.allowedPeriods) ? section.allowedPeriods : []).map(Number).filter(Boolean),
-    teams: (Array.isArray(section.teams) ? section.teams : []).map((team, teamIndex) => ({
-      id: String(team.id || `${section.id}-team-${teamIndex + 1}`),
-      name: String(team.name || `Team ${teamIndex + 1}`),
-      students: cleanStudents(team.students)
-    }))
+    teams: (Array.isArray(section.teams) ? section.teams : []).map((team, teamIndex) => normalizeTeamRecord(team, section.id, teamIndex))
   })));
 }
 
 export function teamsForSection(sections, sectionId) {
-  return normalizeSections(sections).find(section => section.id === sectionId)?.teams || [];
+  return (normalizeSections(sections).find(section => section.id === sectionId)?.teams || []).filter(team => team.active !== false);
+}
+
+export function sectionTeamCapacity(section) {
+  const teams = Array.isArray(section?.teams) ? section.teams.filter(team => team.active !== false) : [];
+  return { count: teams.length, remaining: Math.max(0, MAX_TEAMS_PER_SECTION - teams.length), atLimit: teams.length >= MAX_TEAMS_PER_SECTION };
 }
 
 export function isAdvancedSection(section) {
@@ -177,11 +178,49 @@ export const PRODUCTION_STATUSES = ["Not started", "In progress", "Blocked", "Re
 export const WASTE_CATEGORIES = ["", "Trim", "Spoilage", "Production error", "Damaged finished product", "Unused but recoverable", "Other"];
 export const HANDOFF_DISPOSITIONS = ["", "Held at station", "Cooling rack", "Refrigerated", "Frozen", "Expo handoff", "Delivered", "Discarded", "Other"];
 export const KITCHENS = ["", "Kitchen 1", "Kitchen 2", "Kitchen 3", "Kitchen 4"];
+export const STATION_DUTIES = ["kitchen-production", "off-station", "desk-work"];
+export const STATION_DUTY_LABELS = {
+  "kitchen-production": "Kitchen production",
+  "off-station": "Off-station",
+  "desk-work": "Desk work"
+};
+export const MAX_TEAMS_PER_SECTION = 8;
+export const MAX_SIMULTANEOUS_KITCHEN_TEAMS = 4;
 export const SECTION_COLORS = {
   "kevin-advanced-p3": { name: "McCann Advanced", tint: "#eef7f1", border: "#2f7d57", text: "#123f31" },
   "carlson-advanced-p4": { name: "Carlson Advanced P4", tint: "#f4f1ea", border: "#9a6b24", text: "#4b3714" },
   "carlson-advanced-p5": { name: "Carlson Advanced P5/6", tint: "#f1f4f8", border: "#4f6f8f", text: "#233b52" }
 };
+
+export function normalizeStationDuty(value) {
+  return STATION_DUTIES.includes(value) ? value : "kitchen-production";
+}
+
+export function requiresKitchen(record) {
+  return normalizeStationDuty(record?.stationDuty) === "kitchen-production";
+}
+
+export function stationAssignmentLabel(record) {
+  const duty = normalizeStationDuty(record?.stationDuty);
+  if (duty !== "kitchen-production") return STATION_DUTY_LABELS[duty];
+  return record?.kitchen || "Kitchen needed";
+}
+
+export function normalizeStationSequence(value) {
+  const sequence = Math.trunc(Number(value));
+  return Number.isFinite(sequence) && sequence > 0 ? sequence : 1;
+}
+
+function normalizeTeamRecord(team, sectionId, teamIndex) {
+  return {
+    id: String(team.id || `${sectionId}-team-${teamIndex + 1}`),
+    name: String(team.name || `Team ${teamIndex + 1}`),
+    students: cleanStudents(team.students),
+    active: team.active !== false,
+    updatedAt: team.updatedAt || null,
+    updatedBy: team.updatedBy || null
+  };
+}
 
 export function sectionColor(sectionId) {
   return SECTION_COLORS[sectionId] || { name: "Section", tint: "#f7f9f8", border: "#8a9891", text: "#25342e" };
@@ -198,6 +237,8 @@ export function makeAssignment(sections, sectionId, workDate, teamIds = []) {
     workDate: isoDate(workDate),
     teamIds: selected.length ? selected : teams.slice(0, 1).map(team => team.id),
     kitchen: "",
+    stationDuty: "kitchen-production",
+    stationSequence: 1,
     station: "",
     allocatedQuantity: 0,
     allocatedUnit: "",
@@ -217,12 +258,18 @@ export function normalizeTaskAssignments(task, sections) {
     const teams = section ? teamsForSection(normalized, section.id) : [];
     const allowed = new Set(teams.map(team => team.id));
     const teamIds = (Array.isArray(record.teamIds) ? record.teamIds : [record.teamId]).filter(teamId => allowed.has(teamId));
+    const stationDuty = normalizeStationDuty(record.stationDuty);
+    const kitchen = KITCHENS.includes(record.kitchen)
+      ? record.kitchen
+      : (/Kitchen\s+[1-4]/i.test(record.station) ? record.station.match(/Kitchen\s+[1-4]/i)[0].replace(/k/i, "K") : "");
     return {
       id: String(record.id || `assign-${task.id || "task"}-${index + 1}`),
       sectionId: section?.id || "",
       workDate: isoDate(record.workDate || task.workDate || ""),
       teamIds: teamIds.length ? teamIds : teams.slice(0, 1).map(team => team.id),
-      kitchen: KITCHENS.includes(record.kitchen) ? record.kitchen : (/Kitchen\s+[1-4]/i.test(record.station) ? record.station.match(/Kitchen\s+[1-4]/i)[0].replace(/k/i, "K") : ""),
+      kitchen: stationDuty === "kitchen-production" ? kitchen : "",
+      stationDuty,
+      stationSequence: normalizeStationSequence(record.stationSequence),
       station: String(record.station || ""),
       allocatedQuantity: Math.max(0, Number(record.allocatedQuantity || 0)),
       allocatedUnit: String(record.allocatedUnit || task.plannedUnit || ""),
@@ -248,6 +295,63 @@ export function applyTeamToTask(task, sections, sectionId, teamId) {
   return task;
 }
 
+export function kitchenUseSlots(event, sections = DEFAULT_SECTIONS) {
+  const configured = normalizeSections(sections);
+  const slots = [];
+  for (const task of event?.tasks || []) {
+    for (const record of normalizeTaskAssignments(task, configured)) {
+      if (!requiresKitchen(record) || !record.sectionId || !record.workDate) continue;
+      const teamIds = record.teamIds?.length ? record.teamIds : [""];
+      for (const teamId of teamIds) {
+        slots.push({
+          taskId: task.id,
+          taskName: task.name || "A production task",
+          recordId: record.id,
+          sectionId: record.sectionId,
+          workDate: record.workDate,
+          stationSequence: normalizeStationSequence(record.stationSequence),
+          kitchen: record.kitchen || "",
+          teamId,
+          teamName: teamsForSection(configured, record.sectionId).find(team => team.id === teamId)?.name || "Team not selected"
+        });
+      }
+    }
+  }
+  return slots;
+}
+
+export function kitchenSchedulingIssues(event, sections = DEFAULT_SECTIONS) {
+  const issues = [];
+  const slots = kitchenUseSlots(event, sections);
+  const byBlock = new Map();
+  for (const slot of slots) {
+    const key = `${slot.sectionId}|${slot.workDate}|${slot.stationSequence}`;
+    const list = byBlock.get(key) || [];
+    list.push(slot);
+    byBlock.set(key, list);
+  }
+  for (const list of byBlock.values()) {
+    const uniqueTeams = [...new Set(list.map(slot => slot.teamId).filter(Boolean))];
+    if (uniqueTeams.length > MAX_SIMULTANEOUS_KITCHEN_TEAMS) {
+      const sample = list[0];
+      issues.push(`${sectionDisplayLabel(normalizeSections(sections).find(section => section.id === sample.sectionId))} on ${sample.workDate}, sequence ${sample.stationSequence}: ${uniqueTeams.length} teams are scheduled in kitchens at once. Limit is ${MAX_SIMULTANEOUS_KITCHEN_TEAMS}.`);
+    }
+    const byKitchen = new Map();
+    for (const slot of list.filter(item => item.kitchen)) {
+      const kitchenTeams = byKitchen.get(slot.kitchen) || new Set();
+      if (slot.teamId) kitchenTeams.add(slot.teamId);
+      byKitchen.set(slot.kitchen, kitchenTeams);
+    }
+    for (const [kitchen, teamIds] of byKitchen.entries()) {
+      if (teamIds.size > 1) {
+        const sample = list.find(item => item.kitchen === kitchen);
+        issues.push(`${sample.taskName}: ${kitchen} is assigned to more than one team at the same time on ${sample.workDate} sequence ${sample.stationSequence}. Use different sequences for sequential reuse.`);
+      }
+    }
+  }
+  return issues;
+}
+
 export function assignmentIssues(task, sections, calendar = SCHOOL_CALENDAR) {
   const configured = normalizeSections(sections);
   const issues = [];
@@ -266,9 +370,12 @@ export function assignmentIssues(task, sections, calendar = SCHOOL_CALENDAR) {
       const next = nextMeetingDates(section.id, record.workDate, configured).join(", ");
       issues.push(`${label}: ${section.name} does not meet on ${record.workDate || "that date"}${next ? `. Next available: ${next}.` : "."}`);
     }
-    if (!record.teamIds?.length) issues.push(`${label}: ${section.name} needs at least one participating team.`);
-    if (!record.kitchen) issues.push(`${label}: ${section.name} needs Kitchen 1-4 assigned.`);
-    const allowed = new Set(teamsForSection(configured, section.id).map(team => team.id));
+    const sectionTeams = teamsForSection(configured, section.id);
+    if (!sectionTeams.length) issues.push(`${label}: ${section.name} has no teams in Access & Rosters. Complete team setup in Step 8.`);
+    else if (!record.teamIds?.length) issues.push(`${label}: ${section.name} needs at least one participating team.`);
+    if (requiresKitchen(record) && !record.kitchen) issues.push(`${label}: ${section.name} needs Kitchen 1-4 assigned.`);
+    if (!requiresKitchen(record) && record.kitchen) issues.push(`${label}: ${section.name} is marked ${STATION_DUTY_LABELS[normalizeStationDuty(record.stationDuty)]} and should not carry a kitchen assignment.`);
+    const allowed = new Set(sectionTeams.map(team => team.id));
     if ((record.teamIds || []).some(teamId => !allowed.has(teamId))) issues.push(`${label}: a selected team does not belong to ${section.name}.`);
   }
   const allocation = allocationStatus(task, configured);
@@ -278,7 +385,20 @@ export function assignmentIssues(task, sections, calendar = SCHOOL_CALENDAR) {
 }
 
 export function taskPublicationIssues(event, sections) {
-  return (event.tasks || []).flatMap(task => assignmentIssues(task, sections));
+  return [
+    ...(event.tasks || []).flatMap(task => assignmentIssues(task, sections)),
+    ...kitchenSchedulingIssues(event, sections)
+  ];
+}
+
+export function contributionNeedsKitchen(contribution) {
+  return requiresKitchen(contribution?.record);
+}
+
+export function contributionIsIncomplete(contribution) {
+  if (!contribution?.section || !contribution?.team?.id || !contribution?.meeting) return true;
+  if (contributionNeedsKitchen(contribution) && !contribution.record.kitchen) return true;
+  return false;
 }
 
 export function assignmentsForSection(task, sectionId, sections) {
@@ -363,7 +483,7 @@ export function derivedTaskStatus(task, sections = DEFAULT_SECTIONS) {
   const contributions = assignmentContributions(task, sections);
   const allocation = allocationStatus(task, sections);
   if (!contributions.length || allocation.state === "under" || allocation.state === "over") return "Invalid or incomplete";
-  if (contributions.some(item => !item.section || !item.team?.id || !item.meeting || !item.record.kitchen)) return "Invalid or incomplete";
+  if (contributions.some(contributionIsIncomplete)) return "Invalid or incomplete";
   const statuses = contributions.map(item => progressDisplayState(item.progress));
   if (statuses.includes("Blocked")) return "Blocked";
   if (statuses.every(status => status === "Complete")) return "Completed";
@@ -420,7 +540,7 @@ export function productionCounts(event, sections = DEFAULT_SECTIONS, iso = "") {
   const contributions = contributionsForDate(event, iso, sections);
   const counts = { notStarted: 0, inProgress: 0, completed: 0, blocked: 0, invalid: 0, contributionTotal: contributions.length, taskTotal: 0, taskCompleted: 0, taskInProgress: 0, taskBlocked: 0, taskInvalid: 0, taskNotStarted: 0 };
   for (const contribution of contributions) {
-    if (!contribution.section || !contribution.team?.id || !contribution.meeting || !contribution.record.kitchen) counts.invalid += 1;
+    if (contributionIsIncomplete(contribution)) counts.invalid += 1;
     const status = progressDisplayState(contribution.progress);
     if (status === "Complete") counts.completed += 1;
     else if (status === "Blocked") counts.blocked += 1;

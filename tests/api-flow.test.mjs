@@ -173,6 +173,93 @@ test("student progress reaches shared state and cannot cross sections", async ()
   assert.equal(denied.status, 403);
 });
 
+test("student contributionKey targets the correct team assignment", async () => {
+  const multiTeamEvent = {
+    id: "event-2",
+    name: "Breakfast",
+    owner: "Kevin McCann",
+    collaborators: [],
+    stage: "Published",
+    version: 1,
+    publishedAt: "2026-08-01T12:00:00Z",
+    menu: [{
+      name: "Cinnamon Rolls",
+      required: 100,
+      yield: 16,
+      portion: "1 roll",
+      ingredients: ["flour", "yeast"],
+      equipment: ["mixer"],
+      procedure: ["Mix", "Bake"],
+      allergens: "Wheat, Milk",
+      recipeId: "ca12-014-cinnamon-rolls"
+    }],
+    tasks: [{
+      id: "task-mix",
+      name: "Mix dough",
+      menuIndex: 0,
+      plannedQuantity: 5,
+      plannedUnit: "batches",
+      assignmentRecords: [{
+        id: "assign-mix-1",
+        sectionId: "kevin-advanced-p3",
+        workDate: "2026-09-21",
+        teamIds: ["kevin-p3-team-a", "kevin-p3-team-b"],
+        kitchen: "Kitchen 2",
+        stationDuty: "kitchen-production",
+        stationSequence: 1,
+        allocatedQuantity: 3,
+        allocatedUnit: "batches"
+      }],
+      assignmentProgress: {}
+    }]
+  };
+  const db = new FakeDB({
+    requests: [],
+    events: [multiTeamEvent],
+    sections: [{
+      id: "kevin-advanced-p3",
+      name: "McCann Advanced - Period 3",
+      teacher: "Kevin McCann",
+      course: "Advanced Culinary Arts",
+      period: 3,
+      allowedPeriods: [3],
+      active: true,
+      teams: [
+        { id: "kevin-p3-team-a", name: "Team A", students: ["Ava Rivera"] },
+        { id: "kevin-p3-team-b", name: "Team B", students: ["Riley Chen"] }
+      ]
+    }]
+  });
+  db.users.set("student-p3@district.example", {
+    email: "student-p3@district.example",
+    display_name: "Student P3",
+    role: "student",
+    school: "Arcadia",
+    section_id: "kevin-advanced-p3",
+    active: 1
+  });
+  const env = { DB: db };
+  const key = "task-mix::assign-mix-1::kevin-p3-team-b";
+  const response = await worker.fetch(request("/api/tasks/task-mix/progress", "student-p3@district.example", {
+    method: "PATCH",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      contributionKey: key,
+      progress: { status: "Complete", quantity: 2, waste: 0, wasteCategory: "Trim", recoveryAction: "None needed" }
+    })
+  }), env);
+  assert.equal(response.status, 200);
+  const saved = JSON.parse(db.stateRow.state_json).events[0].tasks[0];
+  assert.equal(saved.assignmentProgress[key].status, "Complete");
+  assert.equal(saved.assignmentProgress[key].quantity, 2);
+  assert.equal(saved.assignmentProgress[key].wasteCategory, "Trim");
+  const packet = await (await worker.fetch(request("/api/student/events", "student-p3@district.example"), env)).json();
+  assert.equal(packet.events[0].tasks[0].assignmentRecords[0].teamLabels.length, 2);
+  assert.equal(packet.events[0].tasks[0].assignmentRecords[0].teamLabels[1].name, "Team B");
+  assert.equal(packet.events[0].tasks[0].recipe.name, "Cinnamon Rolls");
+  assert.equal(packet.events[0].tasks[0].recipe.procedure[0], "Mix");
+});
+
 test("teacher update uses optimistic revision protection", async () => {
   const db = new FakeDB({ requests: [], events: [event] });
   const env = { DB: db };

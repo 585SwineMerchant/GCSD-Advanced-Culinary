@@ -314,7 +314,30 @@ async function handleApi(request, env, url) {
       serviceTime: event.serviceTime, guestCount: event.guestCount, serviceFormat: event.serviceFormat,
       requirements: event.requirements, allergens: event.allergens, stage: event.stage, version: event.version,
       publishedAt: event.publishedAt, menu: event.menu,
-      tasks: (event.tasks || []).filter(task => user.role !== "student" || (user.section_id && assignmentsForSection(task, user.section_id, state.sections).length))
+      tasks: (event.tasks || [])
+        .filter(task => user.role !== "student" || (user.section_id && assignmentsForSection(task, user.section_id, state.sections).length))
+        .map(task => {
+          const menuItem = (event.menu || [])[Number(task.menuIndex)] || null;
+          return {
+            ...task,
+            recipe: menuItem ? {
+              name: menuItem.name,
+              yield: menuItem.yield,
+              portion: menuItem.portion,
+              ingredients: menuItem.ingredients || [],
+              equipment: menuItem.equipment || [],
+              procedure: menuItem.procedure || [],
+              allergens: menuItem.allergens || "",
+              recipeId: menuItem.recipeId || null
+            } : null,
+            assignmentRecords: (task.assignmentRecords || []).map(record => ({
+              ...record,
+              teamLabels: teamsForSection(state.sections, record.sectionId)
+                .filter(team => (record.teamIds || []).includes(team.id))
+                .map(team => ({ id: team.id, name: team.name, students: team.students || [] }))
+            }))
+          };
+        })
     }));
     return json({ events, revision: row.revision, user });
   }
@@ -345,8 +368,21 @@ async function handleApi(request, env, url) {
     });
     if (user.role === "student" && user.section_id) {
       task.assignmentProgress ||= {};
-      const record = assignmentsForSection(task, user.section_id, state.sections)[0];
-      const teamId = record?.teamIds?.find(teamId => teamsForSection(state.sections, user.section_id).some(team => team.id === teamId)) || "";
+      const sectionRecords = assignmentsForSection(task, user.section_id, state.sections);
+      const requestedKey = String(body?.contributionKey || "");
+      let record = sectionRecords[0];
+      let teamId = record?.teamIds?.find(id => teamsForSection(state.sections, user.section_id).some(team => team.id === id)) || "";
+      if (requestedKey) {
+        const match = sectionRecords.flatMap(item => (item.teamIds?.length ? item.teamIds : [""]).map(id => ({
+          record: item,
+          teamId: id,
+          key: assignmentContributionKey(task.id, item, id)
+        }))).find(item => item.key === requestedKey);
+        if (!match) return json({ error: "That assignment is not available for your section." }, 403);
+        record = match.record;
+        teamId = match.teamId;
+      }
+      if (!record) return json({ error: "No assignment is available for your section." }, 403);
       task.assignmentProgress[assignmentContributionKey(task.id, record, teamId)] = progressRecord;
       task.progress = aggregateProgress(task);
     } else {

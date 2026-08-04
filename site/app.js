@@ -54,10 +54,10 @@ const phaseContent = {
   brief: {
     title: "Understand the promise",
     kicker: "Phase 1 · Brief",
-    intro: "Know exactly what the department has accepted before menu ideas become production work.",
+    intro: "When a Live Event Order is published, read that packet first. Know exactly what the department has accepted before menu ideas become production work. Do not retype the chef’s brief into a blank form.",
     actions: [
-      "Identify the recipient, product or menu boundary, quantity, quality expectation, and deadline.",
-      "Confirm budget, dietary needs, allergens, service or packaging conditions, equipment, storage, and delivery.",
+      "Read the published Event Order commitment, menu, allergens, quantity, and service time.",
+      "Confirm budget, dietary needs, packaging, equipment, storage, and delivery expectations for your section.",
       "Review the previous event’s objective management briefing and the approved goal for this cycle.",
       "Separate confirmed requirements from preferences, assumptions, and questions."
     ],
@@ -69,7 +69,7 @@ const phaseContent = {
       "A necessary change becomes valid only after Jason approves it and the client agrees."
     ],
     callout: "Before acceptance, scope can be negotiated. After acceptance, the department has promised a deliverable.",
-    tools: ["brief"]
+    tools: []
   },
   learn: {
     title: "Learn what this event requires",
@@ -110,12 +110,12 @@ const phaseContent = {
       "Reserve ingredients, backup equipment, flexible labor, and approved simplifications protect the client commitment."
     ],
     callout: "If the food can be finished but the kitchen cannot be closed, the production plan is incomplete.",
-    tools: ["recipe", "production"]
+    tools: []
   },
   produce: {
     title: "Produce, communicate, and protect the standard",
     kicker: "Phase 4 · Produce",
-    intro: "Follow the approved plan, communicate early, verify quality while correction is still possible, and keep the client commitment protected.",
+    intro: "When a Live Event Order is published, use the station cards below to cook and send updates to your chef. Follow the approved plan, communicate early, and protect the client commitment.",
     actions: [
       "Set the station from the approved plan and confirm the first three actions before beginning.",
       "Track milestones and report status, delay, shortage, risk, or quality concerns early.",
@@ -132,7 +132,7 @@ const phaseContent = {
       "The original technical result remains part of the assessment; professional recovery earns separate credit."
     ],
     callout: "An honest mistake can become productive learning. Hiding it, misrepresenting it, serving it knowingly, or improvising an unauthorized fix is a separate breach.",
-    tools: ["production", "quality"]
+    tools: []
   },
   close: {
     title: "Deliver and close completely",
@@ -153,7 +153,7 @@ const phaseContent = {
       "The instructor verifies what is safe, stored, clean, complete, and ready for the next class."
     ],
     callout: "Food finished, packaged, and put away is not a complete event if dishes and sanitation remain for someone else.",
-    tools: ["quality"]
+    tools: []
   },
   improve: {
     title: "Use the evidence to improve",
@@ -175,45 +175,7 @@ const phaseContent = {
       "Once a meaningful standard is achieved, consistent performance across varied events matters more than moving the goalpost."
     ],
     callout: "The event ends here. The next event begins with what this one taught the team.",
-    tools: ["reflection"]
-  }
-};
-
-const toolDefinitions = {
-  brief: {
-    letter: "A",
-    name: "Accepted Event Brief",
-    when: "Brief",
-    owner: "Class and instructor",
-    fields: ["Recipient and occasion", "Accepted product / menu boundary", "Quantity and deadline", "Budget / cost boundary", "Dietary and allergen needs", "Service / packaging / handoff", "Previous-event result and current goal", "Open questions and adult approval"]
-  },
-  recipe: {
-    letter: "B",
-    name: "Standardized Recipe Approval",
-    when: "Learn + Plan",
-    owner: "Station with instructor approval",
-    fields: ["Approved product and source", "Yield and portion", "Ingredients and quantities", "Method and critical controls", "Allergens", "Equipment and batch limits", "Holding / packaging / service", "Observable quality standard", "Test revision and approval"]
-  },
-  production: {
-    letter: "C",
-    name: "Plan-to-Close Game Plan",
-    when: "Plan + Produce",
-    owner: "Station with individual assignments",
-    fields: ["Product and quantity", "Meaningful work by student", "Mise en place", "Shared equipment", "Production timeline and milestones", "Safety / temperature controls", "Communication checkpoints", "Contingencies", "Packaging / labeling / handoff", "Dishes / sanitation / storage / closing"]
-  },
-  quality: {
-    letter: "D",
-    name: "Quality, Recovery & Closeout Record",
-    when: "Produce + Close",
-    owner: "Station and assigned lead",
-    fields: ["Approved release standard", "Safety and temperature record", "Status / deadline checkpoints", "Failure or unexpected problem", "Diagnosis and instructor direction", "Corrective action and resources used", "Quantity / packaging / labeling result", "Waste or variance", "Client commitment fulfilled", "Instructor closeout verification"]
-  },
-  reflection: {
-    letter: "E",
-    name: "Individual Evidence Reflection",
-    when: "Improve",
-    owner: "Individual student",
-    fields: ["My responsibility", "Evidence of meaningful production work", "Result or feedback", "Problem and approved response", "What I learned from the event", "One change for the next event", "Portfolio evidence selected"]
+    tools: []
   }
 };
 
@@ -224,7 +186,7 @@ const learningTopics = [
     triggers: ["timeline", "mise en place", "station", "equipment", "closing", "communication"],
     purpose: "Use when the event requires coordinated people, equipment, ingredients, milestones, shared space, and complete closeout.",
     questions: ["What must be ready before production?", "Which work depends on another task?", "Where can delay be detected early?", "How will closing finish before class ends?"],
-    sources: ["Instructor station-system lesson", "Assigned ProStart Second Edition material", "Plan-to-Close Game Plan", "Focused readiness or workflow lab"]
+    sources: ["Instructor station-system lesson", "Assigned ProStart Second Edition material", "Live production station plan", "Focused readiness or workflow lab"]
   },
   {
     id: "baking",
@@ -272,7 +234,7 @@ const learningTopics = [
     triggers: ["service", "hospitality", "packaging", "label", "delivery", "client", "order"],
     purpose: "Use when the product must be communicated, packaged, labeled, transported, released, served, or recovered for a real recipient.",
     questions: ["What does the recipient experience at handoff?", "What must the label communicate?", "How will temperature and quality survive the service model?", "Who is authorized to resolve a client concern?"],
-    sources: ["Assigned ProStart Second Edition hospitality material", "Accepted Event Brief", "Packaging and handoff test", "Instructor-approved service plan"]
+    sources: ["Assigned ProStart Second Edition hospitality material", "Live Event Order", "Packaging and handoff test", "Instructor-approved service plan"]
   },
   {
     id: "business",
@@ -412,7 +374,6 @@ function renderWorkspace() {
     tab.setAttribute("aria-selected", String(active));
   });
   renderPhase(activePhase);
-  renderToolMap();
 }
 
 function openPhase(name, scroll = true) {
@@ -425,13 +386,18 @@ function renderPhase(name) {
   const phase = phaseContent[name];
   const record = eventRecord();
   const exp = currentEvent();
-  const tools = (phase.tools || []).map(key => `<button class="button secondary" data-tool="${key}">Open ${toolDefinitions[key].name}</button>`).join("");
   const viewButton = phase.view ? `<button class="button secondary" data-view-target="${phase.view}">Open Connected Learning</button>` : "";
+  const livePanel = name === "brief"
+    ? `<section class="workspace-live-panel" id="workspaceLiveBrief" aria-label="Live event brief"></section>`
+    : (name === "produce" || name === "close"
+      ? `<section class="workspace-live-panel" id="workspaceLiveProduce" aria-label="Live production updates"></section>`
+      : "");
   $("#phaseStage").innerHTML = `
     <div class="phase-stage-header">
       <div><p class="eyebrow">${phase.kicker}</p><h2>${phase.title}</h2><p>${phase.intro}</p></div>
       <span class="phase-badge">${exp.short}</span>
     </div>
+    ${livePanel}
     <div class="phase-grid">
       <article class="phase-main">
         <h3>What to complete</h3>
@@ -443,7 +409,7 @@ function renderPhase(name) {
             </label>`).join("")}
         </div>
         <p class="phase-callout"><strong>Standard:</strong> ${phase.callout}</p>
-        <div class="phase-tools">${tools}${viewButton}</div>
+        <div class="phase-tools">${viewButton}</div>
         <div class="complete-phase">
           <label><input type="checkbox" id="completePhase" ${record.completed?.[name] ? "checked" : ""} /> This phase is complete and the instructor has approved moving forward when approval is required.</label>
         </div>
@@ -469,66 +435,9 @@ function renderPhase(name) {
     renderHome();
   });
   bindDynamicButtons($("#phaseStage"));
+  window.GCSDStudentOps?.syncWorkspacePanels?.();
 }
 
-function renderToolMap() {
-  $("#toolMap").innerHTML = Object.entries(toolDefinitions).map(([key, tool]) => `
-    <article class="tool-card">
-      <span class="tool-letter">${tool.letter}</span>
-      <h3>${tool.name}</h3>
-      <p><strong>Used:</strong> ${tool.when}<br><strong>Owner:</strong> ${tool.owner}</p>
-      <button class="text-link" data-tool="${key}">Preview / print →</button>
-    </article>`).join("");
-  bindDynamicButtons($("#toolMap"));
-}
-
-function toolFormHtml(tool) {
-  return `
-    <div class="modal-hero">
-      <p class="eyebrow">Production Tool ${tool.letter} · ${tool.when}</p>
-      <h2>${tool.name}</h2><p>${tool.owner}</p>
-    </div>
-    <div class="modal-body">
-      <div class="tool-identifiers">
-        <label>Student / team<input /></label>
-        <label>Event<input value="${currentEvent().id} — ${currentEvent().short}" /></label>
-        <label>Date<input type="date" /></label>
-        <label>Version / status<input placeholder="Draft / approved" /></label>
-      </div>
-      <div class="tool-form">
-        ${tool.fields.map((field, index) => `<label class="${index === tool.fields.length - 1 ? "wide" : ""}">${field}<textarea rows="${field.length > 30 ? 3 : 2}"></textarea></label>`).join("")}
-      </div>
-      <div class="form-actions">
-        <button class="button primary" type="button" data-print-tool>Print this tool</button>
-        <button class="button secondary" type="button" data-close-modal="toolDialog">Close</button>
-      </div>
-    </div>`;
-}
-
-function openTool(key) {
-  const tool = toolDefinitions[key];
-  $("#toolDialogContent").innerHTML = toolFormHtml(tool);
-  $("#toolDialog").showModal();
-  $("[data-print-tool]").addEventListener("click", () => printTool(tool));
-  $$('[data-close-modal="toolDialog"]', $("#toolDialogContent")).forEach(button => button.addEventListener("click", () => $("#toolDialog").close()));
-}
-
-function printTool(tool) {
-  const exp = currentEvent();
-  $("#printArea").innerHTML = `
-    <div class="print-header">
-      <div><h1>Advanced Culinary</h1><p>Tool ${tool.letter}: ${tool.name}</p></div>
-      <div><p>Event ${exp.id}: ${exp.short}</p><p>Student / team: ____________________ Date: ______</p></div>
-    </div>
-    <p><strong>Owner:</strong> ${tool.owner} &nbsp; <strong>Use:</strong> ${tool.when}</p>
-    <div class="print-grid">
-      ${tool.fields.map((field, index) => `<section class="print-box ${index === tool.fields.length - 1 ? "wide" : ""}"><strong>${field}</strong><div class="print-lines"></div></section>`).join("")}
-      <section class="print-box wide"><strong>Instructor status / approval</strong><p>☐ Continue &nbsp; ☐ Revise &nbsp; ☐ Stop / reassess &nbsp; Signature: ____________________</p></section>
-    </div>`;
-  window.print();
-}
-
-let activeTopic = 0;
 function renderLearning(search = "") {
   const term = search.trim().toLowerCase();
   const matches = learningTopics.map((topic, index) => ({topic, index})).filter(({topic}) => JSON.stringify(topic).toLowerCase().includes(term));
@@ -823,11 +732,6 @@ function bindDynamicButtons(root = document) {
       if (button.dataset.openPhase) openPhase(button.dataset.openPhase);
     });
   });
-  $$("[data-tool]", root).forEach(button => {
-    if (button.dataset.bound) return;
-    button.dataset.bound = "true";
-    button.addEventListener("click", () => openTool(button.dataset.tool));
-  });
 }
 
 async function init() {
@@ -851,8 +755,28 @@ async function init() {
   });
   $("#eventSelect").addEventListener("change", event => setCurrentEvent(event.target.value));
   $$(".phase-tab").forEach(tab => tab.addEventListener("click", () => openPhase(tab.dataset.phase)));
-  $("#continueWork").addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
+  $("#continueWork").addEventListener("click", () => {
+    const liveRoot = document.querySelector("#liveEventOrder");
+    if (liveRoot && window.GCSDStudentOps?.getCache?.()?.events?.length) {
+      showView("today");
+      liveRoot.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    showView("workspace");
+    openPhase(eventRecord().phase || nextIncompletePhase(eventRecord()));
+  });
   $("#openCurrentPhase").addEventListener("click", () => { showView("workspace"); openPhase(eventRecord().phase || nextIncompletePhase(eventRecord())); });
+  window.addEventListener("gcsd:live-events", () => {
+    window.GCSDStudentOps?.syncWorkspacePanels?.();
+    const activePhase = document.querySelector(".phase-tab.active")?.dataset.phase;
+    if (activePhase && ["brief", "produce", "close"].includes(activePhase)) renderPhase(activePhase);
+  });
+  document.addEventListener("click", event => {
+    const scrollLive = event.target.closest("[data-scroll-live]");
+    if (!scrollLive) return;
+    showView("today");
+    document.querySelector("#liveEventOrder")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  });
   $("#learningSearch").addEventListener("input", event => renderLearning(event.target.value));
   const updateSourceBank = () => renderSourceBank($("#sourceRecipeSearch").value, $("#sourceRecipeCategory").value, $("#sourceRecipeUse").value);
   $("#sourceRecipeSearch").addEventListener("input", updateSourceBank);
@@ -862,8 +786,8 @@ async function init() {
   $("#referenceSearch").addEventListener("input", updateReferences);
   $("#referenceType").addEventListener("change", updateReferences);
   $$("[data-close-modal]").forEach(button => button.addEventListener("click", () => $("#" + button.dataset.closeModal).close()));
-  $("#toolDialog").addEventListener("click", event => { if (event.target === $("#toolDialog")) $("#toolDialog").close(); });
-  document.addEventListener("keydown", event => { if (event.key === "Escape" && $("#toolDialog").open) $("#toolDialog").close(); });
+  $("#recipeDialog").addEventListener("click", event => { if (event.target === $("#recipeDialog")) $("#recipeDialog").close(); });
+  document.addEventListener("keydown", event => { if (event.key === "Escape" && $("#recipeDialog").open) $("#recipeDialog").close(); });
 }
 
 init();

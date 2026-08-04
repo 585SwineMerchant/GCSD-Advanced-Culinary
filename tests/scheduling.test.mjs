@@ -4,6 +4,8 @@ import { readFileSync } from "node:fs";
 import {
   BELL_SCHEDULE,
   DEFAULT_SECTIONS,
+  MAX_SIMULTANEOUS_KITCHEN_TEAMS,
+  MAX_TEAMS_PER_SECTION,
   allocationStatus,
   assignmentContributionKey,
   assignmentContributions,
@@ -13,6 +15,7 @@ import {
   assignmentIssues,
   availableMeetingsForDate,
   contributionsForDate,
+  kitchenSchedulingIssues,
   makeAssignment,
   normalizeSections,
   normalizeTaskAssignments,
@@ -20,9 +23,12 @@ import {
   preferredProductionDate,
   productionCounts,
   productionDates,
+  requiresKitchen,
   rotationDayForDate,
   sectionDisplayLabel,
   sectionMeetsOnDate,
+  sectionTeamCapacity,
+  stationAssignmentLabel,
   taskPublicationIssues,
   teamsForSection
 } from "../site/shared/scheduling.js";
@@ -219,6 +225,7 @@ test("kitchen choices are required and limited to Kitchen 1-4", () => {
   const task = { id: "task", plannedQuantity: 1, plannedUnit: "batches", assignmentRecords: [makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])] };
   task.assignmentRecords[0].allocatedQuantity = 1;
   task.assignmentRecords[0].allocatedUnit = "batches";
+  task.assignmentRecords[0].stationDuty = "kitchen-production";
   assert.match(assignmentIssues(task, sections).join(" "), /Kitchen 1-4/);
   task.assignmentRecords[0].kitchen = "Kitchen 4";
   assert.equal(assignmentIssues(task, sections).length, 0);
@@ -276,4 +283,158 @@ test("publish, live production, and closeout controls expose requested second-pa
   assert.match(teacherOperations, /closeoutReadiness/);
   assert.match(teacherOperations, /Completion blocked/);
   assert.match(teacherOperations, /completeEvent\.disabled = !editable \|\| closeoutReadiness\(current\(\)\)\.blockers\.length > 0/);
+});
+
+test("eight persistent teams can exist in one section", () => {
+  const eight = Array.from({ length: MAX_TEAMS_PER_SECTION }, (_, index) => ({
+    id: `kevin-advanced-p3-team-${index + 1}`,
+    name: `Team ${String.fromCharCode(65 + index)}`,
+    students: []
+  }));
+  const configured = normalizeSections([{ id: "kevin-advanced-p3", teams: eight }]);
+  const teams = teamsForSection(configured, "kevin-advanced-p3");
+  assert.equal(teams.length, 8);
+  assert.equal(sectionTeamCapacity(configured.find(section => section.id === "kevin-advanced-p3")).atLimit, true);
+  assert.equal(sectionTeamCapacity(configured.find(section => section.id === "kevin-advanced-p3")).remaining, 0);
+});
+
+test("persistent section teams populate assignment choices without inventing kitchens", () => {
+  const eight = Array.from({ length: 5 }, (_, index) => ({ id: `adv-team-${index + 1}`, name: `Team ${index + 1}`, students: [] }));
+  const configured = normalizeSections([{ id: "kevin-advanced-p3", teams: eight }]);
+  const record = makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["adv-team-3"]);
+  assert.deepEqual(teamsForSection(configured, "kevin-advanced-p3").map(team => team.id), eight.map(team => team.id));
+  assert.deepEqual(record.teamIds, ["adv-team-3"]);
+  assert.equal(record.kitchen, "");
+  assert.equal(record.stationDuty, "kitchen-production");
+  assert.equal(record.stationSequence, 1);
+  assert.equal(requiresKitchen(record), true);
+});
+
+test("kitchen selection remains event-specific and does not alter Step 8 team data", () => {
+  const configured = normalizeSections([{ id: "kevin-advanced-p3", teams: [{ id: "adv-p2-team-a", name: "Team A", students: ["Ada"] }] }]);
+  const before = JSON.stringify(teamsForSection(configured, "kevin-advanced-p3"));
+  const task = { id: "task", plannedQuantity: 1, plannedUnit: "batches", assignmentRecords: [makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"])] };
+  task.assignmentRecords[0].kitchen = "Kitchen 2";
+  task.assignmentRecords[0].allocatedQuantity = 1;
+  normalizeTaskAssignments(task, configured);
+  assert.equal(task.assignmentRecords[0].kitchen, "Kitchen 2");
+  assert.equal(JSON.stringify(teamsForSection(configured, "kevin-advanced-p3")), before);
+  assert.equal(teamsForSection(configured, "kevin-advanced-p3")[0].kitchen, undefined);
+});
+
+test("only four teams can occupy kitchens simultaneously in one section date sequence", () => {
+  const teamIds = Array.from({ length: 5 }, (_, index) => `adv-team-${index + 1}`);
+  const configured = normalizeSections([{ id: "kevin-advanced-p3", teams: teamIds.map((id, index) => ({ id, name: `Team ${index + 1}`, students: [] })) }]);
+  const event = {
+    tasks: teamIds.map((teamId, index) => ({
+      id: `task-${index}`,
+      name: `Prep ${index + 1}`,
+      plannedQuantity: 1,
+      plannedUnit: "batches",
+      assignmentRecords: [{
+        ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", [teamId]),
+        kitchen: `Kitchen ${(index % 4) + 1}`,
+        stationDuty: "kitchen-production",
+        stationSequence: 1,
+        allocatedQuantity: 1,
+        allocatedUnit: "batches"
+      }]
+    }))
+  };
+  const issues = kitchenSchedulingIssues(event, configured).join(" ");
+  assert.match(issues, new RegExp(`${MAX_SIMULTANEOUS_KITCHEN_TEAMS}`));
+  assert.match(issues, /at once/i);
+});
+
+test("additional teams can be assigned later in the same period through sequencing", () => {
+  const configured = normalizeSections([{ id: "kevin-advanced-p3", teams: [
+    { id: "t1", name: "Team 1", students: [] },
+    { id: "t2", name: "Team 2", students: [] },
+    { id: "t3", name: "Team 3", students: [] },
+    { id: "t4", name: "Team 4", students: [] },
+    { id: "t5", name: "Team 5", students: [] }
+  ] }]);
+  const event = {
+    tasks: [
+      { id: "a", name: "Block 1", plannedQuantity: 4, plannedUnit: "batches", assignmentRecords: [
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["t1"]), kitchen: "Kitchen 1", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" },
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["t2"]), kitchen: "Kitchen 2", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" },
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["t3"]), kitchen: "Kitchen 3", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" },
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["t4"]), kitchen: "Kitchen 4", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" }
+      ] },
+      { id: "b", name: "Block 2", plannedQuantity: 1, plannedUnit: "batches", assignmentRecords: [
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["t5"]), kitchen: "Kitchen 1", stationSequence: 2, allocatedQuantity: 1, allocatedUnit: "batches" }
+      ] }
+    ]
+  };
+  assert.equal(kitchenSchedulingIssues(event, configured).length, 0);
+});
+
+test("sequential reuse of one kitchen is valid while overlapping use is flagged", () => {
+  const configured = sections;
+  const sequential = {
+    tasks: [{
+      id: "task",
+      name: "Turnover",
+      plannedQuantity: 2,
+      plannedUnit: "batches",
+      assignmentRecords: [
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"]), kitchen: "Kitchen 1", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" },
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-b"]), kitchen: "Kitchen 1", stationSequence: 2, allocatedQuantity: 1, allocatedUnit: "batches" }
+      ]
+    }]
+  };
+  assert.equal(kitchenSchedulingIssues(sequential, configured).length, 0);
+  const overlapping = {
+    tasks: [{
+      id: "task",
+      name: "Conflict",
+      plannedQuantity: 2,
+      plannedUnit: "batches",
+      assignmentRecords: [
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"]), kitchen: "Kitchen 1", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" },
+        { ...makeAssignment(configured, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-b"]), kitchen: "Kitchen 1", stationSequence: 1, allocatedQuantity: 1, allocatedUnit: "batches" }
+      ]
+    }]
+  };
+  assert.match(kitchenSchedulingIssues(overlapping, configured).join(" "), /Kitchen 1 is assigned to more than one team/);
+});
+
+test("desk-work and off-station teams do not generate missing-kitchen warnings", () => {
+  const desk = { id: "desk", plannedQuantity: 1, plannedUnit: "batches", assignmentRecords: [
+    { ...makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"]), stationDuty: "desk-work", kitchen: "", allocatedQuantity: 1, allocatedUnit: "batches" }
+  ] };
+  const off = { id: "off", plannedQuantity: 1, plannedUnit: "batches", assignmentRecords: [
+    { ...makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-b"]), stationDuty: "off-station", kitchen: "", allocatedQuantity: 1, allocatedUnit: "batches" }
+  ] };
+  assert.equal(requiresKitchen(desk.assignmentRecords[0]), false);
+  assert.equal(stationAssignmentLabel(desk.assignmentRecords[0]), "Desk work");
+  assert.equal(assignmentIssues(desk, sections).length, 0);
+  assert.equal(assignmentIssues(off, sections).length, 0);
+  desk.assignmentProgress = { [assignmentContributionKey("desk", desk.assignmentRecords[0], "adv-p2-team-a")]: { status: "Complete", quantity: 1, updatedAt: "2026-09-23T10:00:00Z", updatedBy: "Kevin McCann" } };
+  assert.equal(derivedTaskStatus(desk, sections), "Completed");
+});
+
+test("saved team and kitchen assignments carry consistently through publication validation", () => {
+  const task = {
+    id: "task",
+    name: "Bake",
+    plannedQuantity: 1,
+    plannedUnit: "batches",
+    assignmentRecords: [{
+      ...makeAssignment(sections, "kevin-advanced-p3", "2026-09-23", ["adv-p2-team-a"]),
+      kitchen: "Kitchen 3",
+      stationDuty: "kitchen-production",
+      stationSequence: 1,
+      allocatedQuantity: 1,
+      allocatedUnit: "batches",
+      studentDetails: "Release station after egg wash."
+    }]
+  };
+  normalizeTaskAssignments(task, sections);
+  assert.equal(task.assignmentRecords[0].kitchen, "Kitchen 3");
+  assert.equal(task.assignmentRecords[0].stationSequence, 1);
+  assert.equal(task.team, "Team A");
+  assert.equal(taskPublicationIssues({ tasks: [task] }, sections).length, 0);
+  assert.match(stationAssignmentLabel(task.assignmentRecords[0]), /Kitchen 3/);
 });

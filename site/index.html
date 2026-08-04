@@ -37,9 +37,9 @@
         <div class="home-copy">
           <p class="eyebrow">Student field manual</p>
           <h1>Cook for a reason. Deliver on the promise.</h1>
-          <p class="hero-lede">Six major experiences organize the course. Each one gives the team a real job, creates a reason to learn more, and ends with evidence that improves the next event.</p>
+          <p class="hero-lede">Your chef publishes the catering job. You follow the station plan, cook, and send short updates. Learning tools support the work—they do not replace the Event Order.</p>
           <div class="hero-actions">
-            <button class="button primary" id="continueWork">Continue current work →</button>
+            <button class="button primary" id="continueWork" type="button">Open live Event Order →</button>
             <button class="button secondary" data-view-target="workspace">Open event workspace</button>
           </div>
         </div>
@@ -56,6 +56,24 @@
         </aside>
       </section>
 
+      <section class="now-shell live-job-shell" aria-labelledby="liveJobHeading">
+        <div class="section-heading">
+          <div>
+            <p class="eyebrow">Start here</p>
+            <h2 id="liveJobHeading">Your live catering job</h2>
+          </div>
+          <p>This is the published Event Order from Teacher Command Center—the same packet your chef uses for production.</p>
+        </div>
+        <article class="current-event-card live-job-card">
+          <div>
+            <p class="eyebrow">Published Event Order</p>
+            <h2 id="liveJobTitle">Loading live Event Order…</h2>
+            <p id="liveJobMeta">Checking for a published catering job assigned to your section.</p>
+          </div>
+          <button class="button primary" type="button" data-scroll-live>Jump to station updates →</button>
+        </article>
+      </section>
+
       <section id="liveEventOrder" class="live-event-order" hidden aria-labelledby="liveEventTitle">
         <div class="section-heading">
           <div><p class="eyebrow">Published by your chefs</p><h2 id="liveEventTitle">Live Event Order</h2></div>
@@ -67,10 +85,10 @@
       <section class="now-shell" aria-labelledby="nowTitle">
         <div class="section-heading">
           <div>
-            <p class="eyebrow">Start here</p>
-            <h2 id="nowTitle">Your current event</h2>
+            <p class="eyebrow">Course experience</p>
+            <h2 id="nowTitle">Year pathway progress</h2>
           </div>
-          <p>The home page answers three questions: what the team is producing, what phase you are in, and what you should do next.</p>
+          <p>The six major experiences organize the year. Use them for learning rhythm. The live catering job above is the operational ticket.</p>
         </div>
         <div class="now-grid">
           <article class="current-event-card">
@@ -122,9 +140,9 @@
         </article>
         <article>
           <span class="door-icon">▤</span>
-          <h3>Need a working document?</h3>
-          <p>Do not choose from a disconnected form bank. Open the assigned phase; it will identify the tool the work requires.</p>
-          <button class="text-link" data-view-target="workspace">Return to the event cycle →</button>
+          <h3>Need the live job?</h3>
+          <p>Open the published Event Order for station assignments, recipe links, and production updates. Course phases guide learning around that job.</p>
+          <button class="text-link" data-view-target="today" data-scroll-live>Return to the live Event Order →</button>
         </article>
       </section>
 
@@ -140,12 +158,14 @@
     <section class="view" data-view-panel="workspace">
       <div class="page-intro">
         <div><p class="eyebrow">The operating center</p><h1>Event Workspace</h1></div>
-        <p>Use the same six phases for every major experience. The event changes; the way the team prepares, produces, closes, and improves becomes familiar.</p>
+        <p>Use the same six phases for every major experience. When a catering Event Order is published, Brief and Produce show that live job—not a blank worksheet.</p>
       </div>
+
+      <section id="workspaceLiveBanner" class="workspace-live-banner" aria-live="polite"></section>
 
       <section class="event-switcher" aria-labelledby="eventSwitcherTitle">
         <div>
-          <label for="eventSelect" id="eventSwitcherTitle">Working event</label>
+          <label for="eventSelect" id="eventSwitcherTitle">Course experience</label>
           <select id="eventSelect"></select>
         </div>
         <div class="event-switch-summary">
@@ -175,10 +195,9 @@
 
       <section class="tools-in-context">
         <div class="section-heading">
-          <div><p class="eyebrow">Assigned tools</p><h2>The phase chooses the document.</h2></div>
-          <p>Open and print a tool only when the current phase directs you to use it. Instructor-approved district systems remain the official submission location.</p>
+          <div><p class="eyebrow">Print from the live job</p><h2>Production sheets and approved recipes</h2></div>
+          <p>Blank prototype forms have been removed. Print the Live Event Order station sheet or open the approved recipe linked on each production card.</p>
         </div>
-        <div class="tool-map" id="toolMap"></div>
       </section>
     </section>
 
@@ -331,9 +350,9 @@
     </section>
   </main>
 
-  <dialog id="toolDialog" class="modal">
-    <button class="modal-close" data-close-modal="toolDialog" aria-label="Close tool">×</button>
-    <div id="toolDialogContent"></div>
+  <dialog id="recipeDialog" class="modal">
+    <button class="modal-close" data-close-modal="recipeDialog" aria-label="Close recipe">×</button>
+    <div id="recipeDialogContent"></div>
   </dialog>
   <section id="printArea" aria-hidden="true"></section>
 
