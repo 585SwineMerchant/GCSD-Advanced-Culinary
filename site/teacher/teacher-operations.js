@@ -1,4 +1,18 @@
 import { buildEventProductionTasks } from "./production-planner.js";
+import {
+  BUCKET_LABELS,
+  defaultBucketForEvent,
+  defaultPotIdForEvent,
+  ensureBudgetState,
+  formatMoney,
+  makeLedgerEntry,
+  makePopupEvent,
+  paceStatus,
+  popupScorecard,
+  potTotals,
+  syncCloseoutSpend,
+  visiblePots
+} from "../shared/budget.js";
 import { DEFAULT_SECTIONS, KITCHENS, MAX_TEAMS_PER_SECTION, PRODUCTION_STATUSES, STATION_DUTIES, STATION_DUTY_LABELS, WASTE_CATEGORIES, allocationLabel, allocationStatus, assignmentContributionKey, assignmentContributions, assignmentIssues, assignmentsForSection, aggregateProgress, availableMeetingsForDate, contributionIsIncomplete, contributionsForDate, derivedTaskStatus, eventSchoolYearAnchor, formatMeetingWindow, isAdvancedSection, isArchivedEvent, kitchenSchedulingIssues, makeAssignment, meetingForAssignment, normalizeConfirmedPeriod, normalizeSections, normalizeStationDuty, normalizeTaskAssignments, offsetDate, preferredProductionDate, productionCounts, productionDates, progressDisplayState, reconcileActiveTeamLabels, requiresKitchen, schedulableAdvancedSections, schoolYearLabel, sectionColor, sectionDisplayLabel, sectionMeetsOnDate, sectionTeamCapacity, stationAssignmentLabel, taskPublicationIssues, teamsForSection } from "../shared/scheduling.js";
 
 const statuses = PRODUCTION_STATUSES;
@@ -95,8 +109,17 @@ function save() {
   return saveQueue;
 }
 function activeTeacher() { return session?.user?.display_name || "Teacher"; }
+function teacherRole() { return session?.user?.role || "teacher"; }
 function isOwner(event = current()) { return session?.user?.role === "admin" || event.owner === activeTeacher(); }
 function canEdit(event = current()) { return session?.user?.role === "admin" || isOwner(event) || (event.collaborators || []).includes(activeTeacher()); }
+function currentSchoolYear() { return schoolYearLabel(new Date().toISOString().slice(0, 10)); }
+function ensureBudget() {
+  state.budget = ensureBudgetState(state.budget, sections, state.budget?.schoolYear || currentSchoolYear());
+  return state.budget;
+}
+function viewerBudgetPots() {
+  return visiblePots(ensureBudget(), activeTeacher(), teacherRole());
+}
 function batches(item) { return item.yield > 0 ? Math.ceil(item.required / item.yield) : 0; }
 
 const fractionValues = { "¼": .25, "½": .5, "¾": .75, "⅓": 1 / 3, "⅔": 2 / 3, "⅛": .125, "⅜": .375, "⅝": .625, "⅞": .875 };
@@ -1052,11 +1075,145 @@ function renderCloseout() {
   const status = readiness.blockers.length ? readiness.blockers.join(" ") : "Closeout requirements are satisfied for ordinary completion.";
   q("#closeoutStatus").innerHTML = `<strong>${readiness.blockers.length ? "Completion blocked" : "Ready for completion"}</strong><p>${esc(status)}</p><small>Tasks completed: ${readiness.counts.taskCompleted} of ${readiness.counts.taskTotal}; task corrections: ${readiness.counts.taskInvalid}. Assignments completed: ${readiness.counts.completed} of ${readiness.counts.contributionTotal}; assignment corrections: ${readiness.counts.invalid}; blocked: ${readiness.counts.blocked}.</small>`;
   q("#completeEvent").disabled = !canEdit() || isWorkingArchived() || readiness.blockers.length > 0;
+  fillBudgetPostControls(event);
+}
+
+function fillBudgetPostControls(event) {
+  const pots = viewerBudgetPots();
+  const potSelect = q("#budgetPostPot");
+  const modeSelect = q("#budgetPostMode");
+  const bucketSelect = q("#budgetPostBucket");
+  if (!potSelect || !modeSelect || !bucketSelect) return;
+  const closeout = event.closeout || {};
+  const preferredPot = closeout.budgetPostPotId || defaultPotIdForEvent(event);
+  const preferredBucket = closeout.budgetPostBucket || defaultBucketForEvent(event);
+  potSelect.innerHTML = pots.map(pot => `<option value="${esc(pot.id)}">${esc(pot.label)}</option>`).join("") || `<option value="advanced-sbe">Advanced Culinary SBE</option>`;
+  potSelect.value = pots.some(pot => pot.id === preferredPot) ? preferredPot : (pots[0]?.id || "advanced-sbe");
+  bucketSelect.value = preferredBucket;
+  modeSelect.value = closeout.budgetPostMode === "skip" ? "skip" : "post";
+}
+
+function collectBudgetPostPreferences(closeout) {
+  const mode = q("#budgetPostMode")?.value || "post";
+  const potId = q("#budgetPostPot")?.value || defaultPotIdForEvent(current());
+  const bucket = q("#budgetPostBucket")?.value || defaultBucketForEvent(current());
+  closeout.budgetPostMode = mode;
+  closeout.budgetPostPotId = potId;
+  closeout.budgetPostBucket = bucket;
+}
+
+function renderBudget() {
+  const budget = ensureBudget();
+  const pots = viewerBudgetPots();
+  if (q("#budgetSchoolYear")) q("#budgetSchoolYear").textContent = budget.schoolYear || currentSchoolYear();
+  if (q("#budgetVisibilityNote")) {
+    q("#budgetVisibilityNote").textContent = teacherRole() === "admin"
+      ? "Administrator view: all independent pots are visible."
+      : "You see Advanced Culinary SBE (shared), Kitchen Management if it is assigned to you, and only your own Culinary 1–2 sections.";
+  }
+
+  const grid = q("#budgetPotGrid");
+  if (grid) {
+    if (!pots.length) {
+      grid.innerHTML = `<p class="muted">No budget pots are visible for this account.</p>`;
+    } else {
+      grid.innerHTML = pots.map(pot => {
+        const totals = potTotals(budget, pot);
+        const pace = paceStatus(totals.percent);
+        const kindLabel = pot.kind === "advanced-sbe" ? "Shared SBE" : pot.kind === "kitchen-management" ? "Independent" : "Section · private";
+        return `<article class="budget-pot-card" data-pace="${pace}">
+          <header><div><p class="eyebrow">${esc(kindLabel)}</p><h3>${esc(pot.label)}</h3></div><strong>${formatMoney(totals.remaining)} left</strong></header>
+          <p>${esc(pot.description || "")}</p>
+          <div class="budget-meter" aria-hidden="true"><span style="width:${Math.min(100, Math.round(totals.percent * 100))}%"></span></div>
+          <dl class="budget-totals"><div><dt>Allotted</dt><dd>${formatMoney(totals.allotted)}</dd></div><div><dt>Spent</dt><dd>${formatMoney(totals.spent)}</dd></div><div><dt>Used</dt><dd>${Math.round(totals.percent * 100)}%</dd></div></dl>
+          <div class="budget-bucket-list">${totals.buckets.map(row => `
+            <div class="budget-bucket" data-pace="${paceStatus(row.percent)}">
+              <strong>${esc(row.label)}</strong>
+              <span>${formatMoney(row.spent)} of ${formatMoney(row.allotment)}</span>
+              <em>${formatMoney(row.remaining)} remaining</em>
+            </div>`).join("")}</div>
+        </article>`;
+      }).join("");
+    }
+  }
+
+  const spendPot = q("#budgetSpendPot");
+  if (spendPot) {
+    spendPot.innerHTML = pots.map(pot => `<option value="${esc(pot.id)}">${esc(pot.label)}</option>`).join("");
+  }
+  const dateInput = q('#budgetSpendForm [name="date"]');
+  if (dateInput && !dateInput.value) dateInput.value = new Date().toISOString().slice(0, 10);
+  const popupDate = q('#budgetPopupForm [name="date"]');
+  if (popupDate && !popupDate.value) popupDate.value = new Date().toISOString().slice(0, 10);
+
+  const potLabel = id => budget.pots.find(pot => pot.id === id)?.label || id;
+  const visibleIds = new Set(pots.map(pot => pot.id));
+  const rows = (budget.ledger || []).filter(entry => !entry.voided && visibleIds.has(entry.potId));
+  const ledgerBody = q("#budgetLedgerRows");
+  if (ledgerBody) {
+    ledgerBody.innerHTML = rows.length
+      ? rows.map(entry => `<tr>
+          <td>${esc(entry.date)}</td>
+          <td>${esc(potLabel(entry.potId))}</td>
+          <td>${esc(BUCKET_LABELS[entry.bucket] || entry.bucket)}</td>
+          <td><strong>${formatMoney(entry.amount)}</strong></td>
+          <td>${esc(entry.note || "—")}${entry.eventId ? ` <small class="supplier-detail">Event ${esc(entry.eventId)}</small>` : ""}</td>
+          <td>${esc(entry.createdBy || "—")}</td>
+          <td><button class="ghost-danger" type="button" data-void-ledger="${esc(entry.id)}">Void</button></td>
+        </tr>`).join("")
+      : `<tr><td colspan="7">No spends recorded yet for the pots you can see.</td></tr>`;
+    ledgerBody.querySelectorAll("[data-void-ledger]").forEach(button => button.addEventListener("click", () => {
+      const entry = budget.ledger.find(item => item.id === button.dataset.voidLedger);
+      if (!entry) return;
+      if (!confirm("Void this spend entry? The amount will return to the remaining balance.")) return;
+      entry.voided = true;
+      entry.voidedAt = new Date().toISOString();
+      entry.voidedBy = activeTeacher();
+      save();
+      renderBudget();
+      toast("Spend entry voided.");
+    }));
+  }
+
+  const popupList = q("#budgetPopupList");
+  if (popupList) {
+    const popups = (budget.popupEvents || []).filter(item => !item.voided && (item.potId === "advanced-sbe" || visibleIds.has(item.potId)));
+    popupList.innerHTML = popups.length
+      ? popups.map(popup => {
+        const score = popupScorecard(popup);
+        return `<article class="budget-popup-card">
+          <header><div><h4>${esc(popup.name)}</h4><small>${esc(popup.date)} · recorded by ${esc(popup.createdBy || "—")}</small></div><strong>${formatMoney(score.cost)} cost</strong></header>
+          <dl class="budget-totals">
+            <div><dt>Food</dt><dd>${formatMoney(popup.actualFood)} / ${formatMoney(popup.foodBudget)}</dd></div>
+            <div><dt>Overhead</dt><dd>${formatMoney(popup.actualOverhead)} / ${formatMoney(popup.overheadBudget)}</dd></div>
+            <div><dt>Revenue</dt><dd>${formatMoney(popup.revenue)} / ${formatMoney(popup.targetRevenue)}</dd></div>
+            <div><dt>Food cost %</dt><dd>${score.foodCostPercent == null ? "—" : `${Math.round(score.foodCostPercent * 1000) / 10}%`}${score.onFoodCostTarget === false ? " · above 33% target" : score.onFoodCostTarget ? " · on target" : ""}</dd></div>
+          </dl>
+          <button class="ghost-danger" type="button" data-void-popup="${esc(popup.id)}">Remove record</button>
+        </article>`;
+      }).join("")
+      : `<p class="muted">No Advanced SBE pop-up records yet. Add events here to track the $360 / $900 targets.</p>`;
+    popupList.querySelectorAll("[data-void-popup]").forEach(button => button.addEventListener("click", () => {
+      const popup = budget.popupEvents.find(item => item.id === button.dataset.voidPopup);
+      if (!popup) return;
+      popup.voided = true;
+      const linked = budget.ledger.find(entry => entry.popupEventId === popup.id && !entry.voided);
+      if (linked) {
+        linked.voided = true;
+        linked.voidedAt = new Date().toISOString();
+        linked.voidedBy = activeTeacher();
+      }
+      save();
+      renderBudget();
+      toast("Pop-up record removed.");
+    }));
+  }
 }
 function collectCloseout() {
   if (!canEdit() || isWorkingArchived()) return false;
   const closeout = current().closeout ||= {};
   ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason"].forEach(field => { const element = q(`#${field}`); if (element) closeout[field] = element.value; });
+  collectBudgetPostPreferences(closeout);
   closeout.updatedAt = new Date().toISOString();
   closeout.updatedBy = activeTeacher();
   return true;
@@ -1143,15 +1300,17 @@ function applyPermissions() {
   });
   q("#saveDraft").disabled = !editable;
   qa("#teamSetupList input, #teamSetupList textarea, #teamSetupList button, #teamForm input, #teamForm select, #teamForm textarea, #teamForm button").forEach(control => { control.disabled = session?.user?.role !== "admin"; });
-  ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason", "saveCloseout"].forEach(id => { const element = q(`#${id}`); if (element) element.disabled = !editable; });
+  ["actualGuests", "actualRevenue", "estimatedProgramValue", "actualCost", "feedbackReceived", "customerFeedback", "operationalNotes", "closeoutException", "closeoutExceptionReason", "saveCloseout", "budgetPostMode", "budgetPostPot", "budgetPostBucket"].forEach(id => { const element = q(`#${id}`); if (element) element.disabled = !editable; });
   const completeEvent = q("#completeEvent");
   if (completeEvent) completeEvent.disabled = !editable || closeoutReadiness(current() || { menu: [], tasks: [], closeout: {} }).blockers.length > 0;
   if (q("#newEvent")) q("#newEvent").disabled = false;
+  qa("#budgetSpendForm input, #budgetSpendForm select, #budgetSpendForm button, #budgetPopupForm input, #budgetPopupForm button").forEach(control => { control.disabled = false; });
 }
 
 function renderAll() {
   (state.events || []).forEach(event => { if (event.stage === "Completed") event.archived = true; });
-  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); renderArchive(); renderTeamSetup(); applyPermissions();
+  ensureBudget();
+  renderSelect(); renderSummary(); renderRequests(); fillBrief(); renderRecipeLibrary(); renderMenu(); renderIngredients(); renderRecipeSubmissions(); renderProduction(); renderAssignments(); renderAttention(); renderPublish(); renderLiveFilters(); renderLive(); renderCloseout(); renderBudget(); renderArchive(); renderTeamSetup(); applyPermissions();
 }
 
 function showPanel(name) {
@@ -1163,6 +1322,7 @@ function showPanel(name) {
   if (name === "menu") renderIngredients();
   if (name === "live") renderLive();
   if (name === "closeout") renderCloseout();
+  if (name === "budget") renderBudget();
   if (name === "archive") renderArchive();
   if (name === "access") renderUsers();
   renderAttention();
@@ -1244,6 +1404,15 @@ q("#completeEvent").addEventListener("click", () => {
   event.unpublishedChanges = false;
   event.unpublishedChangeNote = "";
   if (event.publishedAt) event.publishedSignature = publicationSignature(event);
+  const closeout = event.closeout || {};
+  const amount = currencyNumber(closeout.actualCost);
+  syncCloseoutSpend(ensureBudget(), event, {
+    potId: closeout.budgetPostPotId || defaultPotIdForEvent(event),
+    bucket: closeout.budgetPostBucket || defaultBucketForEvent(event),
+    amount,
+    createdBy: activeTeacher(),
+    skip: closeout.budgetPostMode === "skip" || amount == null
+  });
   const archivedId = event.id;
   currentId = activeEvents().find(item => item.id !== archivedId)?.id || "";
   save(); renderAll(); showPanel("archive"); toast("Event completed and moved to Event archive. Download the spreadsheet anytime from Archive.");
@@ -1253,6 +1422,68 @@ q("#refreshData").addEventListener("click", () => {
 });
 q("#archiveYearFilter")?.addEventListener("change", () => renderArchive());
 q("#downloadArchiveCsv")?.addEventListener("click", () => downloadArchiveSpreadsheet());
+
+q("#budgetSpendForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+  const budget = ensureBudget();
+  const form = new FormData(event.currentTarget);
+  const potId = String(form.get("potId") || "");
+  const pot = viewerBudgetPots().find(item => item.id === potId);
+  if (!pot) return toast("Choose a budget pot you can use.");
+  const amount = Number(form.get("amount"));
+  if (!(amount >= 0)) return toast("Enter a valid amount.");
+  budget.ledger.unshift(makeLedgerEntry({
+    potId,
+    bucket: String(form.get("bucket") || "food"),
+    amount,
+    date: String(form.get("date") || new Date().toISOString().slice(0, 10)),
+    note: String(form.get("note") || ""),
+    source: "manual",
+    createdBy: activeTeacher()
+  }));
+  event.currentTarget.reset();
+  const dateInput = event.currentTarget.querySelector('[name="date"]');
+  if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+  save();
+  renderBudget();
+  toast(`Spend recorded against ${pot.label}.`);
+});
+
+q("#budgetPopupForm")?.addEventListener("submit", event => {
+  event.preventDefault();
+  const budget = ensureBudget();
+  if (!viewerBudgetPots().some(pot => pot.id === "advanced-sbe")) return toast("Advanced Culinary SBE is not visible for this account.");
+  const form = new FormData(event.currentTarget);
+  const popup = makePopupEvent({
+    name: String(form.get("name") || ""),
+    date: String(form.get("date") || new Date().toISOString().slice(0, 10)),
+    actualFood: Number(form.get("actualFood") || 0),
+    actualOverhead: Number(form.get("actualOverhead") || 0),
+    revenue: Number(form.get("revenue") || 0),
+    createdBy: activeTeacher()
+  });
+  budget.popupEvents.unshift(popup);
+  const popupCost = Number(popup.actualFood || 0) + Number(popup.actualOverhead || 0);
+  if (popupCost > 0) {
+    const entry = makeLedgerEntry({
+      potId: "advanced-sbe",
+      bucket: "popup",
+      amount: popupCost,
+      date: popup.date,
+      note: `Pop-up scorecard: ${popup.name}`,
+      source: "popup-scorecard",
+      createdBy: activeTeacher()
+    });
+    entry.popupEventId = popup.id;
+    budget.ledger.unshift(entry);
+  }
+  event.currentTarget.reset();
+  const dateInput = event.currentTarget.querySelector('[name="date"]');
+  if (dateInput) dateInput.value = new Date().toISOString().slice(0, 10);
+  save();
+  renderBudget();
+  toast("Pop-up record added to Advanced Culinary SBE.");
+});
 
 function updateAccountScopeControls() {
   const role = q("#accountRoleSelect")?.value || "";
@@ -1386,6 +1617,8 @@ async function initialize(force = false) {
     state.recipeSubmissions ||= [];
     state.approvedRecipes ||= [];
     state.sections = sections = reconcileActiveTeamLabels(state.sections || DEFAULT_SECTIONS);
+    const hadBudget = Boolean(result.state?.budget?.pots?.length);
+    state.budget = ensureBudgetState(state.budget, sections, state.budget?.schoolYear || currentSchoolYear());
     state.events.forEach(event => event.menu?.forEach(hydrateEventOrderItem));
     state.events.forEach(event => event.tasks?.forEach(task => ensureTaskAssignment(task, event)));
     let archiveMigrated = false;
@@ -1397,7 +1630,7 @@ async function initialize(force = false) {
     });
     currentId = activeEvents()[0]?.id || state.events[0]?.id || "";
     if (current() && !current().tasks.length && !isArchivedEvent(current())) generateTasks();
-    if (!hasEvent || archiveMigrated) await save();
+    if (!hasEvent || archiveMigrated || !hadBudget) await save();
     renderAll(); setSync("Shared · current", "saved");
   } catch (error) {
     document.querySelector("main").innerHTML = `<section class="command-hero"><div><p class="eyebrow">Secure connection required</p><h1>Teacher Command Center unavailable</h1><p>${esc(error.message)}</p></div></section>`;

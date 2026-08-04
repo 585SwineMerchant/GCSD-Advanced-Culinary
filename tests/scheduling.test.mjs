@@ -275,12 +275,15 @@ test("teacher UI uses stage-aware workflow, stable-section terminology, and labe
   const teacherHtml = readFileSync(new URL("../site/teacher/index.html", import.meta.url), "utf8");
   const teacherOperations = readFileSync(new URL("../site/teacher/teacher-operations.js", import.meta.url), "utf8");
   assert.match(teacherHtml, /1<\/span> Request inbox/);
-  assert.match(teacherHtml, /8<\/span> Access &amp; rosters/);
+  assert.match(teacherHtml, /8<\/span> Budget tracker/);
+  assert.match(teacherHtml, /9<\/span> Access &amp; rosters/);
   assert.match(teacherHtml, /Kitchen sections, teams &amp; rosters/);
   assert.doesNotMatch(teacherHtml, /Teams by period/);
   assert.match(teacherOperations, /stageContext/);
   assert.match(teacherOperations, /Remove assignment/);
   assert.match(teacherOperations, /Remove team/);
+  assert.match(teacherOperations, /ensureBudgetState/);
+  assert.match(teacherOperations, /syncCloseoutSpend/);
   assert.doesNotMatch(teacherOperations, /You control publication[^]*function renderLive/);
 });
 
