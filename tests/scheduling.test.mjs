@@ -264,9 +264,10 @@ test("sections 4 and 5 are replaced by one data-backed production workspace", ()
   assert.match(teacherHtml, /Production plan &amp; assignments/i);
   assert.doesNotMatch(teacherHtml, /<button data-panel="assignments"/);
   assert.doesNotMatch(teacherHtml, /<h2>Work assignments<\/h2>/);
-  assert.match(teacherCss, /\.assignment-grid-row\.schedule-row\{grid-template-columns:repeat\(3,minmax\(0,1fr\)\)/);
+  assert.match(teacherCss, /\.assignment-grid-row\.schedule-row\{grid-template-columns:repeat\(auto-fit,minmax\(160px,1fr\)\)/);
   assert.match(teacherOperations, /production-menu-group/);
   assert.match(teacherOperations, /confirmedPeriod/);
+  assert.match(teacherCss, /\.assignment-record\{display:grid;grid-template-columns:minmax\(0,1fr\)/);
   assert.doesNotMatch(teacherCss, /\.assignment-record\{[^}]*minmax\(260px,1\.2fr\)[^}]*minmax\(170px,\.85fr\)[^}]*minmax\(260px,1\.25fr\)[^}]*auto/);
 });
 
